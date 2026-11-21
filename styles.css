@@ -1504,3 +1504,4 @@ body.claro .rumo-bar .ja { background: #18181B; opacity: .35; }
 .pend .rumo-bar { margin: 14px 0 8px; }
 .pend-nota { display: block; font-size: 12px; color: var(--muted); line-height: 1.35; margin-top: 6px; }
 body.claro .pend .rumo-bar { background: #E2E2E6; }
+.overlay { cursor: pointer; } .overlay .sheet { cursor: auto; }

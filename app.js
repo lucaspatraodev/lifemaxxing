@@ -829,15 +829,59 @@ function abrirFolha(html, aoMontar) {
   ov.className = 'overlay';
   ov.id = 'folha';
   ov.innerHTML = `<div class="sheet" role="dialog"><div class="grab"></div>${html}</div>`;
-  ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('[data-fechar]')) fecharFolha(); });
+  ov.addEventListener('click', (e) => { if (e.target.closest('[data-fechar]')) fecharFolha(); });
+  // toque fora: pointerdown e pointerup no fundo (no iPhone o click em div nem sempre chega)
+  let foraDown = false;
+  ov.addEventListener('pointerdown', (e) => { foraDown = e.target === ov; });
+  ov.addEventListener('pointerup', (e) => { if (foraDown && e.target === ov) fecharFolha(); foraDown = false; });
   document.body.appendChild(ov);
   if (!FX.folhaAbrir(ov)) requestAnimationFrame(() => ov.classList.add('on'));
+  montarArrastoFolha(ov);
   if (aoMontar) aoMontar(ov.querySelector('.sheet'));
+}
+
+// Arrastar a folha para baixo fecha. Começa só quando o conteúdo está no topo,
+// para não brigar com a rolagem; o deslizar de confirmar e os campos ficam de fora.
+function montarArrastoFolha(ov) {
+  const sheet = ov.querySelector('.sheet');
+  let g = null;
+  const ignora = (t) => t.closest('.slide, input, textarea, select, button.slide-knob, [data-sem-arrasto]');
+  const comeca = (y, alvo) => { g = ignora(alvo) ? null : { y0: y, y, t: performance.now(), v: 0, ativo: false, dy: 0 }; };
+  const move = (y, e) => {
+    if (!g) return;
+    const d = y - g.y0, t = performance.now();
+    g.v = (y - g.y) / Math.max(1, t - g.t); g.y = y; g.t = t;
+    if (!g.ativo) {
+      if (d > 6 && sheet.scrollTop <= 0) { g.ativo = true; sheet.style.transition = 'none'; }
+      else if (Math.abs(d) > 6) { g = null; return; }
+      else return;
+    }
+    if (e.cancelable) e.preventDefault();
+    g.dy = Math.max(0, d) ;
+    sheet.style.translate = `0 ${g.dy}px`;
+  };
+  const solta = () => {
+    if (!g) return;
+    const { ativo, dy, v } = g; g = null;
+    if (!ativo) return;
+    if (dy > Math.min(140, sheet.offsetHeight * 0.25) || v > 0.6) { sheet.style.transition = ''; fecharFolha(); return; }
+    sheet.style.transition = 'translate .32s cubic-bezier(.2, .9, .3, 1)';
+    sheet.style.translate = '0 0';
+  };
+  sheet.addEventListener('touchstart', (e) => comeca(e.touches[0].clientY, e.target), { passive: true });
+  sheet.addEventListener('touchmove', (e) => move(e.touches[0].clientY, e), { passive: false });
+  sheet.addEventListener('touchend', solta); sheet.addEventListener('touchcancel', solta);
+  // mouse (computador); os ouvintes da janela saem junto com a folha
+  const ac = new AbortController(); ov._ac = ac;
+  sheet.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') comeca(e.clientY, e.target); });
+  window.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' && g) move(e.clientY, e); }, { signal: ac.signal });
+  window.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') solta(); }, { signal: ac.signal });
 }
 function fecharFolha(imediato) {
   const ov = $('#folha');
   if (!ov) return;
   ov.id = '';
+  if (ov._ac) ov._ac.abort();
   if (imediato) { ov.remove(); return; }
   const saindo = FX.folhaFechar(ov);
   if (saindo) { saindo.then(() => { ov.remove(); rodarFila(); }); return; }
