@@ -960,7 +960,7 @@ function aplicarTema() {
 function render() {
   aplicarTema();
   renderSimBar();
-  const telas = { hoje: renderHoje, treino: renderTreino, grana: renderGrana, progresso: renderProgresso, ajustes: renderAjustes };
+  const telas = { hoje: renderHoje, treino: renderTreino, grana: renderGrana, progresso: renderProgresso, ajustes: renderAjustes, dieta: renderDieta };
   const view = $('#view');
   view.innerHTML = telas[UI.aba]();
   const logoEl = $('.appbar-logo');
@@ -994,6 +994,17 @@ function renderSimBar() {
 }
 
 // --- Hoje ---
+// Dieta: aba reservada, ainda em desenvolvimento
+function renderDieta() {
+  return `
+  <header class="page-head"><span class="eyebrow">${dataLonga(S.sim.data)}</span><h1>Dieta</h1></header>
+  <section class="card dev">
+    <span class="dev-ic">${ic('apple')}</span>
+    <b>Em desenvolvimento</b>
+    <p>Em breve: refeições, frutas e marmitas da quinzena aqui.</p>
+  </section>`;
+}
+
 function renderHoje() {
   const iso = S.sim.data, n = nivelInfo(xpTotal()), seq = sequencia(iso);
   const cont = contMinimos(iso), tot = minimos().length, bom = diaBom(iso);
@@ -2585,39 +2596,7 @@ function fecharChat(vel) {
   molaChat(1, vel || 0, () => { if (!document.body.classList.contains('chat-aberto')) ov.classList.remove('on'); });
 }
 
-// Botão central: toque abre; arrastar para cima puxa o chat junto com o dedo.
-// O chat só aparece depois que o dedo anda — assim o toque simples nunca cai no fundo escuro.
-function montarBotaoIA() {
-  const b = $('#nav-ia'); if (!b) return;
-  let g = null;
-  const ALT = () => Math.min(window.innerHeight * 0.75, 560);
-  b.addEventListener('pointerdown', (e) => {
-    g = { y0: e.clientY, y: e.clientY, t: performance.now(), v: 0, arrastando: false };
-    try { b.setPointerCapture(e.pointerId); } catch (_) {}
-  });
-  b.addEventListener('pointermove', (e) => {
-    if (!g) return;
-    const t = performance.now();
-    g.v = (e.clientY - g.y) / ALT() / Math.max(1, t - g.t); g.y = e.clientY; g.t = t;
-    const dy = g.y0 - e.clientY;
-    if (!g.arrastando && dy > 8) { g.arrastando = true; pararMolaChat(); prepararChat(); if (navigator.vibrate) navigator.vibrate(6); }
-    if (g.arrastando) {
-      const bruto = 1 - dy / ALT();
-      posChat(bruto < 0 ? bruto * 0.3 : bruto); // passou do topo: resiste
-    }
-  });
-  const solta = (e) => {
-    if (!g) return;
-    const ges = g; g = null;
-    if (!ges.arrastando) { if (e.type === 'pointerup') abrirChat(); return; }
-    const vel = ges.v * 1000;
-    if (CHATMOV.p < 0.65 || vel < -0.8) abrirChat(vel); else fecharChat(vel);
-  };
-  b.addEventListener('pointerup', solta);
-  b.addEventListener('pointercancel', solta);
-  b.addEventListener('click', (e) => { if (e.detail === 0) abrirChat(); }); // teclado / leitor de tela
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('chat-aberto')) fecharChat(); });
-}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('chat-aberto')) fecharChat(); });
 
 /* ---------------------------------------------------------
    13. Ações (cliques com data-a)
@@ -3035,7 +3014,7 @@ function posCarregar() {
   migrar();
   sincronizarRelogio();
   render();
-  if (!jaMontou) { montarBotaoIA(); jaMontou = true; }
+  jaMontou = true;
   iniciarIA();
   rodarFila();
 }
