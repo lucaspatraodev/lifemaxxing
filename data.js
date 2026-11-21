@@ -11,7 +11,9 @@ const DADOS_INICIAIS = {
   garrafaMl: 767,          // 2,3 L em 3 garrafas (ajuste quando souber o tamanho real)
   fimDeSemanaSantos: 300,  // custo de um fim de semana de viagem (para o "custo real" do fast food)
   xpDiaBom: 50,
-  pet: { nome: 'João Frango', imagem: '' }, // galo surfista; a imagem pode ser trocada em Ajustes
+  pet: { nome: 'João Frango', imagem: '' },
+  logo: 2,          // logo escolhido (1 a 5, ver logos.js)
+  tema: 'escuro',   // 'escuro' ou 'claro' // galo surfista; a imagem pode ser trocada em Ajustes
 
   // Bônus de XP fora dos hábitos
   xpBonus: {

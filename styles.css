@@ -1351,3 +1351,79 @@ body.chat-aberto .nav-ia span { box-shadow: 0 0 0 5px var(--bg); }
 .task-timer { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 700; color: var(--blue2); border: 1px solid rgba(242, 106, 27, .45); border-radius: 999px; padding: 5px 10px; }
 .timer-grande { font-size: 56px; font-weight: 700; letter-spacing: -.03em; text-align: center; font-variant-numeric: tabular-nums; padding: 6px 0 0; }
 .sim-btn.pri { background: var(--ink); color: #000; }
+
+/* =========================================================
+   Cantos sutis (quase quadrados), mais contraste e tema claro
+   ========================================================= */
+:root {
+  --bg: #000000; --card: #18181B; --s2: #232327; --s3: #34343A; --line: #2A2A2F;
+  --ink: #FFFFFF; --ink2: #C4C4C9; --muted: #85858C;
+  --r-lg: 14px; --r: 10px; --r-sm: 8px;
+}
+/* superfícies: 10px */
+.card, .tile, .stat-card, .cta, .tasks.lista .task.mis, .tasks .task, .linha-cfg, .menu, .hero.money, .hero.small,
+.modal-card, .aviso, .ff, .type, .lv-chest, .ticket, .stats3 > div, .money-box > div, .santos, .banner,
+.chat-input, .msg.eu, .card.logos, .desafio-box, .seq-nota, .login-box input { border-radius: 10px; }
+/* controles: 8px */
+.btn, .chip, .filtros button, .seg, .seg button, .grana-abas, .pill, .slide, .toast, .task-xp.hoje, .task-timer,
+.pet-fala, .avatar-pet .pet-fala, .santos-usar, input, select, textarea, .chat-btn, .icon-btn, .icon-sm, .appbar-btn,
+.sim-btn, .set-ok, .set input, #descanso, #descanso button, .fx-xp, .chip-in { border-radius: 8px; }
+.slide-knob { border-radius: 6px; }
+.sheet { border-radius: 14px 14px 0 0; }
+.chat { border-radius: 14px 14px 0 0; }
+/* ícones em quadradinhos de canto leve (em vez de círculos) */
+.task-ic, .tasks.lista .task.mis .task-ic, .linha-cfg .task-ic, .menu-ic, .rodape-ic, .sheet-ic, .seq-fogo, .chat-av,
+.hist-ic, .banner-ic, .cta-seta, .path-n, .sd i, .wk i, .cal-d, .chest-anim, .login-logo { border-radius: 8px; }
+.tasks.lista .task.mis .task-ok, .task-ok, .check-box { border-radius: 6px; }
+.avatar-pet, .avatar-pet > svg, .avatar-pet > img { border-radius: 10px; }
+.nav-ia span { border-radius: 12px; }
+.appbar-logo svg, .logo-op svg { border-radius: 8px; }
+.bar, .bar i, .tab-bar, .task-seg i { border-radius: 2px; }
+
+/* Menu de ajustes (no fim do Progresso), no estilo das linhas de configuração da referência */
+.menu { display: flex; flex-direction: column; gap: 8px; background: transparent; }
+.menu-linha { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+.menu-ic { width: 36px; height: 36px; display: grid; place-items: center; background: var(--s2); color: var(--ink2); flex: none; }
+.menu-ic .ic { width: 18px; height: 18px; }
+.menu-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.menu-tx b { font-size: 15px; font-weight: 600; }
+.menu-tx small { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu-linha > .ic { color: var(--muted); width: 18px; }
+.menu-linha.tema .seg { flex: none; }
+
+/* ---------- Tema claro (como as telas da referência) ---------- */
+body.claro {
+  --bg: #FFFFFF; --card: #F4F4F5; --s2: #EAEAEC; --s3: #D9D9DE; --line: #E5E5E8; --deep: #FFFFFF;
+  --ink: #0A0A0A; --ink2: #3F3F46; --muted: #8A8A93;
+  --blue: #FF6B00; --blue2: #EE5F00; --laranja: #FF6B00; --blue-soft: rgba(255, 107, 0, .12);
+  color-scheme: light;
+}
+/* blocos que continuam pretos no claro (como o card de números da referência) */
+body.claro .stat-card, body.claro .tile.escuro, body.claro .hero.money, body.claro .hero.small, body.claro .levelup, body.claro .modal.full, body.claro .login-logo {
+  --ink: #FFFFFF; --ink2: #C4C4C9; --muted: #8A8A93; --s2: #232327; --s3: #34343A; --card: #18181B; --line: #2A2A2F;
+  background: #0A0A0A; color: #fff; border: 0;
+}
+body.claro .stat-row b, body.claro .stat-pe { color: #fff; }
+body.claro .stat-row b.laranja, body.claro .tile.escuro b { color: #FF8A3D; }
+/* texto branco sobre fundos escuros/coloridos */
+body.claro .filtros button.on, body.claro .tasks.lista .task.mis .task-ok, body.claro .btn, body.claro .btn.dark, body.claro .btn.light,
+body.claro .chip.on, body.claro .slide-knob, body.claro .toast, body.claro .avatar-pet .pet-fala, body.claro .sd.on i, body.claro .cal-d.on,
+body.claro .path.ok .path-n, body.claro .set.feito .set-ok, body.claro .fixo.pago .check-box, body.claro .check-box.on, body.claro .nav-ia span,
+body.claro .fx-xp, body.claro .fx-moeda, body.claro .sim-btn.pri, body.claro .path.atual .path-n { color: #fff; }
+body.claro .btn.ghost { background: transparent; color: var(--ink); border-color: var(--s3); }
+body.claro .btn.off { color: var(--muted); }
+body.claro .ticket.livre span { color: #fff; }
+body.claro .seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+body.claro #appbar { background: var(--bg); color: var(--ink); }
+body.claro .nav { background: var(--bg); }
+body.claro .nav button { color: #9A9AA2; }
+body.claro .nav button.on { color: var(--blue); }
+body.claro .sheet, body.claro .modal-card { background: #fff; }
+body.claro .chat, body.claro .chat-head, body.claro .chat-bar { background: #fff; }
+body.claro .overlay, body.claro .modal:not(.full) { background: rgba(0, 0, 0, .35); }
+body.claro .linha-cfg { background: #fff; }
+body.claro .menu-linha { background: #fff; }
+body.claro .tasks.lista .task.add-bonus { background: transparent; }
+body.claro .mis-rot { color: var(--blue2) !important; }
+body.claro .cta.feito { background: var(--card); color: var(--ink); }
+@media (min-width: 481px) { body.claro { background: #F0D5BE; } body.claro .app { background: #fff; } }

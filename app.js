@@ -946,18 +946,27 @@ function animarXp(antes, ganho) {
 /* ---------------------------------------------------------
    12. Telas
    --------------------------------------------------------- */
+// Tema claro/escuro (classe no body)
+function aplicarTema() {
+  const claro = S && S.config.tema === 'claro';
+  document.body.classList.toggle('claro', claro);
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute('content', claro ? '#FFFFFF' : '#000000');
+}
+
 function render() {
+  aplicarTema();
   renderSimBar();
   const telas = { hoje: renderHoje, treino: renderTreino, grana: renderGrana, progresso: renderProgresso, ajustes: renderAjustes };
   const view = $('#view');
   view.innerHTML = telas[UI.aba]();
   const logoEl = $('.appbar-logo');
-  if (logoEl && logoEl.dataset.n !== String(S.config.logo || 1)) { logoEl.innerHTML = logoSvg(S.config.logo || 1, 30); logoEl.dataset.n = String(S.config.logo || 1); }
+  if (logoEl && logoEl.dataset.n !== String(S.config.logo || 2)) { logoEl.innerHTML = logoSvg(S.config.logo || 2, 30); logoEl.dataset.n = String(S.config.logo || 2); }
   const trocou = UI.ultimaAba !== UI.aba;
   if (trocou) { // entrada ao trocar de aba: cascata e progresso enchendo (ou fade simples sem Motion)
     if (!FX.entrarTela(view)) { view.classList.remove('entra'); void view.offsetWidth; view.classList.add('entra'); }
   }
-  document.querySelectorAll('.nav button').forEach((b) => b.classList.toggle('on', b.dataset.aba === UI.aba || (UI.aba === 'ajustes' && b.dataset.aba === 'hoje')));
+  document.querySelectorAll('.nav button').forEach((b) => b.classList.toggle('on', b.dataset.aba === UI.aba || (UI.aba === 'ajustes' && b.dataset.aba === 'progresso')));
   FX.nav(UI.ultimaAba === undefined);
   UI.ultimaAba = UI.aba;
   if (UI.aba === 'hoje') { FX.chama(); FX.pet(); }
@@ -1032,7 +1041,7 @@ function renderHoje() {
       <p>${dataLonga(iso)}</p>
     </div>
     <button class="avatar-pet" data-a="pet" aria-label="${esc(pet.nome || 'João Frango')}">
-      ${pet.imagem ? `<img src="${pet.imagem}" alt="">` : logoSvg(S.config.logo || 1, 52)}
+      ${pet.imagem ? `<img src="${pet.imagem}" alt="">` : logoSvg(S.config.logo || 2, 52)}
       <span class="pet-fala" hidden></span>
     </button>
   </header>
@@ -1855,7 +1864,25 @@ function renderProgresso() {
   <h3 class="sec">Caminho até Surfista${n.estrelas ? ` · ${n.estrelas} estrela${n.estrelas > 1 ? 's' : ''}` : ''}</h3>
   <section class="card paths">${caminho}</section>
 
-  ${hist ? `<h3 class="sec">Quinzenas fechadas</h3><section class="card lista-mini">${hist}</section>` : ''}`;
+  ${hist ? `<h3 class="sec">Quinzenas fechadas</h3><section class="card lista-mini">${hist}</section>` : ''}
+
+  <h3 class="sec">Ajustes</h3>
+  <section class="menu">
+    <div class="menu-linha tema">
+      <span class="menu-ic">${ic(S.config.tema === 'claro' ? 'sun' : 'moon')}</span>
+      <span class="menu-tx"><b>Tema</b><small>${S.config.tema === 'claro' ? 'Claro' : 'Escuro'}</small></span>
+      <div class="seg mini">${[['escuro', 'Escuro'], ['claro', 'Claro']].map(([k, n]) => `<button class="${(S.config.tema || 'escuro') === k ? 'on' : ''}" data-a="tema" data-k="${k}">${n}</button>`).join('')}</div>
+    </div>
+    ${[
+      ['voce', 'sliders', 'Perfil', `${esc(S.config.nome)} · dormir ${S.config.horaDormir}`],
+      ['habitos', 'check', 'Hábitos', `${minimos().length} obrigações · ${extras().length} bônus`],
+      ['orcamento', 'wallet', 'Orçamento', 'Entradas e fixos padrão'],
+      ['logo', 'image', 'Logo e pet', `Logo ${S.config.logo || 2} · ${esc((S.config.pet || {}).nome || 'João Frango')}`],
+      ['ia', 'spark', 'IA do coach', CHAT.provedores && CHAT.provedores.length ? 'Escolher a IA' : 'Gemini, Groq ou OpenAI'],
+      ['modo', 'calendar', 'Modo', S.sim.teste ? 'Teste (simulador)' : 'Valendo'],
+      ['regras', 'book', 'Regras', 'XP, saques, baús e potes']
+    ].map(([sec, icone, nome, sub]) => `<button class="menu-linha" data-a="irAjustes" data-sec="${sec}"><span class="menu-ic">${ic(icone)}</span><span class="menu-tx"><b>${nome}</b><small>${sub}</small></span>${ic('next')}</button>`).join('')}
+  </section>`;
 }
 
 // --- Ajustes ---
@@ -1881,9 +1908,9 @@ function renderAjustes() {
 
   const p = c.potes, b = c.xpBonus;
   return `
-  <div class="page-head row"><button class="icon-btn dark" data-a="ir" data-aba="hoje" aria-label="Voltar">${ic('back')}</button><div><span class="eyebrow">Configuração</span><h1>Ajustes</h1></div></div>
+  <div class="page-head row"><button class="icon-btn dark" data-a="ir" data-aba="progresso" aria-label="Voltar">${ic('back')}</button><div><span class="eyebrow">Configuração</span><h1>Ajustes</h1></div></div>
 
-  <h3 class="sec">Você</h3>
+  <h3 class="sec" id="aj-voce">Você</h3>
   <section class="card form">
     <label class="inline">Nome<input type="text" value="${esc(c.nome)}" data-cfg="nome"></label>
     <label class="inline">Horário de dormir<input type="time" value="${esc(c.horaDormir)}" data-cfg="horaDormir"></label>
@@ -1892,14 +1919,14 @@ function renderAjustes() {
     <label class="inline">Fim de semana de viagem (custo)<input type="number" inputmode="decimal" value="${c.fimDeSemanaSantos}" data-cfg="fimDeSemanaSantos" data-num></label>
   </section>
 
-  <h3 class="sec">Modo</h3>
+  <h3 class="sec" id="aj-modo">Modo</h3>
   <section class="card form">
     <div class="modo"><b>${S.sim.teste ? 'Modo teste' : 'Valendo'}</b><small>${S.sim.teste ? 'Data simulada e botões para avançar os dias.' : `Data e hora reais desde ${dataCurta(S.inicioApp)}.`}${NUVEM.ativo ? ' Salvo na nuvem.' : ' Salvo só neste aparelho.'}</small></div>
     ${S.sim.teste ? '<button class="btn" data-a="comecarDeVerdade">Começar de verdade hoje</button>' : '<button class="btn ghost" data-a="abrirModoTeste">Abrir modo teste</button>'}
   </section>
 
   ${CHAT.provedores && CHAT.provedores.length ? `
-  <h3 class="sec">IA do coach</h3>
+  <h3 class="sec" id="aj-ia">IA do coach</h3>
   <section class="card list">
     ${[{ id: '', nome: 'Padrão do servidor', modelo: (CHAT.provedores.find((x) => x.id === CHAT.padrao) || {}).nome || '' }, ...CHAT.provedores].map((x) => `
       <button class="fixo ${(S.config.iaProvedor || '') === x.id ? 'pago' : ''}" data-a="iaProvedor" data-id="${x.id}">
@@ -1907,10 +1934,10 @@ function renderAjustes() {
       </button>`).join('')}
   </section>` : ''}
 
-  <h3 class="sec">Hábitos</h3>
+  <h3 class="sec" id="aj-habitos">Hábitos</h3>
   <section class="card list">${hab}<button class="link" data-a="editarHabito" data-h="">${ic('plus')} Novo hábito</button></section>
 
-  <h3 class="sec">Orçamento</h3>
+  <h3 class="sec" id="aj-orcamento">Orçamento</h3>
   <p class="nota">Padrão usado quando cada quinzena abre. Para mudar só a quinzena atual, use Grana › Fixos.</p>
   ${orc('d15', 'Quinzena do dia 15')}
   ${orc('d30', 'Quinzena do dia 30')}
@@ -1920,7 +1947,7 @@ function renderAjustes() {
     <label class="inline">Dias bons para 1 ticket<input type="number" value="${c.delivery.diasSeguidos}" data-cfg="delivery.diasSeguidos" data-num></label>
   </section>
 
-  <h3 class="sec">Regras</h3>
+  <h3 class="sec" id="aj-regras">Regras</h3>
   <section class="card lista-mini regras">
     <div><b>Dia bom (todos os mínimos)</b><span>+${c.xpDiaBom} XP</span></div>
     <div><b>Recorde no treino (até ${b.maxRecordes})</b><span>+${b.recorde} cada</span></div>
@@ -1937,8 +1964,8 @@ function renderAjustes() {
     <div><b>Caixa de viagem</b><span>Custo fixo (R$300), liberado inteiro no dia do pagamento, para hospedagem e os custos mais pesados</span></div>
   </section>
 
-  <h3 class="sec">Logo</h3>
-  <section class="card logos">${[1, 2, 3, 4, 5].map((k) => `<button class="logo-op ${(c.logo || 1) === k ? 'on' : ''}" data-a="logo" data-n="${k}" aria-label="Logo ${k}: ${LOGO_NOMES[k - 1]}">${logoSvg(k, 54)}<small>${k}</small></button>`).join('')}</section>
+  <h3 class="sec" id="aj-logo">Logo</h3>
+  <section class="card logos">${[1, 2, 3, 4, 5].map((k) => `<button class="logo-op ${(c.logo || 2) === k ? 'on' : ''}" data-a="logo" data-n="${k}" aria-label="Logo ${k}: ${LOGO_NOMES[k - 1]}">${logoSvg(k, 54)}<small>${k}</small></button>`).join('')}</section>
 
   <h3 class="sec">Pet</h3>
   <section class="card form pet-ajuste">
@@ -2550,6 +2577,12 @@ const acoes = {
   abaPeriodo(el) { UI.periodoAba = el.dataset.p; render(); FX.lista($('.tasks.obrigacoes')); },
   pet() { FX.petToque(); },
   logo(el) { S.config.logo = Number(el.dataset.n); salvar(); render(); },
+  tema(el) { S.config.tema = el.dataset.k; salvar(); aplicarTema(); render(); },
+  irAjustes(el) {
+    UI.aba = 'ajustes'; render();
+    const alvo = document.getElementById('aj-' + el.dataset.sec);
+    if (alvo) window.scrollTo(0, Math.max(0, alvo.getBoundingClientRect().top + scrollY - 120)); else window.scrollTo(0, 0);
+  },
   tarefa(el) { abrirTarefa(el.dataset.h, Number(el.dataset.i)); },
   fastfood() { abrirFastFood(); },
   novoBonus() { abrirNovoBonus(); },
@@ -2898,7 +2931,8 @@ function migrar() {
   if (S.quinzena) (S.quinzena.fixos || []).forEach(renomear);
   if (!S.santosUsos) S.santosUsos = [];
   if (!S.config.pet) S.config.pet = { nome: 'João Frango', imagem: '' };
-  if (!S.config.logo) S.config.logo = 1;
+  S.config.migracoes = S.config.migracoes || [];
+  if (!S.config.migracoes.includes('logo2')) { S.config.logo = 2; S.config.migracoes.push('logo2'); }
   S.config.migracoes = S.config.migracoes || [];
   if (!S.config.migracoes.includes('quarto')) {
     if (!habito('quarto')) {
