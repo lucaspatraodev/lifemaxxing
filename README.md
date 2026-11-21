@@ -45,9 +45,9 @@ Na Vercel o app começa **valendo hoje**. O modo teste (data simulada, Próximo 
 
 ## Regras
 
-**XP:** cada obrigação vale 10 (dividido entre as partes, ex.: garrafas 3 + 3 + 4). Dia bom +40. Sol 20, menos tela 25, natureza 40, treino 100, surf 150, bônus criados com o XP que você escolher. Treino: +25 por recorde (até 2), +20 com intensidade 8+, +20 acima de 45 min. 3 treinos na semana (sex a qui) +150 no corte de sexta. 7 dias bons seguidos +100.
+**XP e dinheiro:** regras completas, fórmulas e simulações em [`docs/ECONOMIA.md`](docs/ECONOMIA.md). Resumo: obrigações somam 200 XP por dia (por dificuldade: dentes 10, quarto 40, 1h sem celular 60...), dia bom +50, bônus de 20 a 150. O pote de XP enche na meta (dias × 400 XP); passou dela, o XP só conta para o nível. Um baú por dia, calibrado para pagar em média o pote inteiro. Algumas missões têm **cronômetro** (1h sem celular, estudar, desenvolver): deslize para começar e elas concluem sozinhas.
 
-**Níveis:** de Na toca (0) a Surfista (9.000). Depois do 10, a contagem recomeça com uma estrela. Cada nível novo abre um baú (19% a 38% do pote de baús).
+**Níveis:** de Na toca (0) a Surfista (36.000). Depois do 10, a contagem recomeça com uma estrela. Cada nível novo abre um baú (19% a 38% do pote de baús).
 
 **Dinheiro livre** = entrada − fixos + o que sobrou travado da quinzena anterior. Entra todo travado; R$60 de delivery à parte, o resto dividido em potes. **Tudo é porcentagem desse montante:** se sobrou da quinzena anterior, as tarefas valem mais na seguinte.
 

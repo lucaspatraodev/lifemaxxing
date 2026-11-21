@@ -92,11 +92,12 @@ const IC = {
   dot: '<circle cx="12" cy="12" r="5"/>',
   heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
+  terminal: '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M7 9.5l3 2.5-3 2.5M12.5 15h4.5"/>',
   spark: '<path d="M12 2.5v19M2.5 12h19M5.3 5.3l13.4 13.4M18.7 5.3L5.3 18.7"/>',
   bed: '<path d="M3 18.5V6.5M3 14h18v4.5M21 14v-2.5a3 3 0 0 0-3-3h-7v5.5"/><circle cx="7" cy="11" r="2"/>',
   book: '<path d="M4.5 5.5A2 2 0 0 1 6.5 3.5H19v15H6.5a2 2 0 0 0-2 2z"/><path d="M4.5 20.5v-15M19 18.5v2H6.5"/>'
 };
-const ICONES_HABITO = ['dot', 'tooth', 'sparkle', 'drop', 'apple', 'moon', 'door', 'bed', 'sun', 'phoneoff', 'tree', 'wave', 'dumbbell', 'heart', 'book', 'bolt', 'run'];
+const ICONES_HABITO = ['dot', 'terminal', 'tooth', 'sparkle', 'drop', 'apple', 'moon', 'door', 'bed', 'sun', 'phoneoff', 'tree', 'wave', 'dumbbell', 'heart', 'book', 'bolt', 'run'];
 const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || IC.dot}</svg>`;
 
 /* ---------------------------------------------------------
@@ -245,8 +246,7 @@ function checarNivel() {
   const subidas = [];
   while (S.nivelMax < n.chave) {
     S.nivelMax++;
-    const pb = S.quinzena.potes.bau;
-    const valor = Math.round(pb * (BAU_NIVEL.min + Math.random() * (BAU_NIVEL.max - BAU_NIVEL.min)));
+    const valor = Math.floor(bauBase() * (BAU_NIVEL.min + Math.random() * (BAU_NIVEL.max - BAU_NIVEL.min)) * 100) / 100;
     const pago = pagarBau(valor, 'nivel', 'Baú de nível', null);
     subidas.push({ chave: S.nivelMax, valor: pago });
   }
@@ -338,11 +338,19 @@ const saquesDaQuinzena = (q) => intervalo(inicioUtil(q), q.fim).filter((d) => di
 const somaLib = (q, tipos) => soma(q.liberacoes.filter((l) => !tipos || tipos.includes(l.tipo)).map((l) => l.valor));
 const xpQuinzena = (q) => xpEntre(q.inicio, q.fim);
 // Quanto vale cada 100 XP nesta quinzena (sempre proporcional ao pote de XP)
+// ---------- Economia (tudo em porcentagem do montante; ver docs/ECONOMIA.md) ----------
+const diasUteis = (q) => intervalo(inicioUtil(q), q.fim).length;
+const xpObrigacoesDia = () => soma(minimos().map((h) => h.xp));
+const xpDiaIdeal = () => xpObrigacoesDia() + S.config.xpDiaBom + (S.config.xpBonusAlvoDia ?? 150);
+// Meta de XP da quinzena: dias × dia ideal (obrigações + dia bom + bônus-alvo).
+// Bater a meta enche 100% do pote de XP; XP além dela conta para nível, não para dinheiro.
 function taxaXp(q = S.quinzena) {
-  const meta = Math.round((S.config.metaXpQuinzena || 2700) * (q.fator || 1)); // quinzena menor, meta menor
+  const meta = Math.max(1, diasUteis(q) * xpDiaIdeal());
   return { xp: 100, valor: Math.round(((q.potes.xp * 100) / meta) * 100) / 100, meta };
 }
-const bauMax = (q = S.quinzena) => Math.round(q.potes.bau * Math.max(...BAU_CHANCES.map((c) => c.pct)));
+// Base do baú: pote de baús ÷ (valor esperado × dias). Um baú por dia → em média paga o pote inteiro.
+const bauBase = (q = S.quinzena) => q.potes.bau / (BAU_ESPERADO * Math.max(1, diasUteis(q)));
+const bauMax = (q = S.quinzena) => Math.round(bauBase(q) * Math.max(...BAU_CHANCES.map((c) => c.mult)) * 100) / 100;
 function liberadoXp(q, xpExtra = 0) {
   const r = taxaXp(q);
   return Math.min(q.potes.xp, Math.floor((xpQuinzena(q) + xpExtra) / r.xp) * r.valor);
@@ -476,13 +484,14 @@ function pagarBau(valor, tipo, rotulo, ref) {
   if (v > 0) q.liberacoes.push({ id: uid(), data: S.sim.data, tipo, valor: v, rotulo, ref });
   return v;
 }
-// Rola o baú surpresa de um extra. Retorna null se o pote acabou.
+// Baú do dia: só o primeiro bônus de cada dia abre. Retorna null se já abriu hoje ou o pote acabou.
 function rolarBau(rotulo, ref) {
-  const q = S.quinzena;
-  if (q.potes.bau - somaLib(q, ['bau', 'nivel']) <= 0) return null;
+  const q = S.quinzena, d = dia(S.sim.data);
+  if (d.bauRef || q.potes.bau - somaLib(q, ['bau', 'nivel']) <= 0) return null;
+  d.bauRef = ref;
   let r = Math.random(), valor = 0;
-  for (const c of BAU_CHANCES) { if (r < c.p) { valor = Math.round(c.pct * q.potes.bau); break; } r -= c.p; }
-  return valor ? pagarBau(valor, 'bau', 'Baú · ' + rotulo, ref) : 0;
+  for (const c of BAU_CHANCES) { if (r < c.p) { valor = Math.floor(c.mult * bauBase(q) * 100) / 100; break; } r -= c.p; }
+  return valor ? pagarBau(valor, 'bau', 'Baú do dia · ' + rotulo, ref) : 0;
 }
 
 // Desafio da quinzena
@@ -539,6 +548,8 @@ function desfazerParte(h, i) {
   removeXp(ref);
   if (!diaBom(iso)) removeXp(`bom:${iso}`);
   S.quinzena.liberacoes = S.quinzena.liberacoes.filter((l) => l.ref !== ref);
+  if (d.bauRef === ref) delete d.bauRef;
+  if (d.timers) delete d.timers[chaveParte(h, i)];
   salvar();
 }
 
@@ -551,6 +562,7 @@ function desfazerTreinosHoje(hid) {
     S.quinzena.liberacoes = S.quinzena.liberacoes.filter((l) => l.ref !== 't:' + t.id);
   });
   S.treinos = S.treinos.filter((t) => !remover.includes(t));
+  if (remover.some((t) => 't:' + t.id === dia(iso).bauRef)) delete dia(iso).bauRef;
   delete dia(iso).feitos[hid + ':0'];
   salvar();
 }
@@ -687,6 +699,7 @@ function treinoAleatorio() {
    9. Simulador: fechar dia, pular dias, fechar quinzena
    --------------------------------------------------------- */
 function fecharDia() {
+  timersProntos(S.sim.data).forEach(([h, i]) => registrarParte(h, i)); // tempo acabou com o app fechado
   const iso = S.sim.data, d = dia(iso), q = S.quinzena;
   const w = diaSemana(iso), b = S.config.xpBonus;
   const res = { data: iso, msgs: [] };
@@ -989,7 +1002,9 @@ function renderHoje() {
       <button class="task mis ${feito ? 'done' : ''} ${h.tipo}" data-a="tarefa" data-h="${h.id}" data-i="${i}">
         <span class="task-ic">${ic(h.icone)}</span>
         <span class="task-tx">${rotulo ? `<small class="mis-rot">${esc(rotulo)}</small>` : ''}<b>${esc(pt.rotulo || h.nome)}</b></span>
-        ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">+${xp}${h.especial ? '+' : ''} XP</span>`}
+        ${feito ? `<span class="task-ok">${ic('check')}</span>`
+          : timerDe(iso, h, i) ? `<span class="task-timer" data-timer="${chaveParte(h, i)}">${fmtTempo(Math.max(0, restanteMs(iso, h, i)))}</span>`
+          : `<span class="task-xp">${duracaoParte(h, i) ? `<i class="dur">${duracaoParte(h, i) >= 60 ? duracaoParte(h, i) / 60 + 'h' : duracaoParte(h, i) + 'min'}</i>` : ''}+${xp}${h.especial ? '+' : ''} XP</span>`}
       </button>`;
   };
   const obrigacoes = tarefasDoPeriodo(p).filter((t) => t.h.tipo === 'minimo');
@@ -1025,7 +1040,7 @@ function renderHoje() {
   <span class="rotulo">${bom ? 'Dia bom fechado' : 'Próxima missão'}</span>
   ${prox ? `
   <button class="cta" data-a="tarefa" data-h="${prox.h.id}" data-i="${prox.i}">
-    <span class="cta-tx"><b>${esc(prox.pt.rotulo || prox.h.nome)}</b><small>+${parteXp(prox.h, prox.i)} XP · ${PERIODOS[prox.pt.periodo] || ''}</small></span>
+    <span class="cta-tx"><b>${esc(prox.pt.rotulo || prox.h.nome)}</b><small>${timerDe(iso, prox.h, prox.i) ? `Em andamento · <span data-timer="${chaveParte(prox.h, prox.i)}">${fmtTempo(Math.max(0, restanteMs(iso, prox.h, prox.i)))}</span>` : `+${parteXp(prox.h, prox.i)} XP · ${PERIODOS[prox.pt.periodo] || ''}${duracaoParte(prox.h, prox.i) ? ` · ${duracaoParte(prox.h, prox.i)} min` : ''}`}</small></span>
     <span class="cta-seta">${ic('arrow')}</span>
   </button>` : `
   <div class="cta feito"><span class="cta-tx"><b>Todas as ${tot} missões</b><small>+${S.config.xpDiaBom} XP do dia bom</small></span><span class="cta-seta">${ic('check')}</span></div>`}
@@ -1061,11 +1076,74 @@ function renderHoje() {
   <button class="linha-cfg" data-a="fastfood"><span class="task-ic">${ic('burger')}</span><span class="task-tx"><b>Fast food</b>${f.tickets.disponiveis ? `<small>${f.tickets.disponiveis} ticket disponível</small>` : ''}</span>${ic('next')}</button>`;
 }
 
+// ---------- Missões com tempo (ex.: 1h sem celular) ----------
+// Deslizar grava a hora de início no estado do dia (vai para o Supabase junto com o resto).
+// A missão conclui sozinha quando o tempo acaba, mesmo com o app fechado.
+const duracaoParte = (h, i) => (h && h.partes[i] && Number(h.partes[i].duracaoMin)) || 0;
+function timerDe(iso, h, i) { const d = diaLer(iso); return d.timers ? d.timers[chaveParte(h, i)] : null; }
+function restanteMs(iso, h, i) { const t = timerDe(iso, h, i); return t ? t.inicio + duracaoParte(h, i) * 60000 - Date.now() : null; }
+const horaMin = (ms) => new Date(ms).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+function iniciarTimer(h, i) { const d = dia(S.sim.data); d.timers = d.timers || {}; d.timers[chaveParte(h, i)] = { inicio: Date.now() }; salvar(); }
+function cancelarTimer(h, i) { const d = dia(S.sim.data); if (d.timers) delete d.timers[chaveParte(h, i)]; salvar(); }
+// Missões do dia cujo tempo já acabou e ainda não foram concluídas
+function timersProntos(iso) {
+  const d = S.dias[iso];
+  if (!d || !d.timers) return [];
+  return Object.entries(d.timers).map(([k, t]) => {
+    const [hid, i] = k.split(':'); const h = habito(hid);
+    return h && !parteFeita(iso, h, Number(i)) && Date.now() >= t.inicio + duracaoParte(h, Number(i)) * 60000 ? [h, Number(i)] : null;
+  }).filter(Boolean);
+}
+function concluirTempo(h, i) {
+  if (telaLivre() && UI.aba === 'hoje') { confirmarTarefa(h, i); toast(`${h.partes[i].rotulo || h.nome}: concluída!`); return; }
+  const r = registrarParte(h, i);
+  if (r.bau !== null && r.bau !== undefined) fila.push(() => modalBau(r.bau));
+  const sub = checarNivel(); if (sub.length) fila.push(() => modalNivel(sub));
+  toast(`${h.partes[i].rotulo || h.nome}: concluída! +${r.ganho} XP`);
+  if (telaLivre()) { render(); rodarFila(); }
+}
+
+function abrirTarefaTempo(h, i) {
+  const iso = S.sim.data, pt = h.partes[i], min = duracaoParte(h, i), t = timerDe(iso, h, i), xp = parteXp(h, i);
+  if (!t) {
+    return abrirFolha(`
+      <div class="sheet-head"><span class="sheet-ic">${ic(h.icone)}</span><div><span class="eyebrow">Missão com tempo · ${min} min</span><h3>${esc(pt.rotulo || h.nome)}</h3></div></div>
+      <ul class="motivos">${h.motivos.map((m) => `<li>${ic('check')}<span>${esc(m)}</span></li>`).join('')}</ul>
+      <div class="stats3">
+        <div><span class="eyebrow">Duração</span><b>${min} min</b></div>
+        <div><span class="eyebrow">Ganha</span><b>+${xp} XP</b></div>
+        <div><span class="eyebrow">Termina</span><b>${horaMin(Date.now() + min * 60000)}</b></div>
+      </div>
+      <p class="nota">O app marca a hora de início e conclui sozinho quando o tempo acabar, mesmo fechado.</p>
+      ${slideHtml('Deslize para começar')}`,
+    (el) => montarSlide(el, () => {
+      iniciarTimer(h, i); fecharFolha(); render();
+      toast(`Valendo! Termina às ${horaMin(Date.now() + min * 60000)}`);
+    }));
+  }
+  const fim = t.inicio + min * 60000;
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic">${ic(h.icone)}</span><div><span class="eyebrow">Em andamento</span><h3>${esc(pt.rotulo || h.nome)}</h3></div></div>
+    <div class="timer-grande" data-timer="${chaveParte(h, i)}">${fmtTempo(Math.max(0, fim - Date.now()))}</div>
+    <p class="nota center">Começou às ${horaMin(t.inicio)} · termina às ${horaMin(fim)} · +${xp} XP</p>
+    ${S.sim.teste ? '<button class="btn" data-s="agora">Concluir agora (teste)</button>' : ''}
+    <button class="btn ghost danger-tx" data-s="desistir">Desistir</button>`,
+  (el) => {
+    const ag = el.querySelector('[data-s="agora"]');
+    if (ag) ag.addEventListener('click', () => confirmarTarefa(h, i));
+    el.querySelector('[data-s="desistir"]').addEventListener('click', () => {
+      fecharFolha();
+      confirmar('Desistir agora? O tempo é zerado e a missão volta a ficar pendente.', 'Desistir', () => { cancelarTimer(h, i); render(); });
+    });
+  });
+}
+
 // --- Folha de registro de tarefa ---
 function abrirTarefa(hid, i) {
   const h = habito(hid), iso = S.sim.data;
   if (!h) return;
   if (h.especial) return abrirEspecial(h);
+  if (duracaoParte(h, i) && !parteFeita(iso, h, i)) return abrirTarefaTempo(h, i);
   const pt = h.partes[i];
   if (parteFeita(iso, h, i)) {
     return abrirFolha(`
@@ -1092,7 +1170,7 @@ function abrirTarefa(hid, i) {
       <div><span class="eyebrow">Libera agora</span><b>${tetoXp ? '—' : brl(agora)}</b></div>
     </div>
     <p class="nota">${tetoXp ? 'O pote de XP desta quinzena já está cheio.' : agora > 0 ? `Fecha mais 100 XP: libera ${brl(r.valor)} na hora.` : `${brl(r.valor)} a cada ${r.xp} XP. Faltam ${faltam} XP para o próximo.`}
-      ${viraBom ? `<br><b>Esse fecha o dia bom: +${S.config.xpDiaBom} XP.</b>` : ''}${h.tipo === 'extra' ? '<br>Pode abrir um baú surpresa.' : ''}</p>
+      ${viraBom ? `<br><b>Esse fecha o dia bom: +${S.config.xpDiaBom} XP.</b>` : ''}${h.tipo === 'extra' && !dia(iso).bauRef ? '<br>Primeiro bônus do dia: abre o baú do dia.' : ''}</p>
     ${slideHtml()}`,
   (el) => montarSlide(el, () => confirmarTarefa(h, i)));
 }
@@ -1127,7 +1205,7 @@ function blocoDinheiro(xp) {
   return `<div class="money-box">
       <div><span class="eyebrow">Vale</span><b>${brl((xp * r.valor) / r.xp)}</b></div>
       <div><span class="eyebrow">Libera agora</span><b>${cheio ? '—' : brl(agora)}</b></div>
-      <small>${cheio ? 'Pote de XP da quinzena cheio.' : `${brl(r.valor)} a cada ${r.xp} XP nesta quinzena.`} Pode abrir um baú surpresa de até ${brl(bauMax())}.</small>
+      <small>${cheio ? 'Pote de XP da quinzena cheio.' : `${brl(r.valor)} a cada ${r.xp} XP nesta quinzena.`} ${dia(S.sim.data).bauRef ? 'Baú do dia já aberto.' : `O primeiro bônus do dia abre um baú de até ${brl(bauMax())}.`}</small>
     </div>`;
 }
 
@@ -1636,7 +1714,7 @@ function renderGranaResumo() {
   <section class="card list">
     ${pote('bolt', 'XP', f.xp, q.potes.xp, f.xp >= q.potes.xp ? 'Pote cheio' : `${num(xpQ)} XP na quinzena · faltam ${r.xp - (xpQ % r.xp)} XP para +${brl(r.valor)}`)}
     ${pote('calendar', 'Terça e sexta', libSem, q.potes.semana, `Corte de terça (sex a seg) e de sexta (ter a qui), à meia-noite`)}
-    ${pote('chest', 'Baú surpresa', libBau, q.potes.bau, 'Cada extra pode abrir um baú')}
+    ${pote('chest', 'Baú surpresa', libBau, q.potes.bau, `Um baú por dia (primeiro bônus) · até ${brl(bauMax())}`)}
     ${pote('target', 'Desafio', q.desafio.concluido ? q.potes.desafio : 0, q.potes.desafio, `${esc(q.desafio.texto)} · ${q.desafio.concluido ? 'cumprido' : `${Math.min(desProg, q.desafio.meta)} de ${q.desafio.meta}`}`)}
   </section>
 
@@ -1850,8 +1928,8 @@ function renderAjustes() {
     <div><b>3 treinos na semana (sex a qui)</b><span>+${b.semana3} XP no corte de sexta</span></div>
     <div><b>7 dias bons seguidos</b><span>+${b.sequencia7} XP</span></div>
     <div><b>Potes do dinheiro livre</b><span>XP ${p.xp * 100}% · terça/sexta ${p.semana * 100}% · baú ${p.bau * 100}% · desafio ${p.desafio * 100}%</span></div>
-    <div><b>XP em dinheiro</b><span>${brl(taxaXp().valor)} a cada 100 XP nesta quinzena. O pote de XP enche com ${num(c.metaXpQuinzena || 2700)} XP, então o valor sobe quando o montante cresce.</span></div>
-    <div><b>Baús</b><span>Fatias do pote de baús: até ${brl(bauMax())} por bônus nesta quinzena</span></div>
+    <div><b>XP em dinheiro</b><span>${brl(taxaXp().valor)} a cada 100 XP nesta quinzena. O pote de XP enche na meta de ${num(taxaXp().meta)} XP = ${diasUteis(S.quinzena)} dias × ${xpDiaIdeal()} XP (obrigações ${xpObrigacoesDia()} + dia bom ${c.xpDiaBom} + bônus ${c.xpBonusAlvoDia ?? 150}). Passou da meta, o XP conta só para o nível.</span></div>
+    <div><b>Baú do dia</b><span>O primeiro bônus de cada dia abre um baú: vazio, ${brl(bauBase())}, ${brl(bauBase() * 3)} ou ${brl(bauBase() * 8)}. Em média, a quinzena paga o pote inteiro.</span></div>
     <div><b>Corte</b><span>Meia-noite que começa a terça (dias bons de sex a seg) e a sexta (ter a qui). O valor do saque fecha aí.</span></div>
     <div><b>Saque</b><span>Um por terça e sexta, depois das obrigações da manhã. O XP da manhã ainda entra.</span></div>
     <div><b>Teto do saque</b><span>Sobe aos poucos: terça 1 fatia, sexta 2 fatias do montante; 100% no último saque. O excedente vai para o próximo.</span></div>
@@ -1889,7 +1967,8 @@ function abrirEditarHabito(id) {
         <label>Tipo<select data-f="tipo" ${especial ? 'disabled' : ''}><option value="minimo" ${h.tipo === 'minimo' ? 'selected' : ''}>Mínimo</option><option value="extra" ${h.tipo === 'extra' ? 'selected' : ''}>Extra</option></select></label>
         <label>XP<input type="number" inputmode="numeric" data-f="xp" value="${h.xp}"></label>
       </div>
-      ${h.partes.map((pt, i) => `<div class="row2"><label>${h.partes.length > 1 ? 'Parte ' + (i + 1) : 'Rótulo'}<input type="text" data-parte="${i}|rotulo" value="${esc(pt.rotulo)}"></label><label>Período<select data-parte="${i}|periodo">${opPer(pt.periodo)}</select></label></div>`).join('')}
+      ${h.partes.map((pt, i) => `<div class="row2"><label>${h.partes.length > 1 ? 'Parte ' + (i + 1) : 'Rótulo'}<input type="text" data-parte="${i}|rotulo" value="${esc(pt.rotulo)}"></label><label>Período<select data-parte="${i}|periodo">${opPer(pt.periodo)}</select></label></div>
+      <label class="inline">Tempo (min, 0 = sem cronômetro)<input type="number" inputmode="numeric" min="0" data-parte="${i}|duracaoMin" value="${pt.duracaoMin || 0}"></label>`).join('')}
       ${h.id === 'agua' ? '<p class="nota">O número de garrafas muda com o tamanho da garrafa (Ajustes › Você).</p>' : ''}
       <label>Ícone<div class="chips icons">${ICONES_HABITO.map((n) => `<button type="button" class="chip ${n === h.icone ? 'on' : ''}" data-ic="${n}">${ic(n)}</button>`).join('')}</div></label>
       <label>Porquê (um por linha)<textarea rows="3" data-f="motivos">${esc(h.motivos.join('\n'))}</textarea></label>
@@ -1908,7 +1987,11 @@ function abrirEditarHabito(id) {
       h.xp = Math.max(0, Number(v('xp')) || 0);
       h.icone = icone;
       h.motivos = v('motivos').split('\n').map((s) => s.trim()).filter(Boolean);
-      el.querySelectorAll('[data-parte]').forEach((inp) => { const [i, k] = inp.dataset.parte.split('|'); h.partes[i][k] = inp.value; });
+      el.querySelectorAll('[data-parte]').forEach((inp) => {
+        const [i, k] = inp.dataset.parte.split('|');
+        if (k === 'duracaoMin') { const v = Number(inp.value) || 0; if (v > 0) h.partes[i].duracaoMin = v; else delete h.partes[i].duracaoMin; }
+        else h.partes[i][k] = inp.value;
+      });
       if (novo) S.config.habitos.push(h);
       salvar(); fecharFolha(); render();
     });
@@ -2221,7 +2304,7 @@ function promptIA() {
   const c = S.config, { dados, dias } = contextoIA();
   return `Você é o coach do Lifemaxxing, o app pessoal de hábitos de ${c.nome}. Responda em português do Brasil, curto e direto (2 a 6 frases, ou uma lista curta), como um amigo que treina junto. Sem emoji. Use só os dados abaixo; se faltar um dado, diga que não tem. Dinheiro em R$. Você não altera nada no app: se pedirem para registrar algo, diga onde tocar.
 
-Como o app funciona: dia bom = todas as obrigações feitas (+${c.xpDiaBom} XP). Bônus são opcionais e valem mais. Tudo é porcentagem do montante da quinzena (entrada menos fixos, mais o que sobrou travado da anterior): cada 100 XP libera ${brl(taxaXp().valor)} nesta quinzena (o pote de XP enche com ${c.metaXpQuinzena || 2700} XP). À meia-noite que começa a terça há um corte que libera pelos dias bons de sexta a segunda (1 parte); à meia-noite que começa a sexta, pelos dias bons de terça a quinta (2 partes, +20% com a semana toda boa e +20% com 3 treinos de sexta a quinta). Cada bônus pode abrir um baú (vazio ou uma fatia do pote de baús, até ${brl(bauMax())}). Subir de nível dá um baú de 19% a 38% do pote de baús. Desafio cumprido libera o pote inteiro. ${c.delivery.diasSeguidos} dias bons seguidos liberam um ticket de delivery de ${brl(c.delivery.ticket)}. Saque: um único por terça e sexta, total ou parcial (o que não sacar fica para o próximo saque), liberado depois de completar as obrigações da manhã; o XP da manhã ainda entra. Cada saque tem um teto que sobe aos poucos na quinzena (terça vale 1 fatia e sexta 2 do montante, 100% no último saque); o que passar do teto fica para o próximo saque. Sacar tira o valor do montante. No fim da quinzena o que ficou travado passa para a próxima quinzena (soma no dinheiro livre dela). A Caixa de viagem é um custo fixo (R$300 por quinzena), liberado inteiro no dia do pagamento para hospedagem e custos pesados de viagem; o saldo dela é caixaDeViagem.
+Como o app funciona: dia bom = todas as obrigações feitas (+${c.xpDiaBom} XP). Bônus são opcionais e valem mais. Tudo é porcentagem do montante da quinzena (entrada menos fixos, mais o que sobrou travado da anterior): cada 100 XP libera ${brl(taxaXp().valor)} nesta quinzena; o pote de XP enche na meta de ${taxaXp().meta} XP (dias × obrigações + dia bom + ${c.xpBonusAlvoDia ?? 150} XP de bônus por dia) e XP além disso só conta para o nível. Algumas missões têm tempo (ex.: 1h sem celular): começam ao deslizar e concluem sozinhas. À meia-noite que começa a terça há um corte que libera pelos dias bons de sexta a segunda (1 parte); à meia-noite que começa a sexta, pelos dias bons de terça a quinta (2 partes, +20% com a semana toda boa e +20% com 3 treinos de sexta a quinta). O primeiro bônus de cada dia abre o baú do dia (vazio, ${brl(bauBase())}, ${brl(bauBase() * 3)} ou ${brl(bauBase() * 8)}). Subir de nível dá um baú de ${brl(bauBase() * 2)} a ${brl(bauBase() * 4)}. Desafio cumprido libera o pote inteiro. ${c.delivery.diasSeguidos} dias bons seguidos liberam um ticket de delivery de ${brl(c.delivery.ticket)}. Saque: um único por terça e sexta, total ou parcial (o que não sacar fica para o próximo saque), liberado depois de completar as obrigações da manhã; o XP da manhã ainda entra. Cada saque tem um teto que sobe aos poucos na quinzena (terça vale 1 fatia e sexta 2 do montante, 100% no último saque); o que passar do teto fica para o próximo saque. Sacar tira o valor do montante. No fim da quinzena o que ficou travado passa para a próxima quinzena (soma no dinheiro livre dela). A Caixa de viagem é um custo fixo (R$300 por quinzena), liberado inteiro no dia do pagamento para hospedagem e custos pesados de viagem; o saldo dela é caixaDeViagem.
 
 DADOS (JSON):
 ${JSON.stringify(dados)}
@@ -2640,6 +2723,17 @@ setInterval(() => {
 }, 500);
 
 
+// Contagem das missões com tempo (atualiza a tela e conclui quando acaba)
+setInterval(() => {
+  if (!S || document.body.classList.contains('login')) return;
+  document.querySelectorAll('[data-timer]').forEach((el) => {
+    const [hid, i] = el.dataset.timer.split(':');
+    const r = restanteMs(S.sim.data, habito(hid), Number(i));
+    if (r !== null) el.textContent = fmtTempo(Math.max(0, r));
+  });
+  timersProntos(S.sim.data).forEach(([h, i]) => concluirTempo(h, i));
+}, 1000);
+
 /* ---------------------------------------------------------
    15. Nuvem (Vercel + Supabase)
    Na Vercel o app guarda tudo no Supabase por /api/state, com uma cópia
@@ -2802,7 +2896,6 @@ function migrar() {
   const renomear = (f) => { if (f && f.nome === 'Caixa de Santos') f.nome = 'Caixa de viagem'; };
   Object.values(S.config.orcamento || {}).forEach((o) => (o.fixos || []).forEach(renomear));
   if (S.quinzena) (S.quinzena.fixos || []).forEach(renomear);
-  if (!S.config.metaXpQuinzena) S.config.metaXpQuinzena = 2700;
   if (!S.santosUsos) S.santosUsos = [];
   if (!S.config.pet) S.config.pet = { nome: 'João Frango', imagem: '' };
   if (!S.config.logo) S.config.logo = 1;
@@ -2815,6 +2908,27 @@ function migrar() {
     }
     S.config.migracoes.push('quarto');
     salvar(); // vai para o banco também
+  }
+  // economia 2: XP por dificuldade, missões com tempo, bônus novos, baú do dia, níveis maiores
+  if (!S.config.migracoes.includes('economia2')) {
+    const pad = (id) => DADOS_INICIAIS.habitos.find((x) => x.id === id);
+    S.config.habitos.forEach((h) => {
+      const pd = pad(h.id); if (!pd) return;
+      h.xp = pd.xp;
+      h.partes = h.partes.map((pt, k) => (pd.partes[k] && pd.partes[k].duracaoMin ? { ...pt, duracaoMin: pd.partes[k].duracaoMin } : pt));
+    });
+    ['celular', 'estudar', 'desenvolver'].forEach((id) => {
+      if (habito(id)) return;
+      const novo = clone(pad(id));
+      const lista = S.config.habitos;
+      const pos = novo.tipo === 'minimo' ? lista.findIndex((h) => h.tipo === 'extra') : lista.findIndex((h) => h.id === 'surf');
+      lista.splice(pos < 0 ? lista.length : pos, 0, novo);
+    });
+    S.config.xpDiaBom = DADOS_INICIAIS.xpDiaBom;
+    if (S.config.xpBonusAlvoDia == null) S.config.xpBonusAlvoDia = DADOS_INICIAIS.xpBonusAlvoDia;
+    delete S.config.metaXpQuinzena;
+    S.config.migracoes.push('economia2');
+    salvar();
   }
   // motivos novos (5 por hábito, beleza e saúde) para os hábitos padrão
   if (!S.config.migracoes.includes('motivos5')) {

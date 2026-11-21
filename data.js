@@ -10,7 +10,7 @@ const DADOS_INICIAIS = {
   metaAguaMl: 2300,        // meta diária de água
   garrafaMl: 767,          // 2,3 L em 3 garrafas (ajuste quando souber o tamanho real)
   fimDeSemanaSantos: 300,  // custo de um fim de semana de viagem (para o "custo real" do fast food)
-  xpDiaBom: 40,
+  xpDiaBom: 50,
   pet: { nome: 'João Frango', imagem: '' }, // galo surfista; a imagem pode ser trocada em Ajustes
 
   // Bônus de XP fora dos hábitos
@@ -25,9 +25,9 @@ const DADOS_INICIAIS = {
 
   // Divisão do dinheiro livre (depois de separar o delivery)
   potes: { xp: 0.40, semana: 0.30, bau: 0.15, desafio: 0.15 },
-  // O pote de XP enche quando a quinzena chega nesta meta. Com R$350 no pote, cada 100 XP vale ~R$13;
-  // se o montante for maior (sobrou da quinzena anterior), cada 100 XP vale mais.
-  metaXpQuinzena: 2700,
+  // Economia (ver docs/ECONOMIA.md). O pote de XP enche quando a quinzena chega na meta:
+  // meta = dias × (XP das obrigações + dia bom + bônus-alvo por dia). Farmar além disso não libera mais dinheiro.
+  xpBonusAlvoDia: 150,
 
   delivery: { total: 60, ticket: 30, diasSeguidos: 4 },
 
@@ -65,34 +65,41 @@ const DADOS_INICIAIS = {
     { id: 'dentes', nome: 'Dentes', tipo: 'minimo', xp: 10, icone: 'tooth',
       partes: [{ periodo: 'noite', rotulo: 'Escovar os dentes' }],
       motivos: ['Dentes mais brancos: a escova tira a placa que mancha', 'Hálito fresco o dia todo', 'Gengiva firme, sem sangramento', 'Menos cárie e menos dentista', 'Boca saudável, menos inflamação no corpo'] },
-    { id: 'skincare', nome: 'Skincare', tipo: 'minimo', xp: 10, icone: 'sparkle',
+    { id: 'skincare', nome: 'Skincare', tipo: 'minimo', xp: 15, icone: 'sparkle',
       partes: [{ periodo: 'noite', rotulo: 'Skincare' }],
       motivos: ['Pele limpa: menos cravos e espinhas', 'Hidratação deixa a pele lisa e firme', 'Barreira da pele forte, menos irritação', 'Menos manchas e linhas com o tempo', 'Rosto com cara de descansado'] },
-    { id: 'agua', nome: 'Água', tipo: 'minimo', xp: 10, icone: 'drop',
+    { id: 'agua', nome: 'Água', tipo: 'minimo', xp: 24, icone: 'drop',
       partes: [
         { periodo: 'manha', rotulo: 'Garrafa 1' },
         { periodo: 'tarde', rotulo: 'Garrafa 2' },
         { periodo: 'noite', rotulo: 'Garrafa 3' }
       ],
       motivos: ['Pele com mais viço, lábios menos secos', 'Mais energia: desidratação leve já cansa', 'Menos dor de cabeça', 'Rins e intestino funcionando melhor', 'Treino rende mais, menos cãibra'] },
-    { id: 'frutas', nome: 'Frutas', tipo: 'minimo', xp: 10, icone: 'apple',
+    { id: 'frutas', nome: 'Frutas', tipo: 'minimo', xp: 16, icone: 'apple',
       partes: [
         { periodo: 'tarde', rotulo: 'Fruta 1' },
         { periodo: 'tarde', rotulo: 'Fruta 2' }
       ],
       motivos: ['Vitamina C ajuda a formar colágeno', 'Fibras: intestino em dia, barriga desinchada', 'Antioxidantes protegem a pele', 'Doce natural que tira a vontade de besteira', 'Coração e pressão mais saudáveis'] },
-    { id: 'dormir', nome: 'Dormir', tipo: 'minimo', xp: 10, icone: 'moon',
+    { id: 'dormir', nome: 'Dormir', tipo: 'minimo', xp: 20, icone: 'moon',
       partes: [{ periodo: 'noite', rotulo: 'Dormir no horário' }],
       motivos: ['Pele se recupera à noite: menos olheiras', 'Músculo se reconstrói enquanto você dorme', 'Menos fome e vontade de doce no dia seguinte', 'Foco, memória e humor melhores', 'Imunidade mais forte'] },
-    { id: 'sair', nome: 'Sair', tipo: 'minimo', xp: 10, icone: 'door',
+    { id: 'sair', nome: 'Sair', tipo: 'minimo', xp: 15, icone: 'door',
       partes: [{ periodo: 'manha', rotulo: 'Sair de casa 15 min' }],
       motivos: ['Luz da manhã acerta o relógio do sono', 'Caminhar ativa a circulação e a disposição', 'Humor melhor, menos ansiedade', 'Sol na medida ajuda a vitamina D', 'Quebra o ciclo da toca'] },
-    { id: 'quarto', nome: 'Quarto', tipo: 'minimo', xp: 10, icone: 'bed',
+    { id: 'quarto', nome: 'Quarto', tipo: 'minimo', xp: 40, icone: 'bed',
       partes: [
         { periodo: 'manha', rotulo: 'Arrumar o quarto' },
         { periodo: 'tarde', rotulo: 'Arrumar o quarto' }
       ],
       motivos: ['Menos poeira e ácaro: pele e respiração agradecem', 'Quarto em ordem, sono melhor', 'Menos bagunça, mente mais calma', 'Começa o dia com uma vitória', 'Disciplina pequena puxa as grandes'] },
+
+    { id: 'celular', nome: 'Sem celular', tipo: 'minimo', xp: 60, icone: 'phoneoff',
+      partes: [
+        { periodo: 'manha', rotulo: '1h sem celular', duracaoMin: 60 },
+        { periodo: 'tarde', rotulo: '1h sem celular', duracaoMin: 60 }
+      ],
+      motivos: ['Foco profundo volta em poucos minutos sem notificação', 'Menos cortisol e ansiedade', 'Olhos descansam, menos olheiras', 'Postura do pescoço agradece', 'Dopamina de volta para o que importa'] },
 
     { id: 'treino', nome: 'Treino', tipo: 'extra', xp: 100, icone: 'dumbbell', especial: 'treino',
       partes: [{ periodo: 'todos', rotulo: 'Treino' }],
@@ -100,12 +107,18 @@ const DADOS_INICIAIS = {
     { id: 'sol', nome: 'Sol', tipo: 'extra', xp: 20, icone: 'sun',
       partes: [{ periodo: 'manha', rotulo: 'Sol 15 min' }],
       motivos: ['Vitamina D para ossos e imunidade', 'Cor saudável na pele, sem queimar', 'Luz natural ajuda a dormir melhor', 'Mais disposição e bom humor', 'Relógio biológico no lugar'] },
-    { id: 'tela', nome: 'Menos tela', tipo: 'extra', xp: 25, icone: 'phoneoff',
+    { id: 'tela', nome: 'Menos tela', tipo: 'extra', xp: 30, icone: 'phoneoff',
       partes: [{ periodo: 'noite', rotulo: 'Menos tela (meta do dia)' }],
       motivos: ['Sono mais profundo sem luz de tela à noite', 'Olhos menos cansados, menos olheiras', 'Pescoço e postura agradecem', 'Mais foco, menos ansiedade', 'Tempo de volta para o que importa'] },
     { id: 'natureza', nome: 'Natureza', tipo: 'extra', xp: 40, icone: 'tree',
       partes: [{ periodo: 'todos', rotulo: 'Natureza' }],
       motivos: ['Cortisol mais baixo, menos estresse', 'Pressão e batimentos mais calmos', 'Humor melhor por dias', 'Cabeça descansada, mais criatividade', 'Movimento sem perceber'] },
+    { id: 'estudar', nome: 'Estudar', tipo: 'extra', xp: 60, icone: 'book',
+      partes: [{ periodo: 'todos', rotulo: 'Estudar 1h', duracaoMin: 60 }],
+      motivos: ['Cérebro ativo envelhece melhor', 'Conhecimento vira renda', 'Foco treinado como músculo', 'Autoestima de quem evolui', 'Menos tempo no automático'] },
+    { id: 'desenvolver', nome: 'Desenvolver', tipo: 'extra', xp: 60, icone: 'terminal',
+      partes: [{ periodo: 'todos', rotulo: 'Desenvolver 1h', duracaoMin: 60 }],
+      motivos: ['Projeto andando todo dia', 'Habilidade que paga as contas', 'Estado de fluxo reduz a ansiedade', 'Portfólio crescendo', 'Orgulho de construir algo seu'] },
     { id: 'surf', nome: 'Surf', tipo: 'extra', xp: 150, icone: 'wave', especial: 'surf',
       partes: [{ periodo: 'todos', rotulo: 'Sessão de surf' }],
       motivos: ['Remada define ombros e costas', 'Equilíbrio trabalha o corpo inteiro', 'Sol e mar levantam o humor', 'Gasta muita energia sem parecer treino', 'Foco total no presente'] }
@@ -149,21 +162,21 @@ const DADOS_INICIAIS = {
 };
 
 // Níveis: [número, nome, XP total mínimo]
+// Níveis: [número, nome, XP total mínimo] (escala para ~300-400 XP por dia)
 const NIVEIS = [
   [1, 'Na toca', 0],
-  [2, 'Saindo de casa', 400],
-  [3, 'Pegando sol', 950],
-  [4, 'Em movimento', 1650],
-  [5, 'Corpo acordado', 2500],
-  [6, 'Disciplinado', 3500],
-  [7, 'Atleta de fim de semana', 4650],
-  [8, 'Rato de praia', 5950],
-  [9, 'Remador', 7400],
-  [10, 'Surfista', 9000]
+  [2, 'Saindo de casa', 1600],
+  [3, 'Pegando sol', 3800],
+  [4, 'Em movimento', 6600],
+  [5, 'Corpo acordado', 10000],
+  [6, 'Disciplinado', 14000],
+  [7, 'Atleta de fim de semana', 18600],
+  [8, 'Rato de praia', 23800],
+  [9, 'Remador', 29600],
+  [10, 'Surfista', 36000]
 ];
 // Depois do nível 10 a contagem recomeça com uma estrela.
-// O "nível 11" pediria 1.750 XP depois do 10 (150 a mais que o degrau anterior).
-const CICLO_NIVEL = 10750;
+const CICLO_NIVEL = 43000;
 
 // Desafios sorteados no dia do pagamento
 const DESAFIOS = [
@@ -175,16 +188,18 @@ const DESAFIOS = [
   { id: 'sol', texto: '8 dias pegando sol', meta: 8 }
 ];
 
-// Baú surpresa: cada bônus rola um baú. O prêmio é uma fatia do pote de baús da quinzena
-// (com R$131 no pote: vazio, ~R$5, ~R$15 ou ~R$40). Montante maior, baú maior.
+// Baú do dia: o PRIMEIRO bônus de cada dia abre um baú (um por dia).
+// O prêmio é múltiplo de uma base b = pote de baús ÷ (1,7 × dias da quinzena).
+// Valor esperado por baú = 0,3×1b + 0,2×3b + 0,1×8b = 1,7b → a quinzena inteira paga, em média, exatamente o pote.
 const BAU_CHANCES = [
-  { pct: 0, p: 0.40 },
-  { pct: 0.04, p: 0.30 },
-  { pct: 0.11, p: 0.20 },
-  { pct: 0.30, p: 0.10 }
+  { mult: 0, p: 0.40 },
+  { mult: 1, p: 0.30 },
+  { mult: 3, p: 0.20 },
+  { mult: 8, p: 0.10 }
 ];
-// Baú de nível: entre 19% e 38% do pote de baús (~R$25 a R$50 com R$131 no pote)
-const BAU_NIVEL = { min: 0.19, max: 0.38 };
+const BAU_ESPERADO = 1.7;
+// Baú de nível: 2b a 4b, também do pote de baús
+const BAU_NIVEL = { min: 2, max: 4 };
 
 // Tipos de treino
 const TIPOS_TREINO = [

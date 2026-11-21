@@ -1345,3 +1345,9 @@ body.chat-aberto .nav-ia span { box-shadow: 0 0 0 5px var(--bg); }
 .chest-anim { box-shadow: none !important; }
 .tasks.lista.bonus .task.mis:not(.done):not(.add-bonus) .task-ic { background: var(--s2); color: var(--ink2); }
 .tasks.lista .task.mis.done { background: var(--card); }
+
+/* Missões com tempo */
+.task-xp .dur { font-style: normal; font-size: 11.5px; color: var(--muted); border: 1px solid var(--s3); border-radius: 999px; padding: 2px 7px; margin-right: 8px; }
+.task-timer { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 700; color: var(--blue2); border: 1px solid rgba(242, 106, 27, .45); border-radius: 999px; padding: 5px 10px; }
+.timer-grande { font-size: 56px; font-weight: 700; letter-spacing: -.03em; text-align: center; font-variant-numeric: tabular-nums; padding: 6px 0 0; }
+.sim-btn.pri { background: var(--ink); color: #000; }
