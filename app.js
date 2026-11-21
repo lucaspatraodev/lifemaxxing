@@ -1878,6 +1878,7 @@ function cardPendente() {
     <div class="pend-topo"><b class="pend-valor">${brl(p.total)}</b><span class="pend-xp">${ic('star')} ${num(p.xpNovo)} XP</span></div>
     <div class="pend-lista">
       ${linha('XP', `${num(p.xpNovo)} XP desde o último saque`, p.doXp)}
+      ${!p.cheio && p.noBloco ? `<div class="pend-linha caminho"><span><b>A caminho</b><small>${p.noBloco} XP no bloco · prende ao chegar em ${p.r.xp} XP</small></span><em>${brl(Math.floor(p.noBloco * p.r.valor / p.r.xp * 100) / 100)}</em></div>` : ''}
       ${p.cortes || p.corte ? linha('Dias bons', p.corte ? `${p.corte.bons} de ${p.corte.total} dias · corte ${SEMANA_CURTA[diaSemana(somaDias(p.alvo, -1))]} à meia-noite` : 'corte de hoje', p.cortes) : ''}
       ${p.baus ? linha('Baús', '', p.baus) : ''}
       ${p.antes > 0.009 ? linha('Sobra de antes', 'liberado e ainda não sacado', p.antes) : ''}

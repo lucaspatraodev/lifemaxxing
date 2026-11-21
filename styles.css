@@ -1505,3 +1505,16 @@ body.claro .rumo-bar .ja { background: #18181B; opacity: .35; }
 .pend-nota { display: block; font-size: 12px; color: var(--muted); line-height: 1.35; margin-top: 6px; }
 body.claro .pend .rumo-bar { background: #E2E2E6; }
 .overlay { cursor: pointer; } .overlay .sheet { cursor: auto; }
+
+.pend-linha.caminho em { color: var(--muted); }
+.pend-linha.caminho b { color: var(--ink2); }
+
+/* Aba ativa: o fundo laranja fica dentro do próprio botão (no Safari a pílula solta cobria o texto) */
+.nav-ind { display: none !important; }
+.nav button { position: relative; z-index: 1; isolation: isolate; }
+.nav button::before {
+  content: ''; position: absolute; inset: 7px 5px; border-radius: 8px; background: var(--blue); z-index: -1;
+  opacity: 0; transform: scale(.7); transition: opacity .18s ease, transform .3s cubic-bezier(.2, 1.4, .4, 1);
+}
+.nav button.on::before { opacity: 1; transform: none; }
+.nav button.on, body.claro .nav button.on { color: #000 !important; }
