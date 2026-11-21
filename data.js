@@ -14,6 +14,10 @@ const DADOS_INICIAIS = {
   pet: { nome: 'João Frango', imagem: '' },
   logo: 2,          // logo escolhido (1 a 5, ver logos.js)
   tema: 'escuro',   // 'escuro' ou 'claro' // galo surfista; a imagem pode ser trocada em Ajustes
+  // Danos: metas por semana (seg a dom). Delivery segue os tickets da quinzena.
+  danos: { beber: 2, fumar: 4 },
+  // Categorias de gasto (dá para criar novas no registro de gasto e apagar em Ajustes)
+  categorias: ['Comida', 'Doce', 'Delivery', 'Bebida', 'Fumo', 'Lazer', 'Transporte', 'Roupa', 'Outro'],
 
   // Bônus de XP fora dos hábitos
   xpBonus: {
@@ -186,7 +190,7 @@ const CICLO_NIVEL = 43000;
 
 // Desafios sorteados no dia do pagamento
 const DESAFIOS = [
-  { id: 'semfastfood', texto: '10 dias seguidos sem fast food', meta: 10 },
+  { id: 'semfastfood', texto: '10 dias seguidos sem delivery', meta: 10 },
   { id: 'natureza', texto: '2 saídas na natureza', meta: 2 },
   { id: 'treinos', texto: '6 treinos na quinzena', meta: 6 },
   { id: 'diasbons', texto: '10 dias bons', meta: 10 },
@@ -217,4 +221,11 @@ const TIPOS_TREINO = [
   { id: 'skate', nome: 'Skate', icone: 'skate', cardio: true }
 ];
 
-const CATEGORIAS_GASTO = ['Comida', 'Doce', 'Delivery', 'Lazer', 'Transporte', 'Outro'];
+const CATEGORIAS_GASTO = ['Comida', 'Doce', 'Delivery', 'Bebida', 'Fumo', 'Lazer', 'Transporte', 'Roupa', 'Outro'];
+
+// Danos: coisas ruins para a saúde que você registra e controla por meta
+const TIPOS_DANO = [
+  { id: 'delivery', nome: 'Delivery', icone: 'burger', categoria: 'Delivery', periodo: 'quinzena' },
+  { id: 'beber', nome: 'Beber', icone: 'glass', categoria: 'Bebida', periodo: 'semana' },
+  { id: 'fumar', nome: 'Fumar', icone: 'leaf', categoria: 'Fumo', periodo: 'semana' }
+];

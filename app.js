@@ -75,6 +75,8 @@ const IC = {
   timer: '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M9.5 2.5h5"/>',
   trophy: '<path d="M8 4.5h8v5a4 4 0 0 1-8 0z"/><path d="M8 6.5H5a3 3 0 0 0 3 3.5M16 6.5h3a3 3 0 0 1-3 3.5M12 13.5V17M8.5 20.5h7M9.5 17h5v3.5h-5z"/>',
   chest: '<rect x="3.5" y="10" width="17" height="10" rx="2"/><path d="M3.5 10a8.5 5.5 0 0 1 17 0M3.5 13.5h17"/><rect x="10.5" y="12" width="3" height="3.5" rx="1"/>',
+  glass: '<path d="M6 3.5h12l-1.2 7.2a4.9 4.9 0 0 1-9.6 0z"/><path d="M12 15.5v5M8.5 20.5h7M6.6 7.5h10.8"/>',
+  leaf: '<path d="M12 21v-6"/><path d="M12 15c-1-3-1-6 0-11 1 5 1 8 0 11z"/><path d="M12 15c-2.5-1.2-4.6-3.4-6.5-7 3.3 1 5.6 3.2 6.5 7zM12 15c2.5-1.2 4.6-3.4 6.5-7-3.3 1-5.6 3.2-6.5 7z"/><path d="M12 15.5c-2 .4-4 .2-6.5-1 2.4-.6 4.6-.5 6.5 1zM12 15.5c2 .4 4 .2 6.5-1-2.4-.6-4.6-.5-6.5 1z"/>',
   burger: '<path d="M4.5 11a7.5 5.5 0 0 1 15 0z"/><path d="M3.5 14.5h17"/><path d="M5 17.5h14a1.5 1.5 0 0 1-1.5 2h-11A1.5 1.5 0 0 1 5 17.5z"/>',
   lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
   unlock: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 7.7-1.5"/>',
@@ -570,7 +572,52 @@ function desfazerTreinosHoje(hid) {
   salvar();
 }
 
-// Fast food: usa ticket se houver, senão sai do dinheiro livre
+// ---------- Danos (delivery, beber, fumar) ----------
+const tipoDano = (id) => TIPOS_DANO.find((t) => t.id === id);
+const categorias = () => (S.config.categorias && S.config.categorias.length ? S.config.categorias : CATEGORIAS_GASTO);
+// Semana dos danos: segunda a domingo
+function semanaDe(iso) { const w = diaSemana(iso); const ini = somaDias(iso, -((w + 6) % 7)); return { ini, fim: somaDias(ini, 6) }; }
+// Registros de um tipo entre duas datas (delivery vem dos registros de fast food antigos)
+function registrosDano(id, de, ate) {
+  return intervalo(de, ate).flatMap((d) => {
+    const dd = diaLer(d);
+    if (id === 'delivery') return (dd.fastfood || []).map((x, k) => ({ ...x, data: d, tipo: 'delivery', k }));
+    return (dd.danos || []).filter((x) => x.tipo === id).map((x) => ({ ...x, data: d }));
+  });
+}
+// Meta e contagem do período atual de cada tipo
+function statusDano(id, iso = S.sim.data) {
+  const t = tipoDano(id), q = S.quinzena;
+  if (id === 'delivery') {
+    const ti = ticketsInfo(q);
+    const n = registrosDano(id, q.inicio, minIso(iso, q.fim)).length;
+    return { n, meta: ti.max, periodo: 'quinzena', rotulo: 'na quinzena', ti };
+  }
+  const s = semanaDe(iso);
+  const n = registrosDano(id, s.ini, iso).length;
+  return { n, meta: (S.config.danos || {})[id] ?? 0, periodo: 'semana', rotulo: 'nesta semana', ini: s.ini, fim: s.fim, t };
+}
+// Registra um dano; o gasto (opcional) entra nos gastos com a categoria do tipo
+function registrarDano(id, valor) {
+  const t = tipoDano(id), iso = S.sim.data, q = S.quinzena;
+  const reg = { id: uid(), tipo: id, hora: Date.now() };
+  if (valor > 0) {
+    const g = { id: uid(), data: iso, valor, categoria: t.categoria, nota: t.nome };
+    q.gastos.push(g); reg.valor = valor; reg.gasto = g.id;
+  }
+  const d = dia(iso); d.danos = d.danos || []; d.danos.push(reg);
+  salvar();
+  return reg;
+}
+function apagarDano(iso, regId) {
+  const d = S.dias[iso]; if (!d || !d.danos) return;
+  const reg = d.danos.find((x) => x.id === regId); if (!reg) return;
+  d.danos = d.danos.filter((x) => x !== reg);
+  if (reg.gasto) S.quinzena.gastos = S.quinzena.gastos.filter((g) => g.id !== reg.gasto);
+  salvar();
+}
+
+// Delivery: usa ticket se houver, senão sai do dinheiro livre
 function registrarFastFood(valor) {
   const q = S.quinzena, iso = S.sim.data;
   const t = ticketsInfo(q);
@@ -581,7 +628,7 @@ function registrarFastFood(valor) {
     doBolso = Math.max(0, valor - S.config.delivery.ticket);
   }
   dia(iso).fastfood.push({ valor, ticket: usouTicket });
-  if (doBolso > 0) q.gastos.push({ id: uid(), data: iso, valor: doBolso, categoria: 'Delivery', descontado: true, nota: usouTicket ? 'Fast food (resto do ticket)' : 'Fast food' });
+  if (doBolso > 0) q.gastos.push({ id: uid(), data: iso, valor: doBolso, categoria: 'Delivery', descontado: true, nota: usouTicket ? 'Delivery (resto do ticket)' : 'Delivery' });
   salvar();
   return { usouTicket, doBolso };
 }
@@ -1120,7 +1167,7 @@ function renderHoje() {
     <button class="task mis add-bonus" data-a="novoBonus"><span class="task-ic">${ic('plus')}</span><span class="task-tx"><b>Adicionar bônus</b></span></button>
   </div>
 
-  <button class="linha-cfg" data-a="fastfood"><span class="task-ic">${ic('burger')}</span><span class="task-tx"><b>Fast food</b>${f.tickets.disponiveis ? `<small>${f.tickets.disponiveis} ticket disponível</small>` : ''}</span>${ic('next')}</button>`;
+  <button class="linha-cfg" data-a="danos"><span class="task-ic">${ic('heart')}</span><span class="task-tx"><b>Danos</b><small>${TIPOS_DANO.map((t) => { const s = statusDano(t.id); return `${t.nome} ${s.n}/${s.meta}`; }).join(' · ')}${f.tickets.disponiveis ? ` · ${f.tickets.disponiveis} ticket` : ''}</small></span>${ic('next')}</button>`;
 }
 
 // ---------- Missões com tempo (ex.: 1h sem celular) ----------
@@ -1291,7 +1338,53 @@ function proximaFicha() {
   return !ultimo ? 'A' : { A: 'B', B: 'C', C: 'A' }[ultimo.tipo];
 }
 
-// Fast food
+// Danos: escolher o que registrar
+function abrirDanos() {
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic warn">${ic('heart')}</span><div><span class="eyebrow">Registrar</span><h3>Danos</h3></div></div>
+    <div class="danos-lista">${TIPOS_DANO.map((t) => {
+      const s = statusDano(t.id), passou = s.n >= s.meta;
+      return `<button class="dano-op" data-dano="${t.id}"><span class="task-ic">${ic(t.icone)}</span><span class="task-tx"><b>${t.nome}</b><small>${s.n} de ${s.meta} ${s.rotulo}</small></span><span class="dano-n ${passou ? 'no-limite' : ''}">${s.n}/${s.meta}</span></button>`;
+    }).join('')}</div>
+    <p class="nota">Metas e histórico em Progresso › Danos.</p>`,
+  (el) => el.querySelector('.danos-lista').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-dano]'); if (!b) return;
+    const id = b.dataset.dano; fecharFolha(true);
+    if (id === 'delivery') abrirFastFood(); else abrirDano(id);
+  }));
+}
+// Beber / fumar: registra 1 vez, com gasto opcional
+function abrirDano(id) {
+  const t = tipoDano(id), s = statusDano(id);
+  let valor = 0;
+  const pct = s.meta ? Math.min(100, ((s.n + 1) / s.meta) * 100) : 100;
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic warn">${ic(t.icone)}</span><div><span class="eyebrow">Dano · ${s.rotulo}</span><h3>${t.nome}</h3></div></div>
+    <div class="rumo dano ${s.n + 1 > s.meta ? 'passou' : ''}">
+      <div class="rumo-top"><b class="rumo-xp">${s.n + 1}<small> de ${s.meta}</small></b><span class="rumo-alvo">${s.n + 1 > s.meta ? 'Passa da meta' : s.n + 1 === s.meta ? 'Chega na meta' : `Ainda dentro da meta`}</span></div>
+      <div class="rumo-bar"><i class="essa" style="width:${pct.toFixed(1)}%"></i></div>
+      <small>Meta: até ${s.meta} ${s.meta === 1 ? 'vez' : 'vezes'} por semana (seg a dom). Muda em Progresso › Danos.</small>
+    </div>
+    <span class="eyebrow">Gasto (opcional)</span>
+    <div class="chips" data-s="v"><button class="chip on" data-v="0">Sem gasto</button>${[10, 20, 35, 50].map((v) => `<button class="chip" data-v="${v}">${brl(v)}</button>`).join('')}
+      <input class="chip-in" type="number" inputmode="decimal" placeholder="Outro" min="1"></div>
+    <div class="row2"><button class="btn ghost" data-fechar>Desistir</button><button class="btn dark" data-s="ok">Registrar</button></div>`,
+  (el) => {
+    el.querySelector('[data-s="v"]').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      valor = Number(b.dataset.v); el.querySelector('.chip-in').value = '';
+      el.querySelectorAll('[data-s="v"] .chip').forEach((c) => c.classList.toggle('on', c === b));
+    });
+    el.querySelector('.chip-in').addEventListener('input', (e) => { const v = Number(e.target.value); valor = v > 0 ? v : 0; el.querySelectorAll('[data-s="v"] .chip').forEach((c) => c.classList.toggle('on', !(v > 0) && c.dataset.v === '0')); });
+    el.querySelector('[data-s="ok"]').addEventListener('click', () => {
+      registrarDano(id, valor); fecharFolha(); render();
+      const n = statusDano(id);
+      toast(`${t.nome}: ${n.n} de ${n.meta} nesta semana${valor ? ` · ${brl(valor)} em ${t.categoria}` : ''}`);
+    });
+  });
+}
+
+// Delivery (antigo fast food)
 function abrirFastFood() {
   const t = ticketsInfo(S.quinzena), ticket = S.config.delivery.ticket, fds = S.config.fimDeSemanaSantos;
   const desafioFF = S.quinzena.desafio.id === 'semfastfood' && !S.quinzena.desafio.concluido;
@@ -1301,10 +1394,11 @@ function abrirFastFood() {
     const bolso = t.disponiveis ? Math.max(0, valor - ticket) : valor;
     return `<div class="custo"><b>${brl(valor)}</b><span>= ${pct}% de um fim de semana de viagem</span></div>
       <p class="nota">${t.disponiveis ? `Usa 1 ticket de delivery (${brl(ticket)}).${bolso ? ` ${brl(bolso)} saem do dinheiro livre.` : ''}` : `Sem ticket liberado: ${brl(valor)} saem do dinheiro livre.`}
-      ${desafioFF ? '<br><b>Quebra o desafio “10 dias seguidos sem fast food”.</b>' : ''}</p>`;
+      ${desafioFF ? `<br><b>Zera a contagem do desafio da quinzena “${esc(S.quinzena.desafio.texto)}”.</b>` : ''}</p>
+      ${(() => { const s = statusDano('delivery'); return `<p class="nota">${s.n} de ${s.meta} delivery na quinzena${s.n + 1 > s.meta ? ' · <b>este passa da meta</b>' : ''}.</p>`; })()}`;
   };
   abrirFolha(`
-    <div class="sheet-head"><span class="sheet-ic warn">${ic('burger')}</span><div><span class="eyebrow">Custo real</span><h3>Fast food</h3></div></div>
+    <div class="sheet-head"><span class="sheet-ic warn">${ic('burger')}</span><div><span class="eyebrow">Custo real · dano</span><h3>Delivery</h3></div></div>
     <div class="chips" data-s="valores">${[20, 35, 50, 70].map((v) => `<button class="chip ${v === valor ? 'on' : ''}" data-v="${v}">${brl(v)}</button>`).join('')}
       <input class="chip-in" type="number" inputmode="decimal" placeholder="Outro" min="1"></div>
     <div data-s="info">${info()}</div>
@@ -1823,7 +1917,8 @@ function abrirGasto() {
     <div class="chips" data-s="v">${[10, 20, 35, 50, 100].map((v) => `<button class="chip" data-v="${v}">${brl(v)}</button>`).join('')}
       <input class="chip-in" type="number" inputmode="decimal" placeholder="Outro" min="1"></div>
     <span class="eyebrow">2. Categoria</span>
-    <div class="chips cats off" data-s="c">${CATEGORIAS_GASTO.map((c) => `<button class="chip" data-c="${c}">${c}</button>`).join('')}</div>`,
+    <div class="chips cats off" data-s="c">${categorias().map((c) => `<button class="chip" data-c="${esc(c)}">${esc(c)}</button>`).join('')}<button class="chip nova" data-s="nova">${ic('plus')} Nova</button></div>
+    <div class="nova-cat" data-s="novacat" hidden><input type="text" maxlength="24" placeholder="Nome da categoria"><button class="btn dark" data-s="criar">Criar e usar</button></div>`,
   (el) => {
     const cats = el.querySelector('[data-s="c"]');
     const escolhe = (v) => { valor = v; cats.classList.toggle('off', !(v > 0)); };
@@ -1833,11 +1928,24 @@ function abrirGasto() {
       escolhe(Number(b.dataset.v));
     });
     el.querySelector('.chip-in').addEventListener('input', (e) => { el.querySelectorAll('[data-s="v"] .chip').forEach((c) => c.classList.remove('on')); escolhe(Number(e.target.value)); });
-    cats.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-c]'); if (!b || !(valor > 0)) return;
-      S.quinzena.gastos.push({ id: uid(), data: S.sim.data, valor, categoria: b.dataset.c });
+    const lancar = (cat) => {
+      S.quinzena.gastos.push({ id: uid(), data: S.sim.data, valor, categoria: cat });
       salvar(); fecharFolha(); render();
-      toast(`${brl(valor)} em ${b.dataset.c}`);
+      toast(`${brl(valor)} em ${cat}`);
+    };
+    cats.addEventListener('click', (e) => {
+      if (e.target.closest('[data-s="nova"]')) { const box = el.querySelector('[data-s="novacat"]'); box.hidden = false; box.querySelector('input').focus(); return; }
+      const b = e.target.closest('[data-c]'); if (!b || !(valor > 0)) return;
+      lancar(b.dataset.c);
+    });
+    el.querySelector('[data-s="criar"]').addEventListener('click', () => {
+      const nome = el.querySelector('[data-s="novacat"] input').value.trim().replace(/\s+/g, ' ');
+      if (!nome) return toast('Dê um nome para a categoria');
+      if (!(valor > 0)) return toast('Escolha o valor primeiro');
+      const lista = categorias();
+      const existe = lista.find((c) => c.toLowerCase() === nome.toLowerCase());
+      if (!existe) S.config.categorias = [...lista.filter((c) => c !== 'Outro'), nome, ...(lista.includes('Outro') ? ['Outro'] : [])];
+      lancar(existe || nome);
     });
   });
 }
@@ -1889,6 +1997,46 @@ function cardPendente() {
   </section>`;
 }
 
+// Progresso › Danos: metas, semanas anteriores, gasto e registros
+function renderDanos() {
+  const iso = S.sim.data, q = S.quinzena;
+  const cards = TIPOS_DANO.map((t) => {
+    const s = statusDano(t.id);
+    const pct = s.meta ? Math.min(100, (s.n / s.meta) * 100) : (s.n ? 100 : 0);
+    const estado = s.n > s.meta ? 'passou' : s.n === s.meta && s.meta > 0 ? 'limite' : '';
+    const gasto = soma(q.gastos.filter((g) => g.categoria === t.categoria).map((g) => g.valor));
+    // últimas 4 semanas (ou quinzenas, no delivery: só a atual)
+    const semanas = t.periodo === 'semana' ? [3, 2, 1, 0].map((k) => {
+      const ref = somaDias(semanaDe(iso).ini, -7 * k), fimS = minIso(somaDias(ref, 6), iso);
+      const n = registrosDano(t.id, ref, fimS).length;
+      return `<div class="dsem ${n > s.meta ? 'passou' : ''}"><i style="height:${Math.max(4, Math.min(100, s.meta ? (n / s.meta) * 100 : n * 25))}%"></i><span>${k === 0 ? 'esta' : dataCurta(ref)}</span><b>${n}</b></div>`;
+    }).join('') : '';
+    return `
+    <section class="card dano-card ${estado}">
+      <div class="dano-topo">
+        <span class="task-ic">${ic(t.icone)}</span>
+        <div class="dano-tt"><b>${t.nome}</b><small>${t.periodo === 'semana' ? `meta: até ${s.meta} por semana` : `meta: ${s.meta} na quinzena (tickets)`}</small></div>
+        <b class="dano-num">${s.n}<small>/${s.meta}</small></b>
+      </div>
+      <div class="rumo-bar"><i class="essa" style="width:${pct.toFixed(1)}%"></i></div>
+      <div class="dano-pe">
+        <span>${s.rotulo}${estado === 'passou' ? ' · passou da meta' : estado === 'limite' ? ' · no limite' : ` · ${Math.max(0, s.meta - s.n)} de folga`}${gasto ? ` · ${brl(gasto)} gastos na quinzena` : ''}</span>
+        ${t.periodo === 'semana' ? `<span class="stepper"><button data-a="metaDano" data-k="${t.id}" data-d="-1" aria-label="Diminuir meta">−</button><button data-a="metaDano" data-k="${t.id}" data-d="1" aria-label="Aumentar meta">+</button></span>`
+          : `<span class="dano-tk">${s.ti.liberados} ticket${s.ti.liberados === 1 ? '' : 's'} liberado${s.ti.liberados === 1 ? '' : 's'}</span>`}
+      </div>
+      ${semanas ? `<div class="dsemanas">${semanas}</div>` : ''}
+      <button class="btn ghost sm" data-a="dano" data-k="${t.id}">${ic('plus')} Registrar ${t.nome.toLowerCase()}</button>
+    </section>`;
+  }).join('');
+  const recentes = intervalo(somaDias(iso, -13), iso).reverse().flatMap((d) => TIPOS_DANO.flatMap((t) => registrosDano(t.id, d, d).map((r) => ({ ...r, t }))));
+  const lista = recentes.slice(0, 12).map((r) => `<div class="hist"><span class="hist-ic">${ic(r.t.icone)}</span><span class="task-tx"><b>${r.t.nome}</b><small>${dataCurta(r.data)}${r.valor ? ` · ${brl(r.valor)}` : ''}${r.ticket ? ' · ticket' : ''}</small></span>${r.t.id !== 'delivery' ? `<button class="icon-sm" data-a="apagarDano" data-iso="${r.data}" data-id="${r.id}" aria-label="Apagar">${ic('trash')}</button>` : ''}</div>`).join('');
+  return `
+  <p class="nota">Registre em Hoje › Danos. Beber e fumar contam por semana (seg a dom); delivery segue os tickets da quinzena.</p>
+  ${cards}
+  <h3 class="sec">Últimos 14 dias</h3>
+  <section class="card list danos-hist">${lista || '<p class="vazio">Nenhum registro. Boa.</p>'}</section>`;
+}
+
 function renderProgresso() {
   const iso = S.sim.data, xp = xpTotal(), n = nivelInfo(xp);
   const seq = sequencia(iso);
@@ -1925,8 +2073,15 @@ function renderProgresso() {
 
   const hist = S.historico.map((h) => `<div><b>${dataCurta(h.inicio)} a ${dataCurta(h.fim)}</b><span>${h.diasBons}/${h.dias} bons · ${brl(h.liberado)} liberados${h.travadoPassa ? ` · ${brl(h.travadoPassa)} passaram` : ''}</span></div>`).join('');
 
+  const abaP = UI.progAba || 'evolucao';
+  const abasP = `<div class="seg grana-abas">${[['evolucao', 'Evolução'], ['danos', 'Danos']].map(([k, nm]) => `<button class="${abaP === k ? 'on' : ''}" data-a="progAba" data-k="${k}">${nm}</button>`).join('')}</div>`;
+  if (abaP === 'danos') return `
+  <div class="page-head"><span class="eyebrow">${num(xp)} XP no total</span><h1>Progresso</h1></div>
+  ${abasP}
+  ${renderDanos()}`;
   return `
   <div class="page-head"><span class="eyebrow">${num(xp)} XP no total</span><h1>Progresso</h1></div>
+  ${abasP}
   ${cardPendente()}
   <section class="card">
     <div class="card-head"><div><span class="eyebrow">Sequência</span><h2>${seq} <small>${seq === 1 ? 'dia' : 'dias'} · melhor ${maiorSequencia()}</small></h2></div>${ic('flame', 'flame-big')}</div>
@@ -2029,6 +2184,10 @@ function renderAjustes() {
     <label class="inline">Valor do ticket<input type="number" value="${c.delivery.ticket}" data-cfg="delivery.ticket" data-num></label>
     <label class="inline">Dias bons para 1 ticket<input type="number" value="${c.delivery.diasSeguidos}" data-cfg="delivery.diasSeguidos" data-num></label>
   </section>
+
+  <h3 class="sec" id="aj-categorias">Categorias de gasto</h3>
+  <section class="card cats-aj"><div class="chips">${categorias().map((c) => `<span class="chip cat-x">${esc(c)}<button data-a="apagarCategoria" data-c="${esc(c)}" aria-label="Apagar ${esc(c)}">${ic('x')}</button></span>`).join('')}</div>
+    <p class="nota">Crie novas na hora de registrar um gasto (Grana › Novo gasto › Nova).</p></section>
 
   <h3 class="sec" id="aj-regras">Regras</h3>
   <section class="card lista-mini regras">
@@ -2379,7 +2538,8 @@ function contextoIA() {
     const parc = hab.filter((h) => !habitoFeito(d, h) && partesFeitas(d, h) > 0).map((h) => `${h.id}(${partesFeitas(d, h)}/${h.partes.length})`);
     return `${d} ${SEMANA_CURTA[diaSemana(d)]} | ${ehBom(d) ? 'DIA BOM' : 'não'} | ${xpDoDia(d)} XP | feitos: ${feitos.join(',') || 'nada'}`
       + (parc.length ? ` | parcial: ${parc.join(',')}` : '')
-      + (dd.fastfood.length ? ` | fast food: ${dd.fastfood.map((x) => brl(x.valor) + (x.ticket ? ' (ticket)' : '')).join(', ')}` : '')
+      + (dd.fastfood.length ? ` | delivery: ${dd.fastfood.map((x) => brl(x.valor) + (x.ticket ? ' (ticket)' : '')).join(', ')}` : '')
+        + ((dd.danos || []).length ? ` | danos: ${dd.danos.map((x) => x.tipo + (x.valor ? ' ' + brl(x.valor) : '')).join(', ')}` : '')
       + (d === iso ? ' | HOJE (em andamento)' : '');
   });
   const dados = {
@@ -2706,6 +2866,12 @@ const acoes = {
   },
   tarefa(el) { abrirTarefa(el.dataset.h, Number(el.dataset.i)); },
   fastfood() { abrirFastFood(); },
+  danos() { abrirDanos(); },
+  dano(el) { if (el.dataset.k === 'delivery') abrirFastFood(); else abrirDano(el.dataset.k); },
+  metaDano(el) { const k = el.dataset.k; S.config.danos = S.config.danos || {}; S.config.danos[k] = Math.max(0, (S.config.danos[k] ?? 0) + Number(el.dataset.d)); salvar(); render(); },
+  apagarDano(el) { confirmar('Apagar este registro? O gasto ligado a ele também sai.', 'Apagar', () => { apagarDano(el.dataset.iso, el.dataset.id); render(); }); },
+  progAba(el) { UI.progAba = el.dataset.k; render(); window.scrollTo(0, 0); },
+  apagarCategoria(el) { S.config.categorias = categorias().filter((c) => c !== el.dataset.c); salvar(); render(); },
   novoBonus() { abrirNovoBonus(); },
   usarSantos() { abrirUsarSantos(); },
 
@@ -3055,6 +3221,16 @@ function migrar() {
   S.config.migracoes = S.config.migracoes || [];
   if (!S.config.migracoes.includes('logo2')) { S.config.logo = 2; S.config.migracoes.push('logo2'); }
   S.config.migracoes = S.config.migracoes || [];
+  // danos: metas, categorias de gasto e o desafio de fast food vira delivery
+  if (!S.config.migracoes.includes('danos1')) {
+    S.config.danos = S.config.danos || clone(DADOS_INICIAIS.danos);
+    const cats = [...(S.config.categorias || CATEGORIAS_GASTO)];
+    ['Bebida', 'Fumo', 'Roupa'].forEach((c) => { if (!cats.includes(c)) cats.splice(Math.max(0, cats.indexOf('Outro')), 0, c); });
+    S.config.categorias = cats;
+    [S.quinzena, ...(S.historico || [])].forEach((q) => { if (q && q.desafio && q.desafio.id === 'semfastfood') q.desafio.texto = q.desafio.texto.replace('fast food', 'delivery'); });
+    S.config.migracoes.push('danos1');
+    salvar();
+  }
   // dentes 3x ao dia (manhã, tarde, noite). Dias abertos: a escovada da noite (parte 0) vira a parte 2.
   if (!S.config.migracoes.includes('dentes3')) {
     const h = habito('dentes'), pad = DADOS_INICIAIS.habitos.find((x) => x.id === 'dentes');
