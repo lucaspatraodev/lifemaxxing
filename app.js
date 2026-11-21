@@ -1020,10 +1020,6 @@ function renderHoje() {
   const bonus = extras().flatMap((h) => h.partes.map((pt, i) => ({ h, i, pt })));
   const bonusFeitos = bonus.filter((t) => parteFeita(iso, t.h, t.i)).length;
 
-  // Próxima missão: a primeira pendente do período atual (ou de qualquer período)
-  const pendentes = (per) => tarefasDoPeriodo(per).filter((t) => t.h.tipo === 'minimo' && !parteFeita(iso, t.h, t.i));
-  const prox = pendentes(S.sim.periodo)[0] || ['manha', 'tarde', 'noite'].map(pendentes).flat()[0];
-
   const tarefaFixos = iso === q.inicio ? `
       <button class="task mis pagamento ${q.fixosOk ? 'done' : ''}" data-a="abrirFixos">
         <span class="task-ic">${ic('calendar')}</span>
@@ -1037,7 +1033,7 @@ function renderHoje() {
   return `
   <header class="ola">
     <div class="ola-tx">
-      <h1>${saudacao},<br>${esc(S.config.nome)}</h1>
+      <h1>${saudacao}, ${esc(S.config.nome)}</h1>
       <p>${dataLonga(iso)}</p>
     </div>
     <button class="avatar-pet" data-a="pet" aria-label="${esc(pet.nome || 'João Frango')}">
@@ -1046,18 +1042,18 @@ function renderHoje() {
     </button>
   </header>
 
-  <span class="rotulo">${bom ? 'Dia bom fechado' : 'Próxima missão'}</span>
-  ${prox ? `
-  <button class="cta" data-a="tarefa" data-h="${prox.h.id}" data-i="${prox.i}">
-    <span class="cta-tx"><b>${esc(prox.pt.rotulo || prox.h.nome)}</b><small>${timerDe(iso, prox.h, prox.i) ? `Em andamento · <span data-timer="${chaveParte(prox.h, prox.i)}">${fmtTempo(Math.max(0, restanteMs(iso, prox.h, prox.i)))}</span>` : `+${parteXp(prox.h, prox.i)} XP · ${PERIODOS[prox.pt.periodo] || ''}${duracaoParte(prox.h, prox.i) ? ` · ${duracaoParte(prox.h, prox.i)} min` : ''}`}</small></span>
-    <span class="cta-seta">${ic('arrow')}</span>
-  </button>` : `
-  <div class="cta feito"><span class="cta-tx"><b>Todas as ${tot} missões</b><small>+${S.config.xpDiaBom} XP do dia bom</small></span><span class="cta-seta">${ic('check')}</span></div>`}
-
   <div class="tiles">
     <div class="tile"><b>${cont}<small>/${tot}</small></b><span>Missões</span></div>
     <div class="tile escuro"><b>${ic('star')} ${num(xpDoDia(iso))}</b><span>XP hoje</span></div>
   </div>
+
+
+  <div class="filtros" aria-label="Missões por período">${Object.keys(PERIODOS).map((k) => {
+    const lista = tarefasDoPeriodo(k).filter((t) => t.h.tipo === 'minimo');
+    const feitas = lista.filter((t) => parteFeita(iso, t.h, t.i)).length;
+    return `<button class="${k === p ? 'on' : ''} ${lista.length && feitas === lista.length ? 'completo' : ''}" data-a="abaPeriodo" data-p="${k}">${PERIODOS[k]} <span class="tab-n">${feitas}/${lista.length}</span></button>`;
+  }).join('')}</div>
+  <div class="tasks obrigacoes lista">${tarefaFixos}${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</div>
 
   <section class="stat-card">
     <div class="stat-row">
@@ -1068,14 +1064,6 @@ function renderHoje() {
     <div class="bar"><i id="xpbar" style="width:${n.pct.toFixed(1)}%"></i></div>
     <div class="stat-pe"><span>Nível ${n.nivel} · ${esc(n.nome)}</span><span id="xpnum">${num(n.atual)} / ${num(n.falta)} XP</span></div>
   </section>
-
-  <h3 class="sec">Missões</h3>
-  <div class="filtros" aria-label="Missões por período">${Object.keys(PERIODOS).map((k) => {
-    const lista = tarefasDoPeriodo(k).filter((t) => t.h.tipo === 'minimo');
-    const feitas = lista.filter((t) => parteFeita(iso, t.h, t.i)).length;
-    return `<button class="${k === p ? 'on' : ''} ${lista.length && feitas === lista.length ? 'completo' : ''}" data-a="abaPeriodo" data-p="${k}">${PERIODOS[k]} <span class="tab-n">${feitas}/${lista.length}</span></button>`;
-  }).join('')}</div>
-  <div class="tasks obrigacoes lista">${tarefaFixos}${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</div>
 
   <h3 class="sec">Bônus ${bonusFeitos ? `<span class="sec-n">· ${bonusFeitos} hoje</span>` : ''}</h3>
   <div class="tasks bonus lista">${bonus.map(linha).join('')}
@@ -2493,7 +2481,7 @@ function montarChat() {
   ov.addEventListener('click', (e) => {
     const a = e.target.closest('[data-chat]'); if (!a) return;
     const k = a.dataset.chat;
-    if (k === 'fechar') fecharChat();
+    if (k === 'fechar') { if (a.classList.contains('chat-back') && performance.now() - CHATMOV.abertoEm < 500) return; fecharChat(); }
     else if (k === 'enviar') enviarChat($('#chat-in').value);
     else if (k === 'parar') { if (CHAT.enviando) CHAT.enviando.abort(); }
     else if (k === 'sug') enviarChat(a.textContent);
@@ -2505,66 +2493,136 @@ function montarChat() {
       d.start().catch((err) => { if (err && err.code === 'not_granted') { CHAT.dictation = null; renderChatBarra(); } });
     }
   });
-  // arrastar o cabeçalho para baixo fecha
+  // arrastar o cabeçalho para baixo fecha (acompanha o dedo, solta com mola)
   const head = ov.querySelector('[data-chat="arrasto"]');
-  let y0 = null;
-  head.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; y0 = e.clientY; ov.classList.add('arrastando'); head.setPointerCapture(e.pointerId); });
-  head.addEventListener('pointermove', (e) => { if (y0 === null) return; posChat(Math.max(0, e.clientY - y0) / ov.querySelector('.chat').offsetHeight); });
-  const solta = (e) => {
+  let y0 = null, ult = null;
+  head.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    y0 = e.clientY; ult = { y: e.clientY, t: performance.now(), v: 0 };
+    pararMolaChat(); head.setPointerCapture(e.pointerId);
+  });
+  head.addEventListener('pointermove', (e) => {
     if (y0 === null) return;
-    const dy = e.clientY - y0; y0 = null; ov.classList.remove('arrastando');
-    if (dy > 90) fecharChat(); else posChat(0);
+    const t = performance.now(), h = ov.querySelector('.chat').offsetHeight;
+    ult.v = (e.clientY - ult.y) / h / Math.max(1, t - ult.t); ult.y = e.clientY; ult.t = t;
+    posChat(Math.max(0, e.clientY - y0) / h);
+  });
+  const solta = () => {
+    if (y0 === null) return;
+    const dy = ult.y - y0; y0 = null;
+    const vel = ult.v * 1000; // fração da altura por segundo
+    if (dy > 90 || vel > 1.2) fecharChat(vel); else abrirChat(vel);
   };
   head.addEventListener('pointerup', solta); head.addEventListener('pointercancel', solta);
   return ov;
 }
-// p = 0 aberto, 1 fechado
+// ---------- Movimento do chat ----------
+// p = 0 aberto, 1 fechado. Tudo é desenhado a partir de p, então o dedo, a mola e o
+// fechamento passam pelas mesmas etapas: fundo escurece → folha sobe → cabeçalho →
+// conteúdo em cascata → barra de digitar. O botão do menu gira junto.
+const CHATMOV = { p: 1, mola: null, abertoEm: 0 };
+const faixa = (q, ini, fim) => Math.max(0, Math.min(1, (q - ini) / (fim - ini)));
+const suave = (x) => 1 - Math.pow(1 - x, 3);
 function posChat(p) {
+  CHATMOV.p = p;
   const ov = $('#chat'); if (!ov) return;
-  ov.querySelector('.chat').style.transform = `translateY(${(p * 100).toFixed(2)}%)`;
-  ov.querySelector('.chat-back').style.opacity = String(1 - p);
+  const q = 1 - p; // quanto já abriu
+  const folha = ov.querySelector('.chat');
+  const sobe = p > 0 ? p : 0;
+  const elastico = p < 0 ? p * 0.25 : 0; // passa um pouco do topo e volta
+  folha.style.transform = `translate3d(0, calc(${(sobe * 100).toFixed(3)}% + ${(elastico * 100).toFixed(2)}px), 0) scale(${(0.94 + 0.06 * suave(faixa(q, 0, 0.9))).toFixed(4)})`;
+  folha.style.borderRadius = `${Math.round(22 - 8 * faixa(q, 0.6, 1))}px ${Math.round(22 - 8 * faixa(q, 0.6, 1))}px 0 0`;
+  ov.querySelector('.chat-back').style.opacity = (0.85 * suave(faixa(q, 0, 0.7))).toFixed(3);
+  const etapa = (el, ini, fim, dy) => {
+    if (!el) return; const k = suave(faixa(q, ini, fim));
+    el.style.opacity = k.toFixed(3); el.style.transform = `translate3d(0, ${((1 - k) * dy).toFixed(1)}px, 0)`;
+  };
+  etapa(ov.querySelector('.grab'), 0.15, 0.45, 6);
+  const av = ov.querySelector('.chat-head .chat-av');
+  etapa(ov.querySelector('.chat-head-row'), 0.3, 0.65, 14);
+  if (av) av.style.transform = `rotate(${((1 - suave(faixa(q, 0.3, 0.8))) * -120).toFixed(1)}deg) scale(${(0.5 + 0.5 * suave(faixa(q, 0.3, 0.75))).toFixed(3)})`;
+  const itens = ov.querySelectorAll('.chat-vazio > *, .chat-vazio .chip, .chat-msgs > .msg');
+  const n = itens.length;
+  itens.forEach((el, k) => { const ini = 0.45 + (0.4 * k) / Math.max(1, n); etapa(el, ini, Math.min(1, ini + 0.3), 18); });
+  etapa(ov.querySelector('.chat-bar'), 0.7, 1, 26);
+  const span = $('#nav-ia span');
+  if (span) span.style.transform = `rotate(${(45 * suave(faixa(q, 0, 0.8))).toFixed(1)}deg) scale(${(1 - 0.1 * Math.sin(Math.PI * faixa(q, 0, 1))).toFixed(3)})`;
 }
-function abrirChat() {
+function pararMolaChat() { if (CHATMOV.mola) { CHATMOV.mola.stop(); CHATMOV.mola = null; } }
+// Leva p até o alvo com mola (Motion) ou com uma curva simples se a Motion não estiver disponível
+function molaChat(alvo, vel, fim) {
+  pararMolaChat();
+  const de = CHATMOV.p;
+  if (FX.ativo && window.Motion && Motion.animate) {
+    CHATMOV.mola = Motion.animate(de, alvo, {
+      type: 'spring', stiffness: alvo === 0 ? 260 : 340, damping: alvo === 0 ? 24 : 32, mass: 1,
+      velocity: vel || 0, restDelta: 0.0005,
+      onUpdate: posChat, onComplete: () => { CHATMOV.mola = null; posChat(alvo); if (fim) fim(); }
+    });
+    return;
+  }
+  const t0 = performance.now(), dur = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 320;
+  let id = 0;
+  const passo = (t) => {
+    const k = Math.min(1, (t - t0) / dur);
+    posChat(de + (alvo - de) * suave(k));
+    if (k < 1) id = requestAnimationFrame(passo);
+    else { CHATMOV.mola = null; if (fim) fim(); }
+  };
+  id = requestAnimationFrame(passo);
+  CHATMOV.mola = { stop: () => cancelAnimationFrame(id) };
+}
+function prepararChat() {
   const ov = montarChat();
-  ov.classList.add('on');
+  if (!ov.classList.contains('on')) { posChat(1); ov.classList.add('on'); }
+  return ov;
+}
+// vel: fração da altura por segundo (positiva = para baixo)
+function abrirChat(vel) {
+  prepararChat();
+  CHATMOV.abertoEm = performance.now();
   document.body.classList.add('chat-aberto');
-  requestAnimationFrame(() => { posChat(0); });
+  molaChat(0, vel || 0);
   if (navigator.vibrate) navigator.vibrate(12);
 }
-function fecharChat() {
+function fecharChat(vel) {
   const ov = $('#chat'); if (!ov) return;
   if (document.activeElement) document.activeElement.blur();
-  posChat(1);
   document.body.classList.remove('chat-aberto');
-  setTimeout(() => { if (!document.body.classList.contains('chat-aberto')) ov.classList.remove('on'); }, 280);
+  molaChat(1, vel || 0, () => { if (!document.body.classList.contains('chat-aberto')) ov.classList.remove('on'); });
 }
 
+// Botão central: toque abre; arrastar para cima puxa o chat junto com o dedo.
+// O chat só aparece depois que o dedo anda — assim o toque simples nunca cai no fundo escuro.
 function montarBotaoIA() {
   const b = $('#nav-ia'); if (!b) return;
-  let y0 = null, p = 1;
+  let g = null;
+  const ALT = () => Math.min(window.innerHeight * 0.75, 560);
   b.addEventListener('pointerdown', (e) => {
-    y0 = e.clientY; p = 1;
-    b.setPointerCapture(e.pointerId);
-    const ov = montarChat();
-    ov.classList.add('on', 'arrastando');
-    posChat(1);
+    g = { y0: e.clientY, y: e.clientY, t: performance.now(), v: 0, arrastando: false };
+    try { b.setPointerCapture(e.pointerId); } catch (_) {}
   });
   b.addEventListener('pointermove', (e) => {
-    if (y0 === null) return;
-    const dy = y0 - e.clientY;
-    p = 1 - Math.max(0, Math.min(1, dy / 260));
-    posChat(p);
+    if (!g) return;
+    const t = performance.now();
+    g.v = (e.clientY - g.y) / ALT() / Math.max(1, t - g.t); g.y = e.clientY; g.t = t;
+    const dy = g.y0 - e.clientY;
+    if (!g.arrastando && dy > 8) { g.arrastando = true; pararMolaChat(); prepararChat(); if (navigator.vibrate) navigator.vibrate(6); }
+    if (g.arrastando) {
+      const bruto = 1 - dy / ALT();
+      posChat(bruto < 0 ? bruto * 0.3 : bruto); // passou do topo: resiste
+    }
   });
   const solta = (e) => {
-    if (y0 === null) return;
-    const dy = y0 - e.clientY; y0 = null;
-    $('#chat').classList.remove('arrastando');
-    if (Math.abs(dy) < 8 || p < 0.75) abrirChat(); // toque simples ou arrasto para cima
-    else fecharChat();
+    if (!g) return;
+    const ges = g; g = null;
+    if (!ges.arrastando) { if (e.type === 'pointerup') abrirChat(); return; }
+    const vel = ges.v * 1000;
+    if (CHATMOV.p < 0.65 || vel < -0.8) abrirChat(vel); else fecharChat(vel);
   };
   b.addEventListener('pointerup', solta);
   b.addEventListener('pointercancel', solta);
-  b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirChat(); } });
+  b.addEventListener('click', (e) => { if (e.detail === 0) abrirChat(); }); // teclado / leitor de tela
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('chat-aberto')) fecharChat(); });
 }
 

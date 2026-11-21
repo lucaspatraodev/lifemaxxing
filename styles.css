@@ -1427,3 +1427,29 @@ body.claro .tasks.lista .task.add-bonus { background: transparent; }
 body.claro .mis-rot { color: var(--blue2) !important; }
 body.claro .cta.feito { background: var(--card); color: var(--ink); }
 @media (min-width: 481px) { body.claro { background: #F0D5BE; } body.claro .app { background: #fff; } }
+
+/* =========================================================
+   Chat movido pela Motion e menu com a aba ativa em laranja
+   ========================================================= */
+.chat { transition: none !important; bottom: -80px; padding-bottom: 80px; will-change: transform; transform-origin: 50% 100%; }
+.chat-back { transition: none !important; will-change: opacity; }
+.chat-head-row, .chat-bar, .chat-msgs > *, .chat-vazio > *, .chat-vazio .chip, .grab { will-change: transform, opacity; }
+body.chat-aberto .nav-ia span { transform: none; }
+.nav-ia span { transition: none; }
+
+.nav-ind {
+  display: block !important; top: 7px; height: calc(var(--nav-h) - 14px); border-radius: 8px;
+  background: var(--blue) !important; z-index: 0;
+}
+.nav button.on, body.claro .nav button.on { color: #000 !important; }
+.nav button.on .ic { stroke-width: 2.1; }
+
+/* Hoje: saudação em uma linha para as missões aparecerem de cara */
+.ola { align-items: center; padding: 14px 0 14px; }
+.ola h1 { font-size: 24px; line-height: 1.15; }
+.ola p { margin-top: 4px; }
+.avatar-pet svg, .avatar-pet img { width: 44px; height: 44px; }
+.tiles { margin-bottom: 14px; }
+.filtros { margin-top: 0; }
+.obrigacoes + .stat-card { margin-top: 18px; }
+.nav button:not(.nav-ia) { transition: color .22s ease; }

@@ -138,7 +138,7 @@ const FX = (() => {
     });
   }
 
-  // Pílula azul do menu deslizando para a aba ativa
+  // Pílula laranja do menu deslizando para a aba ativa
   function nav(primeira) {
     const navEl = document.querySelector('.nav');
     if (!navEl) return;
@@ -146,7 +146,8 @@ const FX = (() => {
     if (!ind) { ind = document.createElement('span'); ind.className = 'nav-ind'; navEl.prepend(ind); }
     const btn = navEl.querySelector('button.on');
     if (!btn) { ind.style.opacity = '0'; return; }
-    const x = btn.offsetLeft + btn.offsetWidth / 2 - ind.offsetWidth / 2;
+    ind.style.width = Math.max(40, btn.offsetWidth - 10) + 'px';
+    const x = btn.offsetLeft + btn.offsetWidth / 2 - (btn.offsetWidth - 10) / 2;
     if (!ativo || primeira) { ind.style.transform = `translateX(${x}px)`; ind.style.opacity = '1'; return; }
     anim(ind, { x, opacity: 1 }, MOLA);
   }
