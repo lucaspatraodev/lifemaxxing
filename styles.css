@@ -18,6 +18,7 @@
   --r-sm: 14px;
   --shadow: 0 1px 2px rgba(10, 14, 23, .04), 0 6px 20px rgba(10, 14, 23, .05);
   --sim-h: 0px;
+  --topo: env(safe-area-inset-top, 0px); /* notch do iPhone */
   --nav-h: 68px;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   color-scheme: light;
@@ -46,7 +47,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue); outl
 .center { text-align: center; }
 .vazio { color: var(--muted); font-size: 14px; margin: 6px 0; padding: 4px 2px; }
 
-.app { max-width: 480px; margin: 0 auto; padding: var(--sim-h) 0 calc(var(--nav-h) + 28px + env(safe-area-inset-bottom)); min-height: 100vh; }
+.app { max-width: 480px; margin: 0 auto; padding: calc(var(--sim-h) + var(--topo)) 0 calc(var(--nav-h) + 28px + env(safe-area-inset-bottom)); min-height: 100vh; }
 #view { padding: 0 16px; }
 
 /* Rótulos pequenos em maiúsculas */
@@ -59,7 +60,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue); outl
 /* --------- Barra do simulador --------- */
 #simbar {
   position: fixed; top: 0; left: 0; right: 0; z-index: 40;
-  height: var(--sim-h); background: #fff; border-bottom: 1px solid var(--line);
+  height: calc(var(--sim-h) + var(--topo)); padding-top: var(--topo) !important; background: #fff; border-bottom: 1px solid var(--line);
   display: none; align-items: center; justify-content: space-between; gap: 8px;
   padding: 0 10px; max-width: 480px; margin: 0 auto;
 }
@@ -302,6 +303,7 @@ h3.sec:first-letter { text-transform: uppercase; }
 .modal.on .modal-card { transform: none; }
 .modal-card h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
 .modal-card h2.big { font-size: 44px; }
+.modal-card h2.confirma { font-size: 19px; line-height: 1.35; letter-spacing: 0; }
 .modal-card.center { align-items: center; text-align: center; }
 .modal-card .muted { margin: 0; }
 .xp-total { font-size: 40px; font-weight: 800; color: var(--blue); letter-spacing: -.02em; text-align: center; }
@@ -339,7 +341,7 @@ h3.sec:first-letter { text-transform: uppercase; }
 .levelup .btn { max-width: 340px; margin-top: 10px; }
 
 /* --------- Toast --------- */
-#toasts { position: fixed; top: calc(var(--sim-h) + 12px); left: 0; right: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+#toasts { position: fixed; top: calc(var(--sim-h) + var(--topo) + 12px); left: 0; right: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
 .toast { background: var(--ink); color: #fff; padding: 11px 16px; border-radius: 14px; font-size: 14px; font-weight: 600; max-width: 90%; animation: desce .3s; box-shadow: 0 8px 24px rgba(0, 0, 0, .2); }
 .toast.sai { opacity: 0; transform: translateY(-8px); transition: .4s; }
 @keyframes desce { from { opacity: 0; transform: translateY(-10px); } }

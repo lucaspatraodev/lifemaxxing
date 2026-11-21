@@ -731,6 +731,15 @@ function fecharModal(ov) {
   setTimeout(() => { ov.remove(); modalAberto = false; render(); rodarFila(); }, 240);
 }
 
+// Confirmação dentro do app (o confirm() do navegador não funciona em todo lugar)
+function confirmar(msg, textoOk, aoConfirmar) {
+  abrirModal(`
+    <div class="modal-card">
+      <h2 class="confirma">${esc(msg)}</h2>
+      <div class="row2"><button class="btn ghost" data-fechar>Voltar</button><button class="btn danger" data-s="ok">${esc(textoOk)}</button></div>
+    </div>`, '', (ov) => ov.querySelector('[data-s="ok"]').addEventListener('click', () => { fecharModal(ov); aoConfirmar(); }));
+}
+
 // Botão de deslizar para confirmar
 function slideHtml(txt = 'Deslize para confirmar') {
   return `<div class="slide" data-slide><div class="slide-fill"></div><span class="slide-txt">${esc(txt)}</span><div class="slide-knob">${ic('arrow')}</div></div>`;
@@ -1610,11 +1619,10 @@ function abrirEditarHabito(id) {
       salvar(); fecharFolha(); render();
     });
     const ap = el.querySelector('[data-s="apagar"]');
-    if (ap) ap.addEventListener('click', () => {
-      if (!confirm(`Apagar o hábito ${h.nome}?`)) return;
+    if (ap) ap.addEventListener('click', () => confirmar(`Apagar o hábito ${h.nome}?`, 'Apagar', () => {
       S.config.habitos = S.config.habitos.filter((x) => x.id !== h.id);
       salvar(); fecharFolha(); render();
-    });
+    }));
   });
 }
 
@@ -1712,17 +1720,18 @@ const acoes = {
     render(); rodarFila();
   },
   reset() {
-    if (!confirm('Resetar tudo? Apaga hábitos, treinos, grana e ajustes deste aparelho.')) return;
-    try { localStorage.removeItem(CHAVE); } catch (e) { /* ignora */ }
-    S = null; UI.aba = 'hoje'; UI.descanso = null;
-    carregar(); render(); window.scrollTo(0, 0);
-    toast('Tudo zerado. Começando em 15/12/2026.');
+    confirmar('Resetar tudo? Apaga hábitos, treinos, grana e ajustes deste aparelho.', 'Resetar', () => {
+      try { localStorage.removeItem(CHAVE); } catch (e) { /* ignora */ }
+      S = null; UI.aba = 'hoje'; UI.descanso = null;
+      carregar(); render(); window.scrollTo(0, 0);
+      toast('Tudo zerado. Começando em 15/12/2026.');
+    });
   },
   modoTeste(el) { S.sim.teste = el.checked; salvar(); render(); },
 
   // treino
   iniciarTreino(el) { iniciarTreino(el.dataset.t); render(); window.scrollTo(0, 0); },
-  cancelarTreino() { if (!confirm('Cancelar este treino? Nada será salvo.')) return; S.treinoAtivo = null; UI.descanso = null; salvar(); render(); },
+  cancelarTreino() { confirmar('Cancelar este treino? Nada será salvo.', 'Cancelar treino', () => { S.treinoAtivo = null; UI.descanso = null; salvar(); render(); }); },
   finalizarTreino() {
     const t = S.treinoAtivo;
     const tt = TIPOS_TREINO.find((x) => x.id === t.tipo) || {};
