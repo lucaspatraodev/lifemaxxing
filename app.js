@@ -743,7 +743,10 @@ function fecharQuinzena() {
   // ticket liberado e não usado vira dinheiro livre (passa para a próxima como disponível)
   const sobra = Math.max(0, t.liberados - q.ticketsUsados) * S.config.delivery.ticket;
   const f = financas(q);
-  const passaTravado = Math.round(f.travado * 100) / 100;
+  // o travado é o resto exato (evita perder ou criar centavos ao arredondar)
+  const carryExato = Math.round((f.disponivel + sobra) * 100) / 100;
+  const usadosValor = Math.min(q.ticketsUsados, t.liberados) * S.config.delivery.ticket;
+  const passaTravado = Math.max(0, Math.round((q.livre + q.saldoAnterior - q.sacado - f.descontos - usadosValor - carryExato) * 100) / 100);
   q.fechada = true;
   const resumo = {
     inicio: q.inicio, fim: q.fim, tipo: q.tipo, livre: q.livre,
@@ -751,7 +754,7 @@ function fecharQuinzena() {
     porCategoria: gastosPorCategoria(q),
     diasBons: intervalo(q.inicio, q.fim).filter(ehBom).length, dias: intervalo(q.inicio, q.fim).length,
     desafio: q.desafio.texto, desafioOk: q.desafio.concluido,
-    carry: Math.round((f.disponivel + sobra) * 100) / 100
+    carry: carryExato
   };
   S.historico.unshift(resumo);
   return resumo;
@@ -977,14 +980,13 @@ function renderHoje() {
     const feito = parteFeita(iso, h, i);
     const multi = h.partes.length > 1;
     const xp = h.especial ? h.xp : parteXp(h, i); // treino e surf podem ganhar bônus em cima
-    const sub = h.especial ? (h.especial === 'treino' ? 'Abre o treino ou registra rápido' : 'Sessão de surf')
-      : h.id === 'dormir' ? `Até ${S.config.horaDormir}`
-      : multi ? `${h.nome} · ${i + 1} de ${h.partes.length}` : (h.tipo === 'extra' ? (h.motivos[0] ? `${h.motivos[0]} · chance de baú` : 'Chance de baú') : (h.motivos[0] || ''));
+    // pouco texto: só o nome; legenda curta apenas quando ajuda (horário, partes)
+    const sub = h.id === 'dormir' ? `até ${S.config.horaDormir}` : '';
     return `
       <button class="task mis ${feito ? 'done' : ''} ${h.tipo}" data-a="tarefa" data-h="${h.id}" data-i="${i}">
-        <span class="task-ic">${ic(h.icone)}${feito ? `<i class="task-ic-ok">${ic('check')}</i>` : ''}</span>
-        <span class="task-tx"><b>${esc(pt.rotulo || h.nome)}</b><small>${esc(sub)}</small>${multi ? `<span class="task-seg" aria-hidden="true">${h.partes.map((_, k) => `<i class="${parteFeita(iso, h, k) ? 'on' : ''} ${k === i ? 'atual' : ''}"></i>`).join('')}</span>` : ''}</span>
-        ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">${ic('bolt')}<b>+${xp}</b><small>${h.especial ? 'XP+' : 'XP'}</small></span>`}
+        <span class="task-ic">${ic(h.icone)}</span>
+        <span class="task-tx"><b>${esc(pt.rotulo || h.nome)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}${multi ? `<span class="task-seg" aria-label="${partesFeitas(iso, h)} de ${h.partes.length}">${h.partes.map((_, k) => `<i class="${parteFeita(iso, h, k) ? 'on' : ''}"></i>`).join('')}</span>` : ''}</span>
+        ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">+${xp}${h.especial ? '+' : ''}</span>`}
       </button>`;
   };
   const obrigacoes = tarefasDoPeriodo(p).filter((t) => t.h.tipo === 'minimo');
@@ -997,23 +999,20 @@ function renderHoje() {
   const tarefaFixos = iso === q.inicio ? `
       <button class="task mis pagamento ${q.fixosOk ? 'done' : ''}" data-a="abrirFixos">
         <span class="task-ic">${ic('calendar')}</span>
-        <span class="task-tx"><b>Registrar custos fixos</b><small>Dia de pagamento · dia ${q.tipo}</small></span>
+        <span class="task-tx"><b>Custos fixos</b><small>dia de pagamento</small></span>
         ${q.fixosOk ? `<span class="task-ok">${ic('check')}</span>` : '<span class="task-xp hoje"><b>Hoje</b></span>'}
       </button>` : '';
 
   // Rodapé do card: o saque (como "a próxima libera em..." da referência)
   const rodape = f.hojeSaque
-    ? (f.sacouHoje ? `Saque de hoje feito: <b>${brl(f.sacouHoje)}</b>. O resto fica para o próximo.`
-      : f.manha.ok ? `<b>${brl(f.valorSaque)}</b> liberados para sacar hoje. Toque para sacar.`
-      : `Feche a manhã (${f.manha.feitas} de ${f.manha.total}) para liberar o saque de hoje: <b>${brl(f.valorSaque)}</b>.`)
-    : `O próximo saque libera na <b>${SEMANA[diaSemana(f.dataSaque)]} ${dataCurta(f.dataSaque)}</b>. Cada dia bom soma.`;
+    ? (f.sacouHoje ? `Saque feito · <b>${brl(f.sacouHoje)}</b>`
+      : f.manha.ok ? `<b>${brl(f.valorSaque)}</b> para sacar hoje`
+      : `Feche a manhã para sacar <b>${brl(f.valorSaque)}</b>`)
+    : `Próximo saque · <b>${SEMANA_CURTA[diaSemana(f.dataSaque)]} ${dataCurta(f.dataSaque)}</b>`;
 
   // Sequência: últimos 7 dias em círculos
   const dias7 = intervalo(somaDias(iso, -6), iso);
   const recorde = maiorSequencia();
-  const notaSeq = seq > 0 && seq >= recorde ? 'Você está no seu recorde. Cada dia bom aumenta ele.'
-    : seq > 0 ? `Faltam ${recorde - seq + 1} dias bons para bater o recorde.`
-    : 'Feche um dia bom para começar a sequência.';
 
   const status = bom ? 'Dia bom!' : cont === 0 ? 'Bora pra água' : 'Pegando onda';
 
@@ -1023,7 +1022,7 @@ function renderHoje() {
       <div class="hero-txt">
         <span class="eyebrow light">${dataLonga(iso)}</span>
         <h1>${status}</h1>
-        <p class="hero-sub">${bom ? `Todas as ${tot} missões feitas · +${S.config.xpDiaBom} XP` : `${cont} de ${tot} missões · faltam ${tot - cont}`}</p>
+        <p class="hero-sub">${cont} de ${tot} missões</p>
         <div class="hero-seg" aria-label="Dia bom: ${cont} de ${tot}">${minimos().map((h) => `<i data-h="${h.id}" class="${habitoFeito(iso, h) ? 'on' : partesFeitas(iso, h) ? 'meio' : ''}"></i>`).join('')}</div>
       </div>
       <button class="pet" data-a="pet" aria-label="${esc(pet.nome || 'João Frango')}">
@@ -1041,40 +1040,37 @@ function renderHoje() {
   </header>
 
   <section class="card missoes">
-    <div class="card-head"><span class="eyebrow">Missões de hoje</span><span class="pill ${bom ? 'blue' : ''}">${bom ? `+${S.config.xpDiaBom} XP do dia bom` : `+${emJogo} XP em jogo`}</span></div>
+    <div class="card-head"><span class="card-tt">Missões</span><span class="pill ${bom ? 'blue' : ''}">${bom ? `+${S.config.xpDiaBom} XP` : `${emJogo} XP em jogo`}</span></div>
     <div class="tabs topo" aria-label="Missões por período">${Object.keys(PERIODOS).map((k) => {
       const lista = tarefasDoPeriodo(k).filter((t) => t.h.tipo === 'minimo');
       const feitas = lista.filter((t) => parteFeita(iso, t.h, t.i)).length;
-      const pct = lista.length ? Math.round((feitas / lista.length) * 100) : 0;
-      return `<button class="${k === p ? 'on' : ''} ${lista.length && feitas === lista.length ? 'completo' : ''}" data-a="abaPeriodo" data-p="${k}"><span class="tab-l">${PERIODOS[k]} <span class="tab-n">${feitas}/${lista.length}</span></span><span class="tab-bar"><span style="width:${pct}%"></span></span></button>`;
+      return `<button class="${k === p ? 'on' : ''} ${lista.length && feitas === lista.length ? 'completo' : ''}" data-a="abaPeriodo" data-p="${k}">${PERIODOS[k]} <span class="tab-n">${feitas}/${lista.length}</span></button>`;
     }).join('')}</div>
     <div class="tasks obrigacoes">${tarefaFixos}${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</div>
     <button class="rodape" data-a="ir" data-aba="grana"><span class="rodape-ic">${ic(f.sacouHoje ? 'check' : f.hojeSaque && !f.manha.ok ? 'lock' : 'calendar')}</span><span>${rodape}</span></button>
   </section>
 
-  <h3 class="sec">Sua sequência</h3>
+  <h3 class="sec">Sequência</h3>
   <section class="card sequencia">
     <div class="seq-topo">
       <span class="seq-fogo">${ic('flame')}</span>
-      <div><h2>${seq} ${seq === 1 ? 'dia seguido' : 'dias seguidos'}</h2><small>Recorde: ${recorde} · no app desde ${dataCurta(S.inicioApp)}</small></div>
+      <div><h2>${seq} ${seq === 1 ? 'dia' : 'dias'}</h2><small>seguidos · recorde ${recorde}</small></div>
     </div>
     <div class="seq-dias">${dias7.map((d) => {
       const st = d < S.inicioApp ? 'fora' : ehBom(d) ? 'on' : d === iso ? 'hoje' : diaLer(d).fechado ? 'off' : 'fora';
       return `<div class="sd ${st}"><span>${SEMANA_CURTA[diaSemana(d)]}</span><i>${st === 'on' ? ic('check') : ''}</i><small>${d >= S.inicioApp ? num(xpDoDia(d)) : ''}</small></div>`;
     }).join('')}</div>
-    <div class="seq-nota">${ic('trophy')}<span>${notaSeq}</span></div>
   </section>
 
-  <h3 class="sec">Bônus <span class="sec-n">· opcionais, valem mais</span></h3>
+  <h3 class="sec">Bônus <span class="sec-n">${bonusFeitos ? `· ${bonusFeitos} hoje` : '· opcionais'}</span></h3>
   <section class="card bonus-card">
-    <div class="card-head"><span class="eyebrow">${bonusFeitos ? `${bonusFeitos} feito${bonusFeitos > 1 ? 's' : ''} hoje` : 'Cada um pode abrir um baú'}</span><span class="pill">${ic('chest')} baú</span></div>
     <div class="tasks bonus">${bonus.map(linha).join('')}</div>
-    <button class="rodape" data-a="novoBonus"><span class="rodape-ic">${ic('plus')}</span><span><b>Adicionar bônus</b> · hobbies e coisas boas que não são obrigação</span></button>
+    <button class="rodape" data-a="novoBonus"><span class="rodape-ic">${ic('plus')}</span><span>Adicionar bônus</span></button>
   </section>
 
   <button class="card ff" data-a="fastfood">
     <span class="task-ic">${ic('burger')}</span>
-    <span class="task-tx"><b>Registrar fast food</b><small>${f.tickets.disponiveis ? `${f.tickets.disponiveis} ticket de delivery disponível` : 'Sai do dinheiro livre'}</small></span>
+    <span class="task-tx"><b>Fast food</b>${f.tickets.disponiveis ? `<small>${f.tickets.disponiveis} ticket disponível</small>` : ''}</span>
     ${ic('next')}
   </button>`;
 }
@@ -1550,7 +1546,7 @@ function renderGrana() {
   const abas = `<div class="seg grana-abas">${[['resumo', 'Resumo'], ['fixos', 'Fixos']].map(([k, n]) => `<button class="${(UI.granaAba || 'resumo') === k ? 'on' : ''}" data-a="granaAba" data-k="${k}">${n}${k === 'fixos' && !q.fixosOk && S.sim.data === q.inicio ? ' <i class="dot-alerta"></i>' : ''}</button>`).join('')}</div>`;
   return `
   <div class="page-head"><span class="eyebrow">${q.fator < 1 ? `Quinzena de adaptação · ${dataCurta(inicioUtil(q))} a ${dataCurta(q.fim)}` : `Quinzena ${dataCurta(q.inicio)} a ${dataCurta(q.fim)}`}</span><h1>Grana</h1></div>
-  ${q.fator < 1 ? `<section class="card aviso adapt">${ic('calendar')}<div><b>Começou no meio da quinzena</b><small>${intervalo(inicioUtil(q), q.fim).length} de ${intervalo(q.inicio, q.fim).length} dias: o dinheiro livre, as metas e o desafio valem ${Math.round(q.fator * 100)}%. A primeira quinzena cheia começa dia ${paraData(somaDias(q.fim, 1)).getDate()}.</small></div></section>` : ''}
+  ${q.fator < 1 ? `<section class="card aviso adapt">${ic('calendar')}<div><b>Adaptação · ${Math.round(q.fator * 100)}%</b><small>${intervalo(inicioUtil(q), q.fim).length} de ${intervalo(q.inicio, q.fim).length} dias. Quinzena cheia a partir do dia ${paraData(somaDias(q.fim, 1)).getDate()}.</small></div></section>` : ''}
   ${abas}
   ${(UI.granaAba || 'resumo') === 'fixos' ? renderGranaFixos() : renderGranaResumo()}`;
 }
@@ -1623,7 +1619,7 @@ function renderGranaResumo() {
     ${f.sacouHoje && f.valorSaque > 0 ? `<p class="money-nota">${brl(f.disponivel)} ficaram para o próximo saque.</p>` : ''}
     <p class="money-nota">${f.sacouHoje ? 'Saque de hoje feito. O que liberar agora fica para o próximo.'
       : f.hojeSaque ? (f.manha.ok ? 'Um saque por dia de saque: tudo ou só uma parte. O que ficar, e o que passar do teto, soma no próximo.' : `Complete as obrigações da manhã (${f.manha.feitas} de ${f.manha.total}) para liberar. O XP da manhã ainda entra, até o teto.`)
-      : `Acumulado até agora. Fecha no corte de ${SEMANA[diaSemana(somaDias(f.dataSaque, -1))]} à meia-noite.`}
+      : `Fecha ${SEMANA[diaSemana(somaDias(f.dataSaque, -1))]} à meia-noite.`}
       ${f.paraDepois > 0 && !f.sacouHoje ? `<br>Teto deste saque: ${brl(f.teto)} · ${brl(f.paraDepois)} ficam para o próximo.` : ''}</p>
     <div class="money-row">
       <div><span class="eyebrow light">Já sacado</span><b>${brl(f.sacado)}</b></div>
@@ -2817,6 +2813,12 @@ function migrar() {
     }
     S.config.migracoes.push('quarto');
     salvar(); // vai para o banco também
+  }
+  // motivos novos (5 por hábito, beleza e saúde) para os hábitos padrão
+  if (!S.config.migracoes.includes('motivos5')) {
+    S.config.habitos.forEach((h) => { const pad = DADOS_INICIAIS.habitos.find((x) => x.id === h.id); if (pad) h.motivos = clone(pad.motivos); });
+    S.config.migracoes.push('motivos5');
+    salvar();
   }
   const q = S.quinzena;
   if (q && q.fator === undefined && !S.sim.teste && S.inicioApp > q.inicio && q.inicio === inicioQuinzena(S.inicioApp).inicio) {

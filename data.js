@@ -64,51 +64,51 @@ const DADOS_INICIAIS = {
   habitos: [
     { id: 'dentes', nome: 'Dentes', tipo: 'minimo', xp: 10, icone: 'tooth',
       partes: [{ periodo: 'noite', rotulo: 'Escovar os dentes' }],
-      motivos: ['Menos cárie e gengiva saudável', 'Hálito bom o dia todo', 'Fecha a noite com um ritual simples'] },
+      motivos: ['Dentes mais brancos: a escova tira a placa que mancha', 'Hálito fresco o dia todo', 'Gengiva firme, sem sangramento', 'Menos cárie e menos dentista', 'Boca saudável, menos inflamação no corpo'] },
     { id: 'skincare', nome: 'Skincare', tipo: 'minimo', xp: 10, icone: 'sparkle',
       partes: [{ periodo: 'noite', rotulo: 'Skincare' }],
-      motivos: ['Pele mais limpa e firme', 'Menos espinha e oleosidade', 'Cinco minutos de cuidado com você'] },
+      motivos: ['Pele limpa: menos cravos e espinhas', 'Hidratação deixa a pele lisa e firme', 'Barreira da pele forte, menos irritação', 'Menos manchas e linhas com o tempo', 'Rosto com cara de descansado'] },
     { id: 'agua', nome: 'Água', tipo: 'minimo', xp: 10, icone: 'drop',
       partes: [
         { periodo: 'manha', rotulo: 'Garrafa 1' },
         { periodo: 'tarde', rotulo: 'Garrafa 2' },
         { periodo: 'noite', rotulo: 'Garrafa 3' }
       ],
-      motivos: ['Pele melhor', 'Mais energia e foco', 'Menos dor de cabeça'] },
+      motivos: ['Pele com mais viço, lábios menos secos', 'Mais energia: desidratação leve já cansa', 'Menos dor de cabeça', 'Rins e intestino funcionando melhor', 'Treino rende mais, menos cãibra'] },
     { id: 'frutas', nome: 'Frutas', tipo: 'minimo', xp: 10, icone: 'apple',
       partes: [
         { periodo: 'tarde', rotulo: 'Fruta 1' },
         { periodo: 'tarde', rotulo: 'Fruta 2' }
       ],
-      motivos: ['Fibra e vitaminas de verdade', 'Doce que não te derruba', 'Intestino em dia'] },
+      motivos: ['Vitamina C ajuda a formar colágeno', 'Fibras: intestino em dia, barriga desinchada', 'Antioxidantes protegem a pele', 'Doce natural que tira a vontade de besteira', 'Coração e pressão mais saudáveis'] },
     { id: 'dormir', nome: 'Dormir', tipo: 'minimo', xp: 10, icone: 'moon',
       partes: [{ periodo: 'noite', rotulo: 'Dormir no horário' }],
-      motivos: ['Músculo se recupera dormindo', 'Humor e foco no dia seguinte', 'Menos vontade de besteira'] },
+      motivos: ['Pele se recupera à noite: menos olheiras', 'Músculo se reconstrói enquanto você dorme', 'Menos fome e vontade de doce no dia seguinte', 'Foco, memória e humor melhores', 'Imunidade mais forte'] },
     { id: 'sair', nome: 'Sair', tipo: 'minimo', xp: 10, icone: 'door',
       partes: [{ periodo: 'manha', rotulo: 'Sair de casa 15 min' }],
-      motivos: ['Luz natural acerta o sono', 'Quebra o ciclo da toca', 'Cabeça mais leve'] },
+      motivos: ['Luz da manhã acerta o relógio do sono', 'Caminhar ativa a circulação e a disposição', 'Humor melhor, menos ansiedade', 'Sol na medida ajuda a vitamina D', 'Quebra o ciclo da toca'] },
     { id: 'quarto', nome: 'Quarto', tipo: 'minimo', xp: 10, icone: 'bed',
       partes: [
         { periodo: 'manha', rotulo: 'Arrumar o quarto' },
         { periodo: 'tarde', rotulo: 'Arrumar o quarto' }
       ],
-      motivos: ['Quarto arrumado, cabeça arrumada', 'Começa o dia já vencendo uma', 'Dorme melhor num lugar em ordem'] },
+      motivos: ['Menos poeira e ácaro: pele e respiração agradecem', 'Quarto em ordem, sono melhor', 'Menos bagunça, mente mais calma', 'Começa o dia com uma vitória', 'Disciplina pequena puxa as grandes'] },
 
     { id: 'treino', nome: 'Treino', tipo: 'extra', xp: 100, icone: 'dumbbell', especial: 'treino',
       partes: [{ periodo: 'todos', rotulo: 'Treino' }],
-      motivos: ['Força e postura', 'Ansiedade lá embaixo', 'Corpo pronto para o surf'] },
+      motivos: ['Corpo mais definido e postura melhor', 'Mais músculo, metabolismo mais rápido', 'Circulação dá viço à pele', 'Menos ansiedade, sono mais profundo', 'Ossos e articulações mais fortes'] },
     { id: 'sol', nome: 'Sol', tipo: 'extra', xp: 20, icone: 'sun',
       partes: [{ periodo: 'manha', rotulo: 'Sol 15 min' }],
-      motivos: ['Vitamina D', 'Relógio biológico no lugar', 'Disposição logo cedo'] },
+      motivos: ['Vitamina D para ossos e imunidade', 'Cor saudável na pele, sem queimar', 'Luz natural ajuda a dormir melhor', 'Mais disposição e bom humor', 'Relógio biológico no lugar'] },
     { id: 'tela', nome: 'Menos tela', tipo: 'extra', xp: 25, icone: 'phoneoff',
       partes: [{ periodo: 'noite', rotulo: 'Menos tela (meta do dia)' }],
-      motivos: ['Sono mais profundo', 'Mais tempo para o que importa', 'Menos comparação'] },
+      motivos: ['Sono mais profundo sem luz de tela à noite', 'Olhos menos cansados, menos olheiras', 'Pescoço e postura agradecem', 'Mais foco, menos ansiedade', 'Tempo de volta para o que importa'] },
     { id: 'natureza', nome: 'Natureza', tipo: 'extra', xp: 40, icone: 'tree',
       partes: [{ periodo: 'todos', rotulo: 'Natureza' }],
-      motivos: ['Derruba o estresse', 'Recarrega a cabeça', 'Lembra por que vale a pena'] },
+      motivos: ['Cortisol mais baixo, menos estresse', 'Pressão e batimentos mais calmos', 'Humor melhor por dias', 'Cabeça descansada, mais criatividade', 'Movimento sem perceber'] },
     { id: 'surf', nome: 'Surf', tipo: 'extra', xp: 150, icone: 'wave', especial: 'surf',
       partes: [{ periodo: 'todos', rotulo: 'Sessão de surf' }],
-      motivos: ['É o objetivo final', 'Cardio e remada de verdade', 'Pura liberdade'] }
+      motivos: ['Remada define ombros e costas', 'Equilíbrio trabalha o corpo inteiro', 'Sol e mar levantam o humor', 'Gasta muita energia sem parecer treino', 'Foco total no presente'] }
   ],
 
   // Frases de exemplo (editáveis). imagem: dataURL opcional enviada em Ajustes.

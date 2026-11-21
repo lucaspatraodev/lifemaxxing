@@ -17,7 +17,7 @@ const FX = (() => {
   const MOLA_PULO = { type: 'spring', stiffness: 620, damping: 13 };   // conquistas (pop)
   const MOLA_FOLHA = { type: 'spring', stiffness: 420, damping: 38 };  // folhas que sobem
   const SAIDA = [0.16, 1, 0.3, 1];                                      // ease-out longo
-  const CORES = ['#FF6A1F', '#FF9A3C', '#FFC27A', '#F6F1EA', '#2EC4B6']; // pôr do sol, areia e água
+  const CORES = ['#FF6B00', '#F5F5F5', '#FF8A33', '#76767C', '#2EC4B6']; // laranja, branco, cinza e água
 
   const rnd = (a, b) => a + Math.random() * (b - a);
   const vazio = (el) => !el || (el.length !== undefined && el.length === 0);
@@ -213,7 +213,7 @@ const FX = (() => {
         contar(numEl, 0, depois.atual, (v) => formato(v, depois.falta), 0.7);
       });
     }
-    anim(bar, { filter: ['brightness(1)', 'brightness(1.7)', 'brightness(1)'] }, { duration: 0.8, delay: 0.05 });
+    
     anim(document.querySelector('.level'), { scale: [1, 1.025, 1] }, { ...MOLA_PULO, delay: 0.05 });
   }
 
@@ -230,7 +230,7 @@ const FX = (() => {
       onda(row);
       if (!virouDiaBom) setTimeout(manobra, 250);
       anim(row.querySelector('.task-ok'), { scale: [0, 1.3, 1], rotate: [-40, 0] }, MOLA_PULO);
-      anim(row, { backgroundColor: ['#4A2510', '#1D150F'] }, { duration: 1, ease: SAIDA });
+      anim(row, { backgroundColor: ['#1C1C1E', 'rgba(0,0,0,0)'] }, { duration: 0.8, ease: SAIDA });
       anim(row.querySelector('.task-ic'), { scale: [1, 1.18, 1], rotate: [0, -8, 0] }, MOLA_PULO);
       anim(row.querySelectorAll('.task-seg i.on'), { scaleY: [1, 2, 1] }, { duration: 0.4, delay: M.stagger(0.05) });
     }
@@ -246,7 +246,7 @@ const FX = (() => {
   // Missão do dia bom completa: o segmento do topo enche brilhando
   function bolinha(hid) {
     const seg = document.querySelector(`.hero-seg i[data-h="${hid}"]`);
-    anim(seg, { scaleY: [1, 2.4, 1], filter: ['brightness(1)', 'brightness(1.8)', 'brightness(1)'] }, { duration: 0.6, ease: 'easeOut' });
+    anim(seg, { scaleY: [1, 2.2, 1] }, { duration: 0.5, ease: 'easeOut' });
     anim(document.querySelector('.hero-sub'), { scale: [1, 1.06, 1] }, MOLA_PULO);
   }
 

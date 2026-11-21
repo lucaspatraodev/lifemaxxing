@@ -1044,3 +1044,165 @@ h3.sec .sec-n { text-transform: none; letter-spacing: 0; font-weight: 600; color
   .pet, .pet-svg, .pet-img { width: 112px; height: 112px; }
   .hero-txt h1 { font-size: 32px; }
 }
+
+/* =========================================================
+   Refino: preto moderno, componentes singelos, sem brilho
+   (referências: filtros pretos com pílulas e segmentados;
+   laranja chapado só em pontos de destaque)
+   ========================================================= */
+:root {
+  --bg: #000000;
+  --card: #111112;
+  --s2: #1C1C1E;
+  --s3: #2C2C2E;
+  --line: #222224;
+  --ink: #F5F5F5;
+  --ink2: #B8B8BC;
+  --muted: #76767C;
+  --blue: #FF6B00;        /* laranja chapado */
+  --blue2: #FF8A33;
+  --blue-soft: rgba(255, 107, 0, .12);
+  --shadow: none;
+}
+body { background: var(--bg); }
+.card, .tasks .task, .type, .sheet, .modal-card { box-shadow: none !important; }
+.card { background: var(--card); border: 0; border-radius: 24px; padding: 18px; margin-bottom: 14px; }
+h3.sec { font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--ink2); margin: 28px 4px 12px; }
+.eyebrow { letter-spacing: .02em; text-transform: none; font-size: 12.5px; font-weight: 600; }
+.page-head h1 { font-size: 30px; }
+.card h2 { font-size: 24px; }
+.pill { background: transparent; border: 1px solid var(--s3); color: var(--ink2); font-weight: 600; font-size: 12px; padding: 6px 11px; }
+.pill.blue { background: transparent; border-color: rgba(255, 107, 0, .5); color: var(--blue2); }
+
+/* barra do app e menu: preto puro, sem desfoque nem brilho */
+#appbar { background: var(--bg); }
+.appbar-nome { font-size: 17px; font-weight: 700; }
+.appbar-logo svg { width: 28px; height: 28px; border-radius: 8px; }
+.appbar-btn { background: transparent; border: 1px solid var(--s3); border-radius: 50%; }
+.nav { background: var(--bg); border-top: 1px solid var(--line); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.nav button.on { color: var(--ink); }
+.nav-ind { background: var(--s2); }
+.nav-ia span { background: var(--blue); box-shadow: 0 0 0 5px var(--bg); width: 54px; height: 54px; border-radius: 50%; color: #fff; }
+.nav-ia .ic { width: 24px; height: 24px; }
+
+/* botões: pílula branca (principal) e contornos */
+.btn { background: var(--ink); color: #000; border-radius: 999px; height: 54px; font-weight: 700; }
+.btn.dark { background: var(--ink); color: #000; }
+.btn.light { background: var(--ink); color: #000; }
+.btn.ghost { background: transparent; border: 1px solid var(--s3); color: var(--ink); }
+.btn.off { background: var(--s2); color: var(--muted); }
+.btn.danger { background: var(--red); color: #fff; }
+.chip { background: transparent; border: 1px solid var(--s3); border-radius: 999px; color: var(--ink); font-weight: 600; }
+.chip.on { background: var(--ink); border-color: var(--ink); color: #000; }
+.seg, .grana-abas { background: var(--s2); border-radius: 999px; padding: 4px; }
+.seg button { border-radius: 999px; }
+.seg button.on { background: #000; color: var(--ink); }
+.slide { background: var(--s2); border-radius: 999px; }
+.slide-fill { background: var(--blue); border-radius: 999px; }
+.slide-knob { border-radius: 50%; background: var(--ink); color: #000; }
+input, select, textarea { background: var(--s2); border: 1px solid var(--line); border-radius: 14px; }
+
+/* ---------- Hoje ---------- */
+.hero.surf { background: var(--bg); padding: 22px 20px 8px; }
+.hero.surf::after { display: none; }
+.hero-txt h1 { font-size: 32px; font-weight: 800; letter-spacing: -.03em; margin: 6px 0 4px; }
+.hero-sub { font-size: 14px; color: var(--ink2); font-weight: 500; }
+.hero-seg { gap: 5px; margin-top: 14px; }
+.hero-seg i { height: 4px; background: var(--s3); box-shadow: none; }
+.hero-seg i.on { background: var(--blue); box-shadow: none; }
+.hero-seg i.meio { background: linear-gradient(90deg, var(--blue) 50%, var(--s3) 50%); }
+.hero-grid { grid-template-columns: 1fr 112px; }
+.pet, .pet-svg, .pet-img { width: 112px; height: 112px; }
+.pet-fala { background: var(--s2); color: var(--ink); font-weight: 600; font-size: 11.5px; box-shadow: none; padding: 5px 9px; top: -6px; }
+.hero.surf .level { margin-top: 20px; padding: 14px 16px; background: var(--card); border-radius: 20px; }
+.hero.surf .level-row b { font-size: 15px; font-weight: 700; }
+.hero.surf .bar { height: 4px; background: var(--s3); }
+.bar i { background: var(--blue); }
+.xpnum { color: var(--muted); }
+
+.card.missoes { margin-top: 14px; background: var(--card); border: 0; box-shadow: none; padding: 18px 16px 4px; }
+.card-tt { font-size: 17px; font-weight: 700; }
+.card.missoes .tabs.topo { background: var(--s2); border-radius: 999px; padding: 4px; margin: 14px 0 6px; }
+.tabs.topo button { flex-direction: row; gap: 6px; border-radius: 999px; padding: 9px 0; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.tabs.topo button.on { background: #000; color: var(--ink); }
+.tabs.topo button.completo:not(.on) { color: var(--blue2); }
+.tab-n { font-size: 11.5px; opacity: .6; }
+
+.card .tasks .task.mis { min-height: 64px; padding: 12px 2px; gap: 14px; border-bottom: 1px solid var(--line); }
+.card .tasks .task.mis .task-ic { width: 40px; height: 40px; border-radius: 50%; background: var(--s2); color: var(--ink2); box-shadow: none; }
+.card .tasks .task.mis .task-ic .ic { width: 19px; height: 19px; }
+.card .tasks .task.mis .task-tx b { font-size: 15px; font-weight: 600; -webkit-line-clamp: 1; }
+.card .tasks .task.mis .task-tx small { font-size: 12.5px; }
+.card .tasks .task.mis .task-xp { color: var(--ink2); font-size: 13.5px; font-weight: 600; }
+.card .tasks .task.mis .task-ok { width: 26px; height: 26px; background: var(--blue); color: #fff; }
+.card .tasks .task.mis .task-ok .ic { width: 14px; height: 14px; stroke-width: 2.6; }
+.card .tasks .task.mis.done .task-ic { background: var(--s2); color: var(--muted); box-shadow: none; }
+.card .tasks .task.mis.done .task-tx b { color: var(--muted); text-decoration: none; }
+.card .tasks .task.mis.pagamento:not(.done) .task-ic { background: var(--blue); color: #fff; }
+.task-xp.hoje { background: transparent !important; border: 1px solid var(--blue) !important; color: var(--blue2) !important; padding: 4px 10px !important; border-radius: 999px; font-size: 12px; }
+.task-seg { gap: 3px; margin-top: 6px; }
+.task-seg i { width: 16px; height: 3px; background: var(--s3); }
+.task-seg i.on { background: var(--blue); }
+.rodape { border-top: 1px solid var(--line); font-size: 13.5px; padding: 14px 2px; }
+.rodape-ic { width: 32px; height: 32px; border-radius: 50%; background: var(--s2); color: var(--ink2); }
+.rodape-ic .ic { width: 16px; height: 16px; }
+
+.card.sequencia { background: var(--card); border: 0; }
+.seq-fogo { width: 44px; height: 44px; border-radius: 50%; background: var(--s2); }
+.seq-fogo .ic { width: 22px; height: 22px; fill: none; color: var(--blue); }
+.card.sequencia h2 { font-size: 24px; }
+.seq-dias { margin: 18px 0 2px; }
+.sd i { width: 32px; height: 32px; background: var(--s2); }
+.sd.on i { background: var(--blue); box-shadow: none; color: #fff; }
+.sd.hoje i { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.sd.off i { box-shadow: none; background: var(--s2); }
+.sd small { color: var(--muted) !important; font-weight: 600; }
+.sd > span { letter-spacing: 0; text-transform: none; font-weight: 600; }
+
+.card.bonus-card { background: var(--card); border: 0; padding: 6px 16px 2px; }
+.bonus-card .tasks .task.mis:not(.done) .task-ic { background: var(--s2); color: var(--ink2); }
+.bonus-card .tasks .task.mis .task-xp { color: var(--ink2); }
+.ff { background: var(--card); border-radius: 24px; }
+.ff .task-ic { width: 40px; height: 40px; border-radius: 50%; background: var(--s2); color: var(--ink2); }
+h3.sec .sec-n { color: var(--muted); }
+
+/* ---------- outras telas ---------- */
+.hero.money, .hero.small { background: var(--card); border-radius: 24px; }
+.money-big { color: var(--ink); font-size: 40px; }
+.aviso { background: var(--card); color: var(--ink); border: 1px solid rgba(255, 107, 0, .35); }
+.aviso .ic { color: var(--blue2); }
+.aviso small { color: var(--ink2); }
+.banner { background: var(--blue); color: #fff; }
+.banner .eyebrow { color: rgba(255, 255, 255, .8); }
+.banner > .ic { color: #fff; }
+.banner.dark { background: var(--card); color: var(--ink); }
+.santos { background: var(--card); }
+.santos .task-ic { background: var(--s2); color: var(--blue2); }
+.santos-usar { background: transparent; border: 1px solid var(--s3); border-radius: 999px; }
+.type { background: var(--card); }
+.type .ic { color: var(--ink2); }
+.cal-d.on, .path.ok .path-n, .set.feito .set-ok, .fixo.pago .check-box, .check-box.on { background: var(--blue); color: #fff; }
+.ticket.livre { background: var(--blue); color: rgba(255, 255, 255, .8); }
+.ticket.livre span { color: #fff; }
+.stats3 > div, .money-box > div { background: var(--s2); }
+.money-box > div { background: var(--s2); }
+.money-box .eyebrow, .money-box b { color: var(--ink); }
+.sheet { background: var(--card); }
+.sheet-ic { background: var(--s2); color: var(--ink); border-radius: 50%; width: 50px; height: 50px; }
+.sheet-head h3 { font-size: 20px; }
+.motivos li { font-size: 14px; color: var(--ink2); }
+.motivos .ic { color: var(--blue); }
+.toast { background: var(--ink); color: #000; border-radius: 999px; }
+.msg.eu { background: var(--ink); color: #000; }
+.chat-head { background: var(--bg); border-bottom: 1px solid var(--line); }
+.chat-head::before { display: none; }
+.chat-av { background: var(--blue); color: #fff; border-radius: 50%; }
+.chat-btn.envia { background: var(--ink); color: #000; border-radius: 50%; }
+.levelup .glow { display: none; }
+.levelup > .lv-raios { opacity: .35; background: repeating-conic-gradient(rgba(255, 255, 255, .05) 0 9deg, transparent 9deg 18deg); }
+.lv-chest { background: var(--card); }
+.lv-chest .chest-anim, .chest-anim.cheio { background: var(--blue); color: #fff; box-shadow: none; }
+.fx-xp { background: var(--ink); color: #000; box-shadow: none; border-radius: 999px; }
+.fx-moeda { background: var(--blue); color: #fff; box-shadow: none; }
+.hero::before { display: none !important; }
+.tabs.topo button { justify-content: center; align-items: center; }

@@ -2,7 +2,7 @@
 
 Capturas do protótipo em tamanho de iPhone 14 (390 × 844 pt, @3x). Abra `index.html` para ver todas lado a lado.
 
-**Visual:** identidade surf. Fundo preto `#09090A` com subtons nos cards: pôr do sol `#1F140C` (missões), oceano `#0B1A21` (sequência), areia `#1B1812` (bônus). Laranja `#FF6A1F` e âmbar `#FF9A3C` no destaque, água `#2EC4B6`. Fonte Plus Jakarta Sans, ícones de traço. Pet: **João Frango**, galo surfista (desenho original).
+**Visual:** preto moderno e chapado (`#000`, cards `#111112`, superfícies `#1C1C1E`), sem brilho nem degradê. Componentes singelos: pílulas com contorno, segmentados cinza, botão principal em pílula branca. Laranja `#FF6B00` chapado só nos destaques (XP feito, progresso, coach). Ícones de traço em círculos discretos, pouco texto. Pet: **João Frango**, galo surfista (desenho original).
 
 | # | Tela | O que mostra |
 | --- | --- | --- |
