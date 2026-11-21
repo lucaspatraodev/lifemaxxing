@@ -881,7 +881,7 @@ function renderHoje() {
   const estrelas = n.estrelas ? ' ' + Array.from({ length: n.estrelas }, () => ic('star', 'star')).join('') : '';
 
   const quote = fr ? `
-    <div class="quote">
+    <div class="quote ${UI.fraseAberta ? 'aberta' : ''}" data-a="frase" role="button" aria-label="Ver a frase inteira">
       <div class="quote-img">${fr.imagem ? `<img src="${fr.imagem}" alt="">` : `<span>${esc(iniciais(fr.autor))}</span>`}</div>
       <div><p>“${esc(fr.texto)}”</p><span>${esc(fr.autor)}</span></div>
     </div>` : '';
@@ -902,7 +902,6 @@ function renderHoje() {
       </button>`;
   };
   const obrigacoes = tarefasDoPeriodo(p).filter((t) => t.h.tipo === 'minimo');
-  const feitasP = obrigacoes.filter((t) => parteFeita(iso, t.h, t.i)).length;
   const bonus = extras().flatMap((h) => h.partes.map((pt, i) => ({ h, i, pt })));
   const bonusFeitos = bonus.filter((t) => parteFeita(iso, t.h, t.i)).length;
 
@@ -913,25 +912,37 @@ function renderHoje() {
       ${ic('next')}
     </button>` : '';
 
+  // Dia de pagamento (15 e 30): a tarefa de registrar os custos fixos aparece só nesse dia
+  const q = S.quinzena;
+  const pagamentoHoje = iso === q.inicio;
+  const tarefaFixos = pagamentoHoje ? `
+      <button class="task pagamento ${q.fixosOk ? 'done' : ''}" data-a="abrirFixos">
+        <span class="task-ic">${ic('calendar')}</span>
+        <span class="task-tx"><b>Registrar custos fixos</b><small>Dia de pagamento · dia ${q.tipo}</small></span>
+        ${q.fixosOk ? `<span class="task-ok">${ic('check')}</span>` : '<span class="task-xp hoje">Hoje</span>'}
+      </button>` : '';
+
   return `
-  <header class="hero">
+  <header class="hero compacto">
     <div class="hero-top"><span class="eyebrow light">${dataLonga(iso)}</span>
       <button class="icon-btn" data-a="ir" data-aba="ajustes" aria-label="Ajustes">${ic('sliders')}</button></div>
-    <h1>Bora, ${esc(S.config.nome)}</h1>
-    <div class="streak ${seq ? 'on' : ''}">${ic('flame')}<b>${seq}</b> ${seq === 1 ? 'dia bom seguido' : 'dias bons seguidos'}</div>
+    <div class="hero-linha">
+      <h1>Bora, ${esc(S.config.nome)}</h1>
+      <div class="streak ${seq ? 'on' : ''}">${ic('flame')}<b>${seq}</b> ${seq === 1 ? 'dia bom' : 'dias bons'}</div>
+    </div>
     ${quote}
     <div class="level">
       <div class="level-row">
-        <div><span class="eyebrow light">Nível ${n.nivel}${estrelas}</span><b>${esc(n.nome)}</b></div>
+        <div><span class="eyebrow light">Nível ${n.nivel}${estrelas}</span> <b>${esc(n.nome)}</b></div>
         <span class="xpnum" id="xpnum">${num(n.atual)} / ${num(n.falta)} XP</span>
       </div>
       <div class="bar"><i id="xpbar" style="width:${n.pct.toFixed(1)}%"></i></div>
     </div>
   </header>
 
-  <section class="card goodday ${bom ? 'complete' : ''}">
+  <section class="card goodday compacto ${bom ? 'complete' : ''}">
     <div class="card-head">
-      <div><span class="eyebrow">Dia bom</span><h2>${cont} <small>de ${tot}</small></h2></div>
+      <div class="gd-tt"><span class="eyebrow">Dia bom</span><h2>${cont} <small>de ${tot}</small></h2></div>
       <span class="pill ${bom ? 'blue' : ''}">${bom ? `+${S.config.xpDiaBom} XP ganhos` : `+${S.config.xpDiaBom} XP com ${tot} de ${tot}`}</span>
     </div>
     <div class="dots" style="grid-template-columns:repeat(${minimos().length + (habito('treino') ? 1 : 0)},1fr)">${minimos().map((h) => {
@@ -941,17 +952,14 @@ function renderHoje() {
       <span class="dot extra ${habitoFeitoId(iso, 'treino') ? 'on' : ''}" style="--p:0">${ic('dumbbell')}</span><small>Treino</small></button>` : ''}</div>
   </section>
 
-  ${S.quinzena.fixosOk ? '' : `
-    <button class="card banner dark" data-a="abrirFixos">
-      <span class="banner-ic">${ic('calendar')}</span>
-      <span><span class="eyebrow">Dia de pagamento · dia ${S.quinzena.tipo}</span><b>Registrar custos fixos</b></span>
-      ${ic('next')}
-    </button>`}
-  ${saque}
+  <div class="tabs topo" aria-label="Obrigações por período">${Object.keys(PERIODOS).map((k) => {
+    const lista = tarefasDoPeriodo(k).filter((t) => t.h.tipo === 'minimo');
+    const feitas = lista.filter((t) => parteFeita(iso, t.h, t.i)).length;
+    return `<button class="${k === p ? 'on' : ''} ${lista.length && feitas === lista.length ? 'completo' : ''}" data-a="abaPeriodo" data-p="${k}">${PERIODOS[k]} <span class="tab-n">${feitas}/${lista.length}</span></button>`;
+  }).join('')}</div>
+  <section class="tasks obrigacoes">${tarefaFixos}${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</section>
 
-  <div class="sec-row"><h3 class="sec">Obrigações</h3><span class="sec-n">${feitasP} de ${obrigacoes.length} ${PERIODOS[p].toLowerCase() === 'manhã' ? 'de manhã' : 'à ' + PERIODOS[p].toLowerCase()}</span></div>
-  <div class="tabs">${Object.keys(PERIODOS).map((k) => `<button class="${k === p ? 'on' : ''}" data-a="abaPeriodo" data-p="${k}">${PERIODOS[k]}</button>`).join('')}</div>
-  <section class="tasks">${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</section>
+  ${saque}
 
   <div class="sec-row"><h3 class="sec">Bônus <span class="sec-n">· opcionais, valem mais</span></h3><span class="sec-n">${bonusFeitos} hoje</span></div>
   <section class="tasks bonus">${bonus.map(linha).join('')}
@@ -1419,7 +1427,7 @@ function modalTreinoFeito(t, c, liberou = 0) {
 // --- Grana ---
 function renderGrana() {
   const q = S.quinzena;
-  const abas = `<div class="seg grana-abas">${[['resumo', 'Resumo'], ['fixos', 'Fixos']].map(([k, n]) => `<button class="${(UI.granaAba || 'resumo') === k ? 'on' : ''}" data-a="granaAba" data-k="${k}">${n}${k === 'fixos' && !q.fixosOk ? ' <i class="dot-alerta"></i>' : ''}</button>`).join('')}</div>`;
+  const abas = `<div class="seg grana-abas">${[['resumo', 'Resumo'], ['fixos', 'Fixos']].map(([k, n]) => `<button class="${(UI.granaAba || 'resumo') === k ? 'on' : ''}" data-a="granaAba" data-k="${k}">${n}${k === 'fixos' && !q.fixosOk && S.sim.data === q.inicio ? ' <i class="dot-alerta"></i>' : ''}</button>`).join('')}</div>`;
   return `
   <div class="page-head"><span class="eyebrow">Quinzena ${dataCurta(q.inicio)} a ${dataCurta(q.fim)}</span><h1>Grana</h1></div>
   ${abas}
@@ -1551,7 +1559,7 @@ function renderGranaFixos() {
   const q = S.quinzena;
   const pagos = q.fixos.filter((f) => f.pago).length;
   return `
-  ${q.fixosOk ? '' : `<section class="card aviso">${ic('calendar')}<div><b>Dia de pagamento</b><small>Confira quanto foi cada fixo nesta quinzena e confirme.</small></div></section>`}
+  ${q.fixosOk || S.sim.data !== q.inicio ? '' : `<section class="card aviso">${ic('calendar')}<div><b>Dia de pagamento</b><small>Confira quanto foi cada fixo nesta quinzena e confirme.</small></div></section>`}
   <section class="card form" data-fixos>${fixosEditorHtml()}</section>
   <p class="nota">Vale só para esta quinzena (${dataCurta(q.inicio)} a ${dataCurta(q.fim)}). Marque cada fixo quando pagar: ${pagos} de ${q.fixos.length} pagos.</p>
   ${q.fixosOk ? '' : `<button class="btn" data-a="confirmarFixos">Confirmar fixos</button>`}
@@ -2263,6 +2271,7 @@ const acoes = {
   ir(el) { UI.aba = el.dataset.aba; render(); window.scrollTo(0, 0); },
   periodo(el) { S.sim.periodo = el.dataset.p; UI.periodoAba = null; salvar(); render(); },
   abaPeriodo(el) { UI.periodoAba = el.dataset.p; render(); },
+  frase() { UI.fraseAberta = !UI.fraseAberta; render(); },
   tarefa(el) { abrirTarefa(el.dataset.h, Number(el.dataset.i)); },
   fastfood() { abrirFastFood(); },
   novoBonus() { abrirNovoBonus(); },
@@ -2350,7 +2359,7 @@ const acoes = {
   pagarFixo(el) { const f = S.quinzena.fixos[el.dataset.k]; f.pago = !f.pago; salvar(); render(); atualizarFixos(); },
   granaAba(el) { UI.granaAba = el.dataset.k; render(); },
   histTudo() { UI.histTudo = !UI.histTudo; render(); },
-  abrirFixos() { UI.aba = 'grana'; UI.granaAba = 'fixos'; render(); abrirFixosFolha(); },
+  abrirFixos() { abrirFixosFolha(); },
   confirmarFixos() { S.quinzena.fixosOk = true; salvar(); fecharFolha(); render(); toast('Fixos da quinzena registrados'); },
   qAddFixo() { const q = S.quinzena; mudarQuinzena(q, () => q.fixos.push({ id: 'f_' + uid(), nome: 'Novo fixo', valor: 0, pago: false })); render(); atualizarFixos(); },
   qRemFixo(el) { const q = S.quinzena; mudarQuinzena(q, () => q.fixos.splice(Number(el.dataset.i), 1)); render(); atualizarFixos(); },
