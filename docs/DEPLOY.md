@@ -136,6 +136,7 @@ No Android: Chrome › menu ⋮ › **Instalar app**.
 ## Como funciona no dia a dia
 
 - **Dados:** cada mudança é salva no celular na hora e enviada ao Supabase cerca de 1 segundo depois. Sem internet, o app continua funcionando e envia quando a conexão volta.
+- **Começar no meio da quinzena (adaptação):** se o banco estiver vazio e você abrir o app no meio de uma quinzena, ela vira uma **quinzena de adaptação**. O dinheiro livre, o delivery, a meta de XP e o desafio ficam proporcionais aos dias que restam. Ex.: começando dia 21 (quinzena de 15 a 29), são 9 de 15 dias = 60%, então R$935 viram R$561. O pagamento do dia 15 já passou, então não aparece a tarefa de custos fixos. No dia 30 começa a primeira quinzena cheia, com o que sobrou travado somado.
 - **Dias:** fecham sozinhos à meia-noite. Se ficar dias sem abrir, o app fecha esses dias e mostra um resumo.
 - **Dois aparelhos:** vale o que salvou primeiro; o outro recebe os dados novos e mostra um aviso.
 - **Backup:** cada gravação guarda a versão anterior em `estado_backup`. Para voltar a uma versão, veja o comando no final do `supabase/schema.sql`.

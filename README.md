@@ -58,6 +58,7 @@ Na Vercel o app começa **valendo hoje**. O modo teste (data simulada, Próximo 
 - **Delivery:** 2 tickets de R$30; cada um abre com 4 dias bons seguidos. O que sobrar vira disponível no fim.
 - **Saque:** um único por terça e sexta, **total ou parcial** (o que você deixar soma no próximo saque), liberado depois de completar as **obrigações da manhã**. O XP que você ganha de manhã ainda entra no saque. Sacar tira o valor do montante. Fast food sem ticket é descontado do montante; os outros gastos são registro do que você gastou com o que já sacou.
 - **Teto do saque (liberação gradual):** a cada terça o teto acumulado sobe 1 fatia do montante e a cada sexta 2 fatias, chegando a 100% no último saque da quinzena. O que passar do teto fica para o próximo saque. Assim o dinheiro sai aos poucos, conforme o progresso, e o caixa nunca falta.
+- **Quinzena de adaptação:** começou a usar no meio de uma quinzena? Livre, delivery, meta de XP e desafio ficam proporcionais aos dias que restam (ex.: dia 21 numa quinzena de 15 a 29 = 60%).
 - **Fim da quinzena:** o que ficou travado continua travado e soma no dinheiro livre da próxima quinzena. O disponível não sacado (e os tickets que sobraram) também passa.
 - **Caixa de viagem:** custo fixo de R$300 por quinzena, liberado inteiro no dia do pagamento (15 e 30), para hospedagem e os custos mais pesados de qualquer viagem. O resto da viagem vem dos saques. Em Grana, o botão **Usar** registra o que saiu da caixa.
 

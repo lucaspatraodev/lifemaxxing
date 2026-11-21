@@ -770,3 +770,4 @@ body.login .app { padding-top: 0; }
   background: repeating-conic-gradient(rgba(59, 123, 242, .16) 0 9deg, transparent 9deg 18deg);
   -webkit-mask-image: radial-gradient(circle, #000 0, transparent 58%); mask-image: radial-gradient(circle, #000 0, transparent 58%);
 }
+.aviso.adapt { margin-bottom: 14px; }

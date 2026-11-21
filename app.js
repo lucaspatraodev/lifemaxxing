@@ -287,23 +287,39 @@ function abrirQuinzena(iso) {
     fixosOk: false,   // vira true quando você confirma os custos fixos do dia de pagamento
     fechada: false
   };
+  ajustarComecoNoMeio(q, iso);
   calcularPotes(q);
   S.santos += santosFixo(q);
   return q;
 }
 const santosFixo = (q) => soma(q.fixos.filter((f) => f.santos).map((f) => f.valor));
+const inicioUtil = (q) => q.inicioEfetivo || q.inicio; // primeiro dia que conta na quinzena
+
+// Começou a usar no meio da quinzena (quinzena de adaptação): tudo fica proporcional
+// aos dias que restam. Ex.: começou dia 21 numa quinzena de 15 a 29 → 9 de 15 dias = 60%.
+function ajustarComecoNoMeio(q, iso) {
+  const efetivo = iso > q.inicio ? iso : q.inicio;
+  q.inicioEfetivo = efetivo;
+  q.fator = intervalo(efetivo, q.fim).length / intervalo(q.inicio, q.fim).length;
+  if (q.fator < 1) {
+    q.fixosOk = true; // o pagamento já passou antes de começar
+    const meta = Math.max(1, Math.round(q.desafio.meta * q.fator));
+    q.desafio = { ...q.desafio, meta, texto: q.desafio.texto.replace(/\d+/, String(meta)) };
+  }
+}
 
 // Divide o dinheiro livre: delivery à parte e o resto nos potes
 function calcularPotes(q) {
   // dinheiro livre = entrada − fixos + o que ficou travado na quinzena anterior
-  q.livre = Math.max(0, q.entrada - soma(q.fixos.map((f) => f.valor))) + (q.travadoAnterior || 0);
-  q.delivery = Math.min(S.config.delivery.total, q.livre);
+  const base = Math.max(0, q.entrada - soma(q.fixos.map((f) => f.valor))) * (q.fator || 1); // proporcional se começou no meio
+  q.livre = Math.round((base + (q.travadoAnterior || 0)) * 100) / 100;
+  q.delivery = Math.min(S.config.delivery.total * (q.fator || 1), q.livre); // proporcional na adaptação
   const resto = q.livre - q.delivery;
   const p = S.config.potes;
   q.potes = { xp: resto * p.xp, semana: resto * p.semana, bau: resto * p.bau, desafio: resto * p.desafio };
   // Pote de terça e sexta: cada dia da quinzena vale um pedaço. Os 4 dias que fecham no
   // corte de terça (sex a seg) somam 1 parte; os 3 que fecham no corte de sexta (ter a qui) somam 2.
-  const pesoTotal = soma(intervalo(q.inicio, q.fim).map(pesoDia));
+  const pesoTotal = soma(intervalo(inicioUtil(q), q.fim).map(pesoDia));
   q.valorPeso = pesoTotal ? q.potes.semana / pesoTotal : 0;
 }
 
@@ -315,13 +331,13 @@ function saqueDoDia(iso) { const w = diaSemana(iso); return somaDias(iso, w === 
 // Dias que fecham no corte de um dia de saque
 function janelaDoSaque(isoSaque) { const n = diaSemana(isoSaque) === 2 ? 4 : 3; return intervalo(somaDias(isoSaque, -n), somaDias(isoSaque, -1)); }
 // Saques (terças e sextas) dentro da quinzena
-const saquesDaQuinzena = (q) => intervalo(q.inicio, q.fim).filter((d) => diaDeSaque(d));
+const saquesDaQuinzena = (q) => intervalo(inicioUtil(q), q.fim).filter((d) => diaDeSaque(d));
 
 const somaLib = (q, tipos) => soma(q.liberacoes.filter((l) => !tipos || tipos.includes(l.tipo)).map((l) => l.valor));
 const xpQuinzena = (q) => xpEntre(q.inicio, q.fim);
 // Quanto vale cada 100 XP nesta quinzena (sempre proporcional ao pote de XP)
 function taxaXp(q = S.quinzena) {
-  const meta = S.config.metaXpQuinzena || 2700;
+  const meta = Math.round((S.config.metaXpQuinzena || 2700) * (q.fator || 1)); // quinzena menor, meta menor
   return { xp: 100, valor: Math.round(((q.potes.xp * 100) / meta) * 100) / 100, meta };
 }
 const bauMax = (q = S.quinzena) => Math.round(q.potes.bau * Math.max(...BAU_CHANCES.map((c) => c.pct)));
@@ -336,7 +352,7 @@ const treinosEntre = (a, b) => S.treinos.filter((t) => entre(t.data, a, b)).leng
 // Nunca passa do que sobra no pote.
 function calcSemanal(q, isoSaque) {
   const sexta = diaSemana(isoSaque) === 5;
-  const dias = janelaDoSaque(isoSaque).filter((d) => entre(d, q.inicio, q.fim));
+  const dias = janelaDoSaque(isoSaque).filter((d) => entre(d, inicioUtil(q), q.fim));
   const bons = dias.filter(ehBom);
   const cheio = soma(dias.map(pesoDia)) * q.valorPeso;
   let base = soma(bons.map(pesoDia)) * q.valorPeso;
@@ -1516,7 +1532,8 @@ function renderGrana() {
   const q = S.quinzena;
   const abas = `<div class="seg grana-abas">${[['resumo', 'Resumo'], ['fixos', 'Fixos']].map(([k, n]) => `<button class="${(UI.granaAba || 'resumo') === k ? 'on' : ''}" data-a="granaAba" data-k="${k}">${n}${k === 'fixos' && !q.fixosOk && S.sim.data === q.inicio ? ' <i class="dot-alerta"></i>' : ''}</button>`).join('')}</div>`;
   return `
-  <div class="page-head"><span class="eyebrow">Quinzena ${dataCurta(q.inicio)} a ${dataCurta(q.fim)}</span><h1>Grana</h1></div>
+  <div class="page-head"><span class="eyebrow">${q.fator < 1 ? `Quinzena de adaptação · ${dataCurta(inicioUtil(q))} a ${dataCurta(q.fim)}` : `Quinzena ${dataCurta(q.inicio)} a ${dataCurta(q.fim)}`}</span><h1>Grana</h1></div>
+  ${q.fator < 1 ? `<section class="card aviso adapt">${ic('calendar')}<div><b>Começou no meio da quinzena</b><small>${intervalo(inicioUtil(q), q.fim).length} de ${intervalo(q.inicio, q.fim).length} dias: o dinheiro livre, as metas e o desafio valem ${Math.round(q.fator * 100)}%. A primeira quinzena cheia começa dia ${paraData(somaDias(q.fim, 1)).getDate()}.</small></div></section>` : ''}
   ${abas}
   ${(UI.granaAba || 'resumo') === 'fixos' ? renderGranaFixos() : renderGranaResumo()}`;
 }
@@ -1648,7 +1665,7 @@ function fixosEditorHtml() {
         <button class="icon-sm" data-a="qRemFixo" data-i="${i}" aria-label="Remover">${ic('x')}</button>
       </div>`).join('')}
     <button class="link" data-a="qAddFixo">${ic('plus')} Fixo</button>
-    <div class="fixo total"><span class="task-tx"><b>Dinheiro livre</b><small>entrada menos fixos${q.travadoAnterior ? ` + ${brl(q.travadoAnterior)} travados da anterior` : ''}</small></span><b data-livre>${brl(q.livre)}</b></div>`;
+    <div class="fixo total"><span class="task-tx"><b>Dinheiro livre</b><small>entrada menos fixos${q.fator < 1 ? ` × ${Math.round(q.fator * 100)}% (começou dia ${paraData(inicioUtil(q)).getDate()})` : ''}${q.travadoAnterior ? ` + ${brl(q.travadoAnterior)} travados da anterior` : ''}</small></span><b data-livre>${brl(q.livre)}</b></div>`;
 }
 
 function renderGranaFixos() {
@@ -2172,7 +2189,7 @@ function contextoIA() {
     quinzena: {
       periodo: `${q.inicio} a ${q.fim} (pagamento do dia ${q.tipo})`, entrada: q.entrada,
       fixos: q.fixos.map((x) => ({ nome: x.nome, valor: x.valor, pago: !!x.pago })), fixosConfirmados: !!q.fixosOk,
-      dinheiroLivre: q.livre, travadoQueVeioDaAnterior: q.travadoAnterior || 0, liberado: r2(f.liberado), disponivelParaSaque: r2(f.disponivel), jaSacado: r2(f.sacado),
+      dinheiroLivre: q.livre, travadoQueVeioDaAnterior: q.travadoAnterior || 0, quinzenaDeAdaptacao: q.fator < 1 ? `começou ${inicioUtil(q)}, vale ${Math.round(q.fator * 100)}% (livre, metas e desafio proporcionais)` : false, liberado: r2(f.liberado), disponivelParaSaque: r2(f.disponivel), jaSacado: r2(f.sacado),
       travado: r2(f.travado), montanteRestante: r2(f.montante), saldoQueVeioDaAnterior: q.saldoAnterior,
       potes: { xp: [r2(f.xp), r2(q.potes.xp)], tercaESexta: [r2(somaLib(q, ['terca', 'sexta'])), r2(q.potes.semana)], bau: [r2(somaLib(q, ['bau', 'nivel'])), r2(q.potes.bau)], desafio: [q.desafio.concluido ? r2(q.potes.desafio) : 0, r2(q.potes.desafio)] },
       saque: { hojeEDiaDeSaque: f.hojeSaque, proximoSaque: f.dataSaque, valorDoSaque: r2(f.valorSaque), tetoDoSaque: r2(f.teto), ficaParaDepois: r2(f.paraDepois), jaSacouHoje: f.sacouHoje, manhaFeita: `${f.manha.feitas}/${f.manha.total}` },
@@ -2762,6 +2779,10 @@ function migrar() {
   if (S.quinzena) (S.quinzena.fixos || []).forEach(renomear);
   if (!S.config.metaXpQuinzena) S.config.metaXpQuinzena = 2700;
   if (!S.santosUsos) S.santosUsos = [];
+  const q = S.quinzena;
+  if (q && q.fator === undefined && !S.sim.teste && S.inicioApp > q.inicio && q.inicio === inicioQuinzena(S.inicioApp).inicio) {
+    ajustarComecoNoMeio(q, S.inicioApp); calcularPotes(q); salvarLocal();
+  }
 }
 
 FX.formatoDinheiro = brl;
