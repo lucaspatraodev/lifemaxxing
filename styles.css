@@ -771,3 +771,68 @@ body.login .app { padding-top: 0; }
   -webkit-mask-image: radial-gradient(circle, #000 0, transparent 58%); mask-image: radial-gradient(circle, #000 0, transparent 58%);
 }
 .aviso.adapt { margin-bottom: 14px; }
+
+/* --------- Barra do app (logo + nome), por baixo da barra de status --------- */
+:root { --bar-h: 54px; }
+#appbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 46; max-width: 480px; margin: 0 auto;
+  background: var(--ink); color: #fff; padding-top: var(--topo);
+}
+.appbar-in { height: var(--bar-h); display: flex; align-items: center; gap: 10px; padding: 0 16px; }
+.appbar-logo svg { width: 32px; height: 32px; display: block; border-radius: 10px; }
+.appbar-nome { flex: 1; font-size: 19px; font-weight: 800; letter-spacing: -.02em; }
+.appbar-btn { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: rgba(255, 255, 255, .1); color: #fff; }
+.appbar-btn .ic { width: 20px; height: 20px; }
+body.login .appbar-btn { display: none; }
+#simbar { top: calc(var(--topo) + var(--bar-h)); height: var(--sim-h); padding-top: 0 !important; }
+.app { padding-top: calc(var(--topo) + var(--bar-h) + var(--sim-h)); }
+body.login .app { padding-top: calc(var(--topo) + var(--bar-h)); }
+#toasts { top: calc(var(--topo) + var(--bar-h) + var(--sim-h) + 12px); }
+.hero.compacto { padding-top: 14px; }
+.hero-data { margin-bottom: 4px; }
+
+/* --------- Tarefas: maiores, com mais presença --------- */
+.tasks { gap: 10px; }
+.tasks .task {
+  min-height: 78px; padding: 14px; gap: 14px; border-radius: 22px; background: #fff;
+  border: 1px solid rgba(10, 14, 23, .06);
+  box-shadow: 0 1px 0 rgba(10, 14, 23, .03), 0 10px 26px -6px rgba(10, 14, 23, .12);
+}
+.tasks .task .task-ic {
+  width: 50px; height: 50px; border-radius: 16px; flex: none;
+  background: linear-gradient(150deg, #EEF3FE, #D9E5FB); color: var(--blue);
+}
+.tasks .task .task-ic .ic { width: 25px; height: 25px; }
+.tasks .task .task-tx b { font-size: 16.5px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
+.tasks .task .task-tx small { font-size: 13px; margin-top: 1px; }
+.task-seg { display: flex; gap: 4px; margin-top: 8px; }
+.task-seg i { width: 24px; height: 5px; border-radius: 3px; background: var(--line); }
+.task-seg i.on { background: var(--blue); }
+.task-seg i.atual:not(.on) { background: #A9C4F5; }
+.tasks .task .task-xp {
+  display: inline-flex; align-items: center; gap: 3px; padding: 9px 12px; border-radius: 15px; flex: none;
+  background: linear-gradient(140deg, var(--blue2), var(--blue)); color: #fff;
+  box-shadow: 0 6px 16px -2px rgba(23, 86, 200, .38);
+}
+.tasks .task .task-xp .ic { width: 14px; height: 14px; fill: currentColor; stroke-width: 1.2; }
+.tasks .task .task-xp b { font-size: 15.5px; font-weight: 800; }
+.tasks .task .task-xp small { font-size: 10.5px; font-weight: 800; opacity: .8; }
+.tasks .task .task-ok { width: 40px; height: 40px; flex: none; box-shadow: 0 6px 14px -2px rgba(23, 86, 200, .4); }
+.tasks .task .task-ok .ic { width: 20px; height: 20px; }
+/* feita: azul clarinho, ícone cheio, título riscado de leve */
+.tasks .task.done { background: #F5F8FF; border-color: #DCE7FB; box-shadow: none; }
+.tasks .task.done .task-ic { background: var(--blue); color: #fff; }
+.tasks .task.done .task-tx b { color: var(--ink2); text-decoration: line-through; text-decoration-color: rgba(23, 86, 200, .45); text-decoration-thickness: 2px; }
+/* bônus: ícone e selo pretos, para diferenciar das obrigações */
+.tasks.bonus .task:not(.done):not(.add-bonus) .task-ic { background: var(--ink); color: #fff; }
+.tasks.bonus .task .task-xp { background: var(--ink); box-shadow: 0 6px 16px -2px rgba(10, 14, 23, .3); }
+.tasks .task.add-bonus { min-height: 64px; background: transparent; border: 1.5px dashed #C9D6EE; box-shadow: none; }
+.tasks .task.add-bonus .task-ic { width: 42px; height: 42px; background: var(--blue-soft); box-shadow: none; }
+.tasks .task.pagamento:not(.done) .task-ic { background: var(--blue); color: #fff; }
+
+/* abas com barrinha de progresso */
+.tabs.topo button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 9px; font-size: 14.5px; }
+.tab-bar { display: block; width: 46%; height: 4px; border-radius: 3px; background: rgba(10, 14, 23, .09); overflow: hidden; }
+.tab-bar span { display: block; height: 100%; border-radius: 3px; background: var(--blue); }
+.tabs.topo button.on .tab-bar { background: rgba(255, 255, 255, .18); }
+.tabs.topo button.on .tab-bar span { background: #6FA0FF; }

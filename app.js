@@ -980,15 +980,15 @@ function renderHoje() {
   const linha = ({ h, i, pt }) => {
     const feito = parteFeita(iso, h, i);
     const multi = h.partes.length > 1;
-    const xp = h.especial ? `${h.xp}+` : parteXp(h, i);
+    const xp = h.especial ? h.xp : parteXp(h, i); // treino e surf podem ganhar bônus em cima
     const sub = h.especial ? (h.especial === 'treino' ? 'Abre o treino ou registra rápido' : 'Sessão de surf')
       : h.id === 'dormir' ? `Até ${S.config.horaDormir}`
       : multi ? `${h.nome} · ${i + 1} de ${h.partes.length}` : (h.tipo === 'extra' ? (h.motivos[0] ? `${h.motivos[0]} · chance de baú` : 'Chance de baú') : (h.motivos[0] || ''));
     return `
       <button class="task ${feito ? 'done' : ''} ${h.tipo}" data-a="tarefa" data-h="${h.id}" data-i="${i}">
         <span class="task-ic">${ic(h.icone)}</span>
-        <span class="task-tx"><b>${esc(pt.rotulo || h.nome)}</b><small>${esc(sub)}</small></span>
-        ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">+${xp} XP</span>`}
+        <span class="task-tx"><b>${esc(pt.rotulo || h.nome)}</b><small>${esc(sub)}</small>${multi ? `<span class="task-seg" aria-hidden="true">${h.partes.map((_, k) => `<i class="${parteFeita(iso, h, k) ? 'on' : ''} ${k === i ? 'atual' : ''}"></i>`).join('')}</span>` : ''}</span>
+        ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">${ic('bolt')}<b>+${xp}</b><small>${h.especial ? 'XP+' : 'XP'}</small></span>`}
       </button>`;
   };
   const obrigacoes = tarefasDoPeriodo(p).filter((t) => t.h.tipo === 'minimo');
@@ -1014,8 +1014,7 @@ function renderHoje() {
 
   return `
   <header class="hero compacto">
-    <div class="hero-top"><span class="eyebrow light">${dataLonga(iso)}</span>
-      <button class="icon-btn" data-a="ir" data-aba="ajustes" aria-label="Ajustes">${ic('sliders')}</button></div>
+    <span class="eyebrow light hero-data">${dataLonga(iso)}</span>
     <div class="hero-linha">
       <h1>Bora, ${esc(S.config.nome)}</h1>
       <div class="streak ${seq ? 'on' : ''}">${ic('flame')}<b>${seq}</b> ${seq === 1 ? 'dia bom' : 'dias bons'}</div>
@@ -1045,7 +1044,8 @@ function renderHoje() {
   <div class="tabs topo" aria-label="Obrigações por período">${Object.keys(PERIODOS).map((k) => {
     const lista = tarefasDoPeriodo(k).filter((t) => t.h.tipo === 'minimo');
     const feitas = lista.filter((t) => parteFeita(iso, t.h, t.i)).length;
-    return `<button class="${k === p ? 'on' : ''} ${lista.length && feitas === lista.length ? 'completo' : ''}" data-a="abaPeriodo" data-p="${k}">${PERIODOS[k]} <span class="tab-n">${feitas}/${lista.length}</span></button>`;
+    const pct = lista.length ? Math.round((feitas / lista.length) * 100) : 0;
+    return `<button class="${k === p ? 'on' : ''} ${lista.length && feitas === lista.length ? 'completo' : ''}" data-a="abaPeriodo" data-p="${k}"><span class="tab-l">${PERIODOS[k]} <span class="tab-n">${feitas}/${lista.length}</span></span><span class="tab-bar"><span style="width:${pct}%"></span></span></button>`;
   }).join('')}</div>
   <section class="tasks obrigacoes">${tarefaFixos}${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</section>
 

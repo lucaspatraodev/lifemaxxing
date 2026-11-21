@@ -111,7 +111,7 @@ const FX = (() => {
   // Tudo que é progresso cresce do zero: barras, metas, mapa, caminho, calendário, gráfico
   function progresso(view) {
     if (!ativo) return;
-    view.querySelectorAll('.bar i, .desc-bar i').forEach((b) => {
+    view.querySelectorAll('.bar i, .desc-bar i, .tab-bar span').forEach((b) => {
       const w = b.style.width;
       if (w && parseFloat(w) > 0) anim(b, { width: ['0%', w] }, { ...MOLA_SUAVE, delay: 0.18 });
     });
@@ -227,7 +227,9 @@ const FX = (() => {
     const row = document.querySelector(`.task[data-h="${h}"][data-i="${i}"]`);
     if (row) {
       anim(row.querySelector('.task-ok'), { scale: [0, 1.3, 1], rotate: [-40, 0] }, MOLA_PULO);
-      anim(row, { backgroundColor: ['#DCE8FD', '#FFFFFF'] }, { duration: 1, ease: SAIDA });
+      anim(row, { backgroundColor: ['#D3E2FC', '#F5F8FF'] }, { duration: 1, ease: SAIDA });
+      anim(row.querySelector('.task-ic'), { scale: [1, 1.18, 1], rotate: [0, -8, 0] }, MOLA_PULO);
+      anim(row.querySelectorAll('.task-seg i.on'), { scaleY: [1, 2, 1] }, { duration: 0.4, delay: M.stagger(0.05) });
     }
     segurar(1200);
     if (ganho > 0) voarXp(origem, ganho).then(() => encherBarra(antes, depois, formatoXp));
