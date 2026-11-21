@@ -1,6 +1,6 @@
 # Lifemaxxing
 
-App pessoal de hábitos, mobile-first, com ciclo **quinzenal** (dias 15 e 30): as obrigações e os bônus dão XP, e o XP libera o dinheiro livre da quinzena. Tem treino, grana, progresso e um coach de IA que conhece todos os seus dados.
+App pessoal de hábitos, mobile-first, com identidade surf (preto e laranja) e o pet João Frango, com ciclo **quinzenal** (dias 15 e 30): as obrigações e os bônus dão XP, e o XP libera o dinheiro livre da quinzena. Tem treino, grana, progresso e um coach de IA que conhece todos os seus dados.
 
 - **Para subir (Supabase + Vercel + IA), passo a passo:** [`docs/DEPLOY.md`](docs/DEPLOY.md). Sem senha: o app abre direto.
 - **Telas:** [`design/`](design/README.md)

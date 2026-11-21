@@ -17,7 +17,7 @@ const FX = (() => {
   const MOLA_PULO = { type: 'spring', stiffness: 620, damping: 13 };   // conquistas (pop)
   const MOLA_FOLHA = { type: 'spring', stiffness: 420, damping: 38 };  // folhas que sobem
   const SAIDA = [0.16, 1, 0.3, 1];                                      // ease-out longo
-  const CORES = ['#1756C8', '#3B7BF2', '#6FA0FF', '#0A0E17', '#BFD3FA'];
+  const CORES = ['#FF6A1F', '#FF9A3C', '#FFC27A', '#F6F1EA', '#2EC4B6']; // pôr do sol, areia e água
 
   const rnd = (a, b) => a + Math.random() * (b - a);
   const vazio = (el) => !el || (el.length !== undefined && el.length === 0);
@@ -116,8 +116,9 @@ const FX = (() => {
       if (w && parseFloat(w) > 0) anim(b, { width: ['0%', w] }, { ...MOLA_SUAVE, delay: 0.18 });
     });
     anim(view.querySelectorAll('.segs i.on'), { scaleX: [0, 1] }, { ...MOLA_SUAVE, delay: M.stagger(0.08, { startDelay: 0.2 }) });
-    anim(view.querySelectorAll('.goodday .dot.on'), { scale: [0.5, 1] }, { ...MOLA_PULO, delay: M.stagger(0.05, { startDelay: 0.15 }) });
-    anim(view.querySelectorAll('.wk i'), { scale: [0, 1] }, { ...MOLA_PULO, delay: M.stagger(0.05, { startDelay: 0.15 }) });
+    anim(view.querySelectorAll('.hero-seg i'), { scaleX: [0, 1] }, { ...MOLA_SUAVE, delay: M.stagger(0.05, { startDelay: 0.15 }) });
+    anim(view.querySelectorAll('.wk i, .sd i'), { scale: [0, 1] }, { ...MOLA_PULO, delay: M.stagger(0.05, { startDelay: 0.2 }) });
+    anim(view.querySelector('.pet'), { opacity: [0, 1], x: [40, 0], rotate: [8, 0] }, { ...MOLA_SUAVE, delay: 0.1 });
     anim(view.querySelectorAll('.map-row:not(.head) i'), { opacity: [0, 1], scale: [0.4, 1] }, { ...MOLA_SUAVE, delay: M.stagger(0.004, { startDelay: 0.2 }) });
     anim(view.querySelectorAll('.path'), { opacity: [0, 1], x: [-16, 0] }, { ...MOLA_SUAVE, delay: M.stagger(0.045, { startDelay: 0.15 }) });
     anim(view.querySelectorAll('.cal-d.on'), { scale: [0, 1] }, { ...MOLA_PULO, delay: M.stagger(0.04, { startDelay: 0.2 }) });
@@ -226,8 +227,10 @@ const FX = (() => {
     if (numEl && ganho > 0) numEl.textContent = formatoXp(antes.atual, antes.falta);
     const row = document.querySelector(`.task[data-h="${h}"][data-i="${i}"]`);
     if (row) {
+      onda(row);
+      if (!virouDiaBom) setTimeout(manobra, 250);
       anim(row.querySelector('.task-ok'), { scale: [0, 1.3, 1], rotate: [-40, 0] }, MOLA_PULO);
-      anim(row, { backgroundColor: ['#D3E2FC', '#F5F8FF'] }, { duration: 1, ease: SAIDA });
+      anim(row, { backgroundColor: ['#4A2510', '#1D150F'] }, { duration: 1, ease: SAIDA });
       anim(row.querySelector('.task-ic'), { scale: [1, 1.18, 1], rotate: [0, -8, 0] }, MOLA_PULO);
       anim(row.querySelectorAll('.task-seg i.on'), { scaleY: [1, 2, 1] }, { duration: 0.4, delay: M.stagger(0.05) });
     }
@@ -240,29 +243,99 @@ const FX = (() => {
   }
 
   // Bolinha do card Dia bom: pulo + anel
+  // Missão do dia bom completa: o segmento do topo enche brilhando
   function bolinha(hid) {
-    const w = document.querySelector(`.dotw[data-h="${hid}"]`);
-    if (!w) return;
-    const dot = w.querySelector('.dot');
-    anim(dot, { scale: [0.7, 1.28, 1] }, MOLA_PULO);
-    const anel = document.createElement('span');
-    anel.className = 'fx-anel';
-    w.appendChild(anel);
-    fim(anim(anel, { scale: [0.6, 2.1], opacity: [0.7, 0] }, { duration: 0.7, ease: SAIDA })).then(() => anel.remove());
-    anim(document.querySelector('.goodday h2'), { scale: [1, 1.22, 1] }, MOLA_PULO);
+    const seg = document.querySelector(`.hero-seg i[data-h="${hid}"]`);
+    anim(seg, { scaleY: [1, 2.4, 1], filter: ['brightness(1)', 'brightness(1.8)', 'brightness(1)'] }, { duration: 0.6, ease: 'easeOut' });
+    anim(document.querySelector('.hero-sub'), { scale: [1, 1.06, 1] }, MOLA_PULO);
   }
 
   // Dia bom completo: card pula, bolinhas fazem onda, confete
   function diaBom() {
-    const card = document.querySelector('.goodday');
-    if (!card) return;
-    segurar(1800);
-    anim(card, { scale: [1, 1.035, 1] }, MOLA_PULO);
-    anim(card.querySelectorAll('.dot.on'), { y: [0, -10, 0] }, { duration: 0.5, delay: M.stagger(0.06), ease: 'easeInOut' });
-    anim(card.querySelector('.pill'), { scale: [0.6, 1.15, 1] }, { ...MOLA_PULO, delay: 0.2 });
-    const c = centro(card);
-    confete(c.x, c.y - 10, 46, 190);
+    const hero = document.querySelector('.hero.surf');
+    if (!hero) return;
+    segurar(1900);
+    anim(hero.querySelector('h1'), { scale: [0.7, 1.12, 1], opacity: [0, 1, 1] }, { ...MOLA_PULO, delay: 0.1 });
+    anim(hero.querySelectorAll('.hero-seg i'), { y: [0, -6, 0] }, { duration: 0.45, delay: M.stagger(0.05), ease: 'easeInOut' });
+    anim(document.querySelector('.card.missoes .pill'), { scale: [0.6, 1.15, 1] }, { ...MOLA_PULO, delay: 0.25 });
+    aereo();
+    const pet = hero.querySelector('.pet');
+    const c = pet ? centro(pet) : centro(hero);
+    setTimeout(() => confete(c.x, c.y, 50, 200), 380);
     vibrar([20, 40, 20]);
+  }
+
+  /* ---------- Surf e o pet ---------- */
+
+  // Pet na água: balança na prancha e a onda corre por baixo
+  let falaAnterior = '';
+  function pet() {
+    const corpo = document.querySelector('.pet .pet-corpo'), onda = document.querySelector('.pet .pet-onda');
+    anim(corpo, { y: [0, -4, 0, 2, 0], rotate: [0, -2.5, 0, 2, 0] }, { duration: 3, repeat: Infinity, ease: 'easeInOut' });
+    anim(onda, { x: [0, -6, 0, 6, 0] }, { duration: 3.2, repeat: Infinity, ease: 'easeInOut' });
+    const fala = document.querySelector('.pet-fala');
+    if (fala && fala.textContent !== falaAnterior) {
+      falaAnterior = fala.textContent;
+      anim(fala, { scale: [0.4, 1.1, 1], opacity: [0, 1, 1], y: [8, 0, 0] }, { ...MOLA_PULO, delay: 0.25 });
+    }
+  }
+  const FALAS_MANOBRA = ['Rasgou!', 'Que onda!', 'Boa, brother!', 'Na crista!', 'Aloha!', 'Isso aí!'];
+  function falar(txt, ms = 1600) {
+    const fala = document.querySelector('.pet-fala');
+    if (!fala) return;
+    const antes = fala.textContent;
+    fala.textContent = txt;
+    anim(fala, { scale: [0.5, 1.12, 1], opacity: [0, 1, 1] }, MOLA_PULO);
+    setTimeout(() => { if (fala.isConnected && fala.textContent === txt) { fala.textContent = antes; } }, ms);
+  }
+  // Manobra: cavada e volta, com respingo
+  function manobra() {
+    const corpo = document.querySelector('.pet .pet-corpo');
+    anim(corpo, { rotate: [0, -18, 14, 0], x: [0, 12, -8, 0], y: [0, -12, -4, 0] }, { duration: 0.95, ease: 'easeInOut' });
+    const pet = document.querySelector('.pet');
+    if (pet) { const c = centro(pet); respingo(c.x + 10, c.y + 40, 14); }
+    falar(FALAS_MANOBRA[Math.floor(Math.random() * FALAS_MANOBRA.length)]);
+  }
+  // Aéreo 360 (dia bom)
+  function aereo() {
+    const corpo = document.querySelector('.pet .pet-corpo');
+    anim(corpo, { y: [0, -70, -70, 0], rotate: [0, -180, -360, -360] }, { duration: 1.2, ease: [0.3, 0, 0.2, 1], times: [0, 0.4, 0.75, 1] });
+    falar('Aéreo! Dia bom!', 2200);
+  }
+  // Respingo de água e espuma
+  function respingo(x, y, n = 14) {
+    if (!ativo) return;
+    const L = layer();
+    for (let k = 0; k < n; k++) {
+      const g = document.createElement('i');
+      g.className = 'fx-gota';
+      const w = rnd(4, 9);
+      g.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${w}px;background:${k % 3 ? '#2EC4B6' : '#E8F4F1'}`;
+      L.appendChild(g);
+      const dx = rnd(-70, 70), dy = rnd(-90, -30);
+      fim(anim(g, { x: [0, dx], y: [0, dy, dy + 80], scale: [0.6, 1, 0.4], opacity: [1, 1, 0] }, { duration: rnd(0.6, 1), ease: SAIDA })).then(() => g.remove());
+    }
+  }
+  // Onda atravessando a linha da missão concluída
+  function onda(row) {
+    if (!ativo || !row) return;
+    const r = row.getBoundingClientRect();
+    const L = layer();
+    const w = document.createElement('div');
+    w.className = 'fx-onda';
+    w.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px`;
+    w.innerHTML = '<svg viewBox="0 0 200 60" preserveAspectRatio="none"><path d="M0 60 V34 C 20 20, 34 20, 46 30 C 56 38, 60 20, 52 10 C 70 14, 80 30, 92 34 C 120 42, 150 26, 200 34 V60 Z" fill="rgba(46,196,182,.22)"/><path d="M0 34 C 20 20, 34 20, 46 30 C 56 38, 60 20, 52 10 C 70 14, 80 30, 92 34 C 120 42, 150 26, 200 34" fill="none" stroke="#E8F4F1" stroke-width="2.5" stroke-linecap="round" opacity=".8"/></svg>';
+    L.appendChild(w);
+    fim(anim(w, { x: [-r.width * 0.9, r.width * 0.25], opacity: [0, 1, 1, 0] }, { duration: 0.85, ease: [0.4, 0, 0.2, 1] })).then(() => w.remove());
+    setTimeout(() => respingo(r.left + r.width * 0.85, r.top + r.height * 0.4, 12), 520);
+  }
+  // Toque no pet
+  function petToque() {
+    if (!ativo) return;
+    const corpo = document.querySelector('.pet .pet-corpo');
+    anim(corpo, { y: [0, -26, 0], rotate: [0, -10, 0] }, { duration: 0.6, ease: 'easeOut' });
+    falar(['E aí, brother!', 'Bora remar?', 'Hoje tem onda!', 'Missão dada é missão cumprida.', 'Partiu mar!'][Math.floor(Math.random() * 5)]);
+    vibrar(10);
   }
 
   /* ---------- Folhas e modais ---------- */
@@ -394,6 +467,7 @@ const FX = (() => {
     ativo, anim, contar, confete, moedas, espera, segurar, formatoDinheiro: null,
     entrarTela, lista, progresso, nav, chama, montarToque,
     tarefaFeita, bolinha, diaBom, folhaAbrir, folhaFechar, modalAbrir, modalFechar,
-    bau, nivel, abrirBauNivel, treinoFeito, serie, saque, descanso
+    bau, nivel, abrirBauNivel, treinoFeito, serie, saque, descanso,
+    pet, petToque, manobra, aereo, onda, respingo
   };
 })();

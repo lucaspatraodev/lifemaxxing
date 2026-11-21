@@ -2,10 +2,11 @@
 
 Capturas do protótipo em tamanho de iPhone 14 (390 × 844 pt, @3x). Abra `index.html` para ver todas lado a lado.
 
-**Visual:** fundo claro `#F4F6F9`, cards brancos com cantos de 20 a 28 px, preto `#0A0E17`, azul `#1756C8` (brilho `#3B7BF2`), fonte Plus Jakarta Sans, ícones de traço, sem emoji.
+**Visual:** identidade surf. Fundo preto `#09090A` com subtons nos cards: pôr do sol `#1F140C` (missões), oceano `#0B1A21` (sequência), areia `#1B1812` (bônus). Laranja `#FF6A1F` e âmbar `#FF9A3C` no destaque, água `#2EC4B6`. Fonte Plus Jakarta Sans, ícones de traço. Pet: **João Frango**, galo surfista (desenho original).
 
 | # | Tela | O que mostra |
 | --- | --- | --- |
+| 00 | Hoje (valendo) | Topo com status e João Frango, card de missões sobreposto, sequência e bônus |
 | 01 | Hoje | Header compacto, card Dia bom (obrigações + Treino), abas Manhã/Tarde/Noite com contagem, tarefa de custos fixos (só no dia 15 e 30), Bônus |
 | 02 | Registrar obrigação | Motivos, XP, quanto vale e libera, deslizar para confirmar |
 | 03 | Novo bônus | Criar hobby opcional (nome, XP, ícone, porquê) |
@@ -28,6 +29,8 @@ Capturas do protótipo em tamanho de iPhone 14 (390 × 844 pt, @3x). Abra `index
 | 20 | Ajustes | Perfil, hábitos, orçamento padrão, regras, frases |
 | 21 | Coach arrastando | Painel do chat subindo seguindo o dedo |
 | 22 | Coach vazio | Sugestões de perguntas |
+| 24 | Missão concluída | Onda atravessando a linha, respingo e manobra do pet |
+| 25 | Dia bom | Aéreo do João Frango com confete |
 | 23 | Coach conversa | **Conversa de exemplo** escrita para a captura, não é resposta real da IA |
 
 As telas com fundo comprido (01, 07, 16 a 20) são capturas da página inteira; o menu inferior aparece no meio delas porque fica fixo na tela.
