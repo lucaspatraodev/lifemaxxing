@@ -1488,3 +1488,19 @@ body.claro .rumo-bar .ja { background: #18181B; opacity: .35; }
 .dev-ic .ic { width: 24px; height: 24px; }
 .dev b { font-size: 17px; }
 .dev p { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 260px; }
+
+/* Progresso: grana presa até o próximo saque */
+.pend { padding: 16px; }
+.pend-topo { display: flex; align-items: baseline; justify-content: space-between; margin: 6px 0 12px; }
+.pend-valor { font-size: 30px; font-weight: 700; letter-spacing: -.03em; color: var(--blue2); }
+.pend-xp { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: var(--ink2); }
+.pend-xp .ic { width: 14px; height: 14px; color: var(--blue2); }
+.pend-lista { border-top: 1px solid var(--line); }
+.pend-linha { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pend-linha span { display: flex; flex-direction: column; gap: 2px; }
+.pend-linha b { font-size: 14px; font-weight: 600; }
+.pend-linha small { font-size: 12px; color: var(--muted); }
+.pend-linha em { font-style: normal; font-size: 14.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pend .rumo-bar { margin: 14px 0 8px; }
+.pend-nota { display: block; font-size: 12px; color: var(--muted); line-height: 1.35; margin-top: 6px; }
+body.claro .pend .rumo-bar { background: #E2E2E6; }

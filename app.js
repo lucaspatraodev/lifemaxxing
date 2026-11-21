@@ -594,7 +594,7 @@ function sacar(valor) {
   const v = Math.min(max, Math.floor((valor === undefined ? max : Number(valor) || 0) * 100) / 100);
   if (!(v > 0)) return 0;
   q.sacado += v;
-  q.saques.push({ id: uid(), data: S.sim.data, valor: v });
+  q.saques.push({ id: uid(), data: S.sim.data, valor: v, xpQ: xpQuinzena(q), nLib: q.liberacoes.length });
   salvar();
   return v;
 }
@@ -1799,6 +1799,52 @@ function abrirGasto() {
 }
 
 // --- Progresso ---
+// Grana já conquistada e presa até a próxima liberação (próximo saque), com o XP que gerou.
+// Conta só o que entrou desde o último saque: XP (em blocos de 100), baús e o corte de dias bons.
+function pendenteSaque(q = S.quinzena) {
+  const iso = S.sim.data, f = financas(q), r = taxaXp(q);
+  const ult = q.saques[q.saques.length - 1];
+  const xpAntes = ult ? (ult.xpQ ?? xpEntre(q.inicio, ult.data)) : 0;
+  const nLib = ult ? (ult.nLib ?? q.liberacoes.filter((l) => l.data <= ult.data).length) : 0;
+  const novas = q.liberacoes.slice(nLib);
+  const libXpEm = (x) => Math.min(q.potes.xp, Math.floor(x / r.xp) * r.valor);
+  const xpNovo = Math.max(0, xpQuinzena(q) - xpAntes);
+  const doXp = Math.max(0, libXpEm(xpQuinzena(q)) - libXpEm(xpAntes));
+  const baus = soma(novas.filter((l) => ['bau', 'nivel'].includes(l.tipo)).map((l) => l.valor));
+  const cortesFeitos = soma(novas.filter((l) => ['terca', 'sexta'].includes(l.tipo)).map((l) => l.valor));
+  // corte de dias bons que ainda vai cair à meia-noite antes do próximo saque
+  const alvo = f.hojeSaque && !f.sacouHoje ? iso : proximoSaque(somaDias(iso, 1));
+  const naQuinzena = entre(alvo, q.inicio, q.fim);
+  const corte = naQuinzena && alvo > iso ? calcSemanal(q, alvo) : null;
+  const cortes = cortesFeitos + (corte ? corte.valor : 0);
+  const antes = Math.max(0, f.disponivel - doXp - baus - cortesFeitos); // sobra de liberações anteriores
+  const bruto = f.disponivel + (corte ? corte.valor : 0);
+  const teto = naQuinzena ? Math.max(0, tetoAcumulado(q, alvo) - q.sacado - f.descontos) : bruto;
+  const total = Math.max(0, Math.min(bruto, teto));
+  const noBloco = xpQuinzena(q) % r.xp;
+  return { alvo, naQuinzena, hoje: alvo === iso, total, bruto, teto, xpNovo, doXp, baus, cortes, corte, antes, noBloco, r, cheio: liberadoXp(q) >= q.potes.xp };
+}
+function cardPendente() {
+  const p = pendenteSaque();
+  const quando = p.naQuinzena ? `${p.hoje ? 'Hoje' : SEMANA[diaSemana(p.alvo)]} ${dataCurta(p.alvo)}` : 'no pagamento';
+  const linha = (rot, sub, v) => `<div class="pend-linha"><span><b>${rot}</b>${sub ? `<small>${sub}</small>` : ''}</span><em>${brl(v)}</em></div>`;
+  return `
+  <section class="card pend">
+    <span class="eyebrow">Pendente para sacar · ${quando}</span>
+    <div class="pend-topo"><b class="pend-valor">${brl(p.total)}</b><span class="pend-xp">${ic('star')} ${num(p.xpNovo)} XP</span></div>
+    <div class="pend-lista">
+      ${linha('XP', `${num(p.xpNovo)} XP desde o último saque`, p.doXp)}
+      ${p.cortes || p.corte ? linha('Dias bons', p.corte ? `${p.corte.bons} de ${p.corte.total} dias · corte ${SEMANA_CURTA[diaSemana(somaDias(p.alvo, -1))]} à meia-noite` : 'corte de hoje', p.cortes) : ''}
+      ${p.baus ? linha('Baús', '', p.baus) : ''}
+      ${p.antes > 0.009 ? linha('Sobra de antes', 'liberado e ainda não sacado', p.antes) : ''}
+    </div>
+    ${p.cheio ? '<small class="pend-nota">Pote de XP da quinzena cheio: XP agora conta só para o nível.</small>' : `
+    <div class="rumo-bar"><i class="essa" style="width:${(p.noBloco / p.r.xp * 100).toFixed(1)}%"></i></div>
+    <small class="pend-nota">${p.noBloco} de ${p.r.xp} XP no bloco atual · faltam ${p.r.xp - p.noBloco} XP para prender mais ${brl(p.r.valor)}</small>`}
+    ${p.bruto > p.teto + 0.009 ? `<small class="pend-nota">Teto deste saque: ${brl(p.teto)}. O resto fica para o seguinte.</small>` : ''}
+  </section>`;
+}
+
 function renderProgresso() {
   const iso = S.sim.data, xp = xpTotal(), n = nivelInfo(xp);
   const seq = sequencia(iso);
@@ -1837,6 +1883,7 @@ function renderProgresso() {
 
   return `
   <div class="page-head"><span class="eyebrow">${num(xp)} XP no total</span><h1>Progresso</h1></div>
+  ${cardPendente()}
   <section class="card">
     <div class="card-head"><div><span class="eyebrow">Sequência</span><h2>${seq} <small>${seq === 1 ? 'dia' : 'dias'} · melhor ${maiorSequencia()}</small></h2></div>${ic('flame', 'flame-big')}</div>
     <div class="week">${sete}</div>
