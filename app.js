@@ -92,6 +92,7 @@ const IC = {
   dot: '<circle cx="12" cy="12" r="5"/>',
   heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
+  spark: '<path d="M12 2.5v19M2.5 12h19M5.3 5.3l13.4 13.4M18.7 5.3L5.3 18.7"/>',
   bed: '<path d="M3 18.5V6.5M3 14h18v4.5M21 14v-2.5a3 3 0 0 0-3-3h-7v5.5"/><circle cx="7" cy="11" r="2"/>',
   book: '<path d="M4.5 5.5A2 2 0 0 1 6.5 3.5H19v15H6.5a2 2 0 0 0-2 2z"/><path d="M4.5 20.5v-15M19 18.5v2H6.5"/>'
 };
@@ -937,6 +938,8 @@ function render() {
   const telas = { hoje: renderHoje, treino: renderTreino, grana: renderGrana, progresso: renderProgresso, ajustes: renderAjustes };
   const view = $('#view');
   view.innerHTML = telas[UI.aba]();
+  const logoEl = $('.appbar-logo');
+  if (logoEl && logoEl.dataset.n !== String(S.config.logo || 1)) { logoEl.innerHTML = logoSvg(S.config.logo || 1, 30); logoEl.dataset.n = String(S.config.logo || 1); }
   const trocou = UI.ultimaAba !== UI.aba;
   if (trocou) { // entrada ao trocar de aba: cascata e progresso enchendo (ou fade simples sem Motion)
     if (!FX.entrarTela(view)) { view.classList.remove('entra'); void view.offsetWidth; view.classList.add('entra'); }
@@ -972,107 +975,90 @@ function renderHoje() {
   const p = UI.periodoAba || S.sim.periodo;
   const f = financas();
   const q = S.quinzena;
-  const estrelas = n.estrelas ? ' ' + Array.from({ length: n.estrelas }, () => ic('star', 'star')).join('') : '';
   const pet = S.config.pet || {};
+  const h0 = S.sim.teste ? { manha: 9, tarde: 14, noite: 20 }[S.sim.periodo] : new Date().getHours();
+  const saudacao = h0 < 12 ? 'Bom dia' : h0 < 18 ? 'Boa tarde' : 'Boa noite';
 
-  // Linha de missão (lista dentro do card, como na referência)
+  // Linha de missão: card simples (rótulo pequeno, nome, XP à direita)
   const linha = ({ h, i, pt }) => {
     const feito = parteFeita(iso, h, i);
     const multi = h.partes.length > 1;
-    const xp = h.especial ? h.xp : parteXp(h, i); // treino e surf podem ganhar bônus em cima
-    // pouco texto: só o nome; legenda curta apenas quando ajuda (horário, partes)
-    const sub = h.id === 'dormir' ? `até ${S.config.horaDormir}` : '';
+    const xp = h.especial ? h.xp : parteXp(h, i);
+    const rotulo = multi ? `${h.nome} · ${i + 1} de ${h.partes.length}` : h.id === 'dormir' ? `até ${S.config.horaDormir}` : h.tipo === 'extra' ? '' : PERIODOS[h.partes[i].periodo] || '';
     return `
       <button class="task mis ${feito ? 'done' : ''} ${h.tipo}" data-a="tarefa" data-h="${h.id}" data-i="${i}">
         <span class="task-ic">${ic(h.icone)}</span>
-        <span class="task-tx"><b>${esc(pt.rotulo || h.nome)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}${multi ? `<span class="task-seg" aria-label="${partesFeitas(iso, h)} de ${h.partes.length}">${h.partes.map((_, k) => `<i class="${parteFeita(iso, h, k) ? 'on' : ''}"></i>`).join('')}</span>` : ''}</span>
-        ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">+${xp}${h.especial ? '+' : ''}</span>`}
+        <span class="task-tx">${rotulo ? `<small class="mis-rot">${esc(rotulo)}</small>` : ''}<b>${esc(pt.rotulo || h.nome)}</b></span>
+        ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">+${xp}${h.especial ? '+' : ''} XP</span>`}
       </button>`;
   };
   const obrigacoes = tarefasDoPeriodo(p).filter((t) => t.h.tipo === 'minimo');
   const bonus = extras().flatMap((h) => h.partes.map((pt, i) => ({ h, i, pt })));
   const bonusFeitos = bonus.filter((t) => parteFeita(iso, t.h, t.i)).length;
-  // XP que ainda dá para ganhar hoje nas obrigações (e o bônus do dia bom)
-  const emJogo = soma(minimos().flatMap((h) => h.partes.map((_, i) => (parteFeita(iso, h, i) ? 0 : parteXp(h, i))))) + (bom ? 0 : S.config.xpDiaBom);
 
-  // Dia de pagamento (15 e 30): a tarefa de registrar os custos fixos aparece só nesse dia
+  // Próxima missão: a primeira pendente do período atual (ou de qualquer período)
+  const pendentes = (per) => tarefasDoPeriodo(per).filter((t) => t.h.tipo === 'minimo' && !parteFeita(iso, t.h, t.i));
+  const prox = pendentes(S.sim.periodo)[0] || ['manha', 'tarde', 'noite'].map(pendentes).flat()[0];
+
   const tarefaFixos = iso === q.inicio ? `
       <button class="task mis pagamento ${q.fixosOk ? 'done' : ''}" data-a="abrirFixos">
         <span class="task-ic">${ic('calendar')}</span>
-        <span class="task-tx"><b>Custos fixos</b><small>dia de pagamento</small></span>
-        ${q.fixosOk ? `<span class="task-ok">${ic('check')}</span>` : '<span class="task-xp hoje"><b>Hoje</b></span>'}
+        <span class="task-tx"><small class="mis-rot">Dia de pagamento</small><b>Custos fixos</b></span>
+        ${q.fixosOk ? `<span class="task-ok">${ic('check')}</span>` : '<span class="task-xp hoje">Hoje</span>'}
       </button>` : '';
 
-  // Rodapé do card: o saque (como "a próxima libera em..." da referência)
-  const rodape = f.hojeSaque
-    ? (f.sacouHoje ? `Saque feito · <b>${brl(f.sacouHoje)}</b>`
-      : f.manha.ok ? `<b>${brl(f.valorSaque)}</b> para sacar hoje`
-      : `Feche a manhã para sacar <b>${brl(f.valorSaque)}</b>`)
-    : `Próximo saque · <b>${SEMANA_CURTA[diaSemana(f.dataSaque)]} ${dataCurta(f.dataSaque)}</b>`;
-
-  // Sequência: últimos 7 dias em círculos
-  const dias7 = intervalo(somaDias(iso, -6), iso);
-  const recorde = maiorSequencia();
-
-  const status = bom ? 'Dia bom!' : cont === 0 ? 'Bora pra água' : 'Pegando onda';
+  const saqueValor = f.sacouHoje || f.valorSaque;
+  const saqueRot = f.hojeSaque ? (f.sacouHoje ? 'Sacado hoje' : f.manha.ok ? 'Saque hoje' : 'Feche a manhã') : `Saque ${SEMANA_CURTA[diaSemana(f.dataSaque)]}`;
 
   return `
-  <header class="hero surf">
-    <div class="hero-grid">
-      <div class="hero-txt">
-        <span class="eyebrow light">${dataLonga(iso)}</span>
-        <h1>${status}</h1>
-        <p class="hero-sub">${cont} de ${tot} missões</p>
-        <div class="hero-seg" aria-label="Dia bom: ${cont} de ${tot}">${minimos().map((h) => `<i data-h="${h.id}" class="${habitoFeito(iso, h) ? 'on' : partesFeitas(iso, h) ? 'meio' : ''}"></i>`).join('')}</div>
-      </div>
-      <button class="pet" data-a="pet" aria-label="${esc(pet.nome || 'João Frango')}">
-        <span class="pet-fala">${esc(petFala(cont, tot, bom, seq))}</span>
-        ${pet.imagem ? `<img class="pet-img" src="${pet.imagem}" alt="">` : petSvg(bom ? 'festa' : cont ? 'focado' : 'de-boa')}
-      </button>
+  <header class="ola">
+    <div class="ola-tx">
+      <h1>${saudacao},<br>${esc(S.config.nome)}</h1>
+      <p>${dataLonga(iso)}</p>
     </div>
-    <div class="level">
-      <div class="level-row">
-        <div><span class="eyebrow light">Nível ${n.nivel}${estrelas}</span> <b>${esc(n.nome)}</b></div>
-        <span class="xpnum" id="xpnum">${num(n.atual)} / ${num(n.falta)} XP</span>
-      </div>
-      <div class="bar"><i id="xpbar" style="width:${n.pct.toFixed(1)}%"></i></div>
-    </div>
+    <button class="avatar-pet" data-a="pet" aria-label="${esc(pet.nome || 'João Frango')}">
+      ${pet.imagem ? `<img src="${pet.imagem}" alt="">` : logoSvg(S.config.logo || 1, 52)}
+      <span class="pet-fala" hidden></span>
+    </button>
   </header>
 
-  <section class="card missoes">
-    <div class="card-head"><span class="card-tt">Missões</span><span class="pill ${bom ? 'blue' : ''}">${bom ? `+${S.config.xpDiaBom} XP` : `${emJogo} XP em jogo`}</span></div>
-    <div class="tabs topo" aria-label="Missões por período">${Object.keys(PERIODOS).map((k) => {
-      const lista = tarefasDoPeriodo(k).filter((t) => t.h.tipo === 'minimo');
-      const feitas = lista.filter((t) => parteFeita(iso, t.h, t.i)).length;
-      return `<button class="${k === p ? 'on' : ''} ${lista.length && feitas === lista.length ? 'completo' : ''}" data-a="abaPeriodo" data-p="${k}">${PERIODOS[k]} <span class="tab-n">${feitas}/${lista.length}</span></button>`;
-    }).join('')}</div>
-    <div class="tasks obrigacoes">${tarefaFixos}${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</div>
-    <button class="rodape" data-a="ir" data-aba="grana"><span class="rodape-ic">${ic(f.sacouHoje ? 'check' : f.hojeSaque && !f.manha.ok ? 'lock' : 'calendar')}</span><span>${rodape}</span></button>
-  </section>
+  <span class="rotulo">${bom ? 'Dia bom fechado' : 'Próxima missão'}</span>
+  ${prox ? `
+  <button class="cta" data-a="tarefa" data-h="${prox.h.id}" data-i="${prox.i}">
+    <span class="cta-tx"><b>${esc(prox.pt.rotulo || prox.h.nome)}</b><small>+${parteXp(prox.h, prox.i)} XP · ${PERIODOS[prox.pt.periodo] || ''}</small></span>
+    <span class="cta-seta">${ic('arrow')}</span>
+  </button>` : `
+  <div class="cta feito"><span class="cta-tx"><b>Todas as ${tot} missões</b><small>+${S.config.xpDiaBom} XP do dia bom</small></span><span class="cta-seta">${ic('check')}</span></div>`}
 
-  <h3 class="sec">Sequência</h3>
-  <section class="card sequencia">
-    <div class="seq-topo">
-      <span class="seq-fogo">${ic('flame')}</span>
-      <div><h2>${seq} ${seq === 1 ? 'dia' : 'dias'}</h2><small>seguidos · recorde ${recorde}</small></div>
+  <div class="tiles">
+    <div class="tile"><b>${cont}<small>/${tot}</small></b><span>Missões</span></div>
+    <div class="tile escuro"><b>${ic('star')} ${num(xpDoDia(iso))}</b><span>XP hoje</span></div>
+  </div>
+
+  <section class="stat-card">
+    <div class="stat-row">
+      <div><b>${seq}</b><span>Dias seguidos</span></div>
+      <div><b>${maiorSequencia()}</b><span>Recorde</span></div>
+      <div><b class="laranja">${brl(saqueValor)}</b><span>${saqueRot}</span></div>
     </div>
-    <div class="seq-dias">${dias7.map((d) => {
-      const st = d < S.inicioApp ? 'fora' : ehBom(d) ? 'on' : d === iso ? 'hoje' : diaLer(d).fechado ? 'off' : 'fora';
-      return `<div class="sd ${st}"><span>${SEMANA_CURTA[diaSemana(d)]}</span><i>${st === 'on' ? ic('check') : ''}</i><small>${d >= S.inicioApp ? num(xpDoDia(d)) : ''}</small></div>`;
-    }).join('')}</div>
+    <div class="bar"><i id="xpbar" style="width:${n.pct.toFixed(1)}%"></i></div>
+    <div class="stat-pe"><span>Nível ${n.nivel} · ${esc(n.nome)}</span><span id="xpnum">${num(n.atual)} / ${num(n.falta)} XP</span></div>
   </section>
 
-  <h3 class="sec">Bônus <span class="sec-n">${bonusFeitos ? `· ${bonusFeitos} hoje` : '· opcionais'}</span></h3>
-  <section class="card bonus-card">
-    <div class="tasks bonus">${bonus.map(linha).join('')}</div>
-    <button class="rodape" data-a="novoBonus"><span class="rodape-ic">${ic('plus')}</span><span>Adicionar bônus</span></button>
-  </section>
+  <h3 class="sec">Missões</h3>
+  <div class="filtros" aria-label="Missões por período">${Object.keys(PERIODOS).map((k) => {
+    const lista = tarefasDoPeriodo(k).filter((t) => t.h.tipo === 'minimo');
+    const feitas = lista.filter((t) => parteFeita(iso, t.h, t.i)).length;
+    return `<button class="${k === p ? 'on' : ''} ${lista.length && feitas === lista.length ? 'completo' : ''}" data-a="abaPeriodo" data-p="${k}">${PERIODOS[k]} <span class="tab-n">${feitas}/${lista.length}</span></button>`;
+  }).join('')}</div>
+  <div class="tasks obrigacoes lista">${tarefaFixos}${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</div>
 
-  <button class="card ff" data-a="fastfood">
-    <span class="task-ic">${ic('burger')}</span>
-    <span class="task-tx"><b>Fast food</b>${f.tickets.disponiveis ? `<small>${f.tickets.disponiveis} ticket disponível</small>` : ''}</span>
-    ${ic('next')}
-  </button>`;
+  <h3 class="sec">Bônus ${bonusFeitos ? `<span class="sec-n">· ${bonusFeitos} hoje</span>` : ''}</h3>
+  <div class="tasks bonus lista">${bonus.map(linha).join('')}
+    <button class="task mis add-bonus" data-a="novoBonus"><span class="task-ic">${ic('plus')}</span><span class="task-tx"><b>Adicionar bônus</b></span></button>
+  </div>
+
+  <button class="linha-cfg" data-a="fastfood"><span class="task-ic">${ic('burger')}</span><span class="task-tx"><b>Fast food</b>${f.tickets.disponiveis ? `<small>${f.tickets.disponiveis} ticket disponível</small>` : ''}</span>${ic('next')}</button>`;
 }
 
 // --- Folha de registro de tarefa ---
@@ -1873,6 +1859,9 @@ function renderAjustes() {
     <div><b>Caixa de viagem</b><span>Custo fixo (R$300), liberado inteiro no dia do pagamento, para hospedagem e os custos mais pesados</span></div>
   </section>
 
+  <h3 class="sec">Logo</h3>
+  <section class="card logos">${[1, 2, 3, 4, 5].map((k) => `<button class="logo-op ${(c.logo || 1) === k ? 'on' : ''}" data-a="logo" data-n="${k}" aria-label="Logo ${k}: ${LOGO_NOMES[k - 1]}">${logoSvg(k, 54)}<small>${k}</small></button>`).join('')}</section>
+
   <h3 class="sec">Pet</h3>
   <section class="card form pet-ajuste">
     <div class="pet-ajuste-topo"><span class="pet-mini">${(c.pet || {}).imagem ? `<img src="${c.pet.imagem}" alt="">` : petSvg('de-boa')}</span>
@@ -2263,6 +2252,8 @@ function mdLeve(t) {
   return out.map((x) => (Array.isArray(x) ? `<ul>${x.join('')}</ul>` : x)).join('');
 }
 
+// Enquanto a IA pensa (como o "Pondering…" do Claude, mas no mar)
+const FRASES_ESPERA = ['Surfando…', 'Remando…', 'Lendo a maré…', 'Esperando a série…', 'Passando a arrebentação…', 'Dropando…', 'Encaixando a manobra…', 'Checando o swell…'];
 const SUGESTOES = ['Como está minha quinzena?', 'Quanto posso liberar na sexta?', 'Onde estou gastando mais?', 'O que falta hoje para o dia bom?', 'Como evoluiu meu supino?'];
 
 function chatHtml() {
@@ -2272,8 +2263,8 @@ function chatHtml() {
       <header class="chat-head" data-chat="arrasto">
         <div class="grab"></div>
         <div class="chat-head-row">
-          <span class="chat-av">${ic('sparkle')}</span>
-          <div class="chat-tt"><b>Coach</b><small>Vê seus hábitos, treinos e grana</small></div>
+          <span class="chat-av">${ic('spark')}</span>
+          <div class="chat-tt"><b>Coach</b><small>conhece seus hábitos, treinos e grana</small></div>
           <button class="icon-sm" data-chat="limpar" aria-label="Limpar conversa">${ic('trash')}</button>
           <button class="icon-sm" data-chat="fechar" aria-label="Fechar">${ic('x')}</button>
         </div>
@@ -2287,14 +2278,14 @@ function renderChatMsgs() {
   const box = $('#chat-msgs'); if (!box) return;
   if (!CHAT.turnos.length) {
     box.innerHTML = `<div class="chat-vazio">
-      <span class="chat-av lg">${ic('sparkle')}</span>
+      <span class="chat-av lg">${ic('spark')}</span>
       <b>Pergunte sobre você</b>
       <p>O coach lê seus últimos 60 dias, treinos, gastos e a quinzena inteira.</p>
       <div class="chips sug">${SUGESTOES.map((s) => `<button class="chip" data-chat="sug">${esc(s)}</button>`).join('')}</div>
     </div>`;
     return;
   }
-  box.innerHTML = CHAT.turnos.map((t, k) => `<div class="msg ${t.role === 'user' ? 'eu' : 'ia'} ${t.erro ? 'erro' : ''}" data-k="${k}">${t.pensando ? '<span class="pensando"><i></i><i></i><i></i></span>' : t.role === 'user' ? esc(t.content) : mdLeve(t.content)}</div>`).join('');
+  box.innerHTML = CHAT.turnos.map((t, k) => `<div class="msg ${t.role === 'user' ? 'eu' : 'ia'} ${t.erro ? 'erro' : ''}" data-k="${k}">${t.pensando ? `<span class="pensando-surf">${ic('spark')}<em id="chat-frase">${esc(FRASES_ESPERA[CHAT.fraseIdx % FRASES_ESPERA.length])}</em></span>` : t.role === 'user' ? esc(t.content) : mdLeve(t.content)}</div>`).join('');
   box.scrollTop = box.scrollHeight;
 }
 function atualizarUltima() {
@@ -2313,7 +2304,7 @@ function renderChatBarra() {
     ${semIA && !CHAT.servidor ? '<p class="chat-aviso">Sem IA aqui. Na Vercel o coach usa Gemini, Groq ou OpenAI (docs/DEPLOY.md).</p>' : ''}
     <div class="chat-input">
       ${CHAT.dictation ? `<button class="chat-btn" id="chat-mic" data-chat="mic" aria-label="Falar">${ic('mic')}</button>` : ''}
-      <textarea id="chat-in" rows="1" placeholder="Pergunte qualquer coisa" enterkeyhint="send">${esc(valor)}</textarea>
+      <textarea id="chat-in" rows="1" placeholder="Fale com o coach…" enterkeyhint="send">${esc(valor)}</textarea>
       <button class="chat-btn envia ${CHAT.enviando ? 'parar' : ''}" data-chat="${CHAT.enviando ? 'parar' : 'enviar'}" aria-label="${CHAT.enviando ? 'Parar' : 'Enviar'}">${CHAT.enviando ? '<i class="sq"></i>' : ic('arrow')}</button>
     </div>`;
   const t = $('#chat-in');
@@ -2332,6 +2323,14 @@ async function enviarChat(texto) {
   CHAT.turnos.push(resp);
   const ctl = new AbortController();
   CHAT.enviando = ctl;
+  CHAT.fraseIdx = Math.floor(Math.random() * FRASES_ESPERA.length);
+  clearInterval(CHAT.fraseTimer);
+  CHAT.fraseTimer = setInterval(() => { // troca a frase de espera a cada 1,4 s
+    const el = $('#chat-frase'); if (!el) return;
+    CHAT.fraseIdx++;
+    el.textContent = FRASES_ESPERA[CHAT.fraseIdx % FRASES_ESPERA.length];
+    FX.anim(el, { opacity: [0, 1], y: [4, 0] }, { duration: 0.3 });
+  }, 1400);
   if ($('#chat-in')) $('#chat-in').value = '';
   renderChatMsgs(); renderChatBarra();
 
@@ -2366,6 +2365,7 @@ async function enviarChat(texto) {
   }
   resp.pensando = false;
   CHAT.enviando = null;
+  clearInterval(CHAT.fraseTimer);
   S.chat = CHAT.turnos.filter((t) => !t.pensando).slice(-40);
   salvar();
   renderChatMsgs(); renderChatBarra();
@@ -2466,6 +2466,7 @@ const acoes = {
   periodo(el) { S.sim.periodo = el.dataset.p; UI.periodoAba = null; salvar(); render(); },
   abaPeriodo(el) { UI.periodoAba = el.dataset.p; render(); FX.lista($('.tasks.obrigacoes')); },
   pet() { FX.petToque(); },
+  logo(el) { S.config.logo = Number(el.dataset.n); salvar(); render(); },
   tarefa(el) { abrirTarefa(el.dataset.h, Number(el.dataset.i)); },
   fastfood() { abrirFastFood(); },
   novoBonus() { abrirNovoBonus(); },
@@ -2804,6 +2805,7 @@ function migrar() {
   if (!S.config.metaXpQuinzena) S.config.metaXpQuinzena = 2700;
   if (!S.santosUsos) S.santosUsos = [];
   if (!S.config.pet) S.config.pet = { nome: 'João Frango', imagem: '' };
+  if (!S.config.logo) S.config.logo = 1;
   S.config.migracoes = S.config.migracoes || [];
   if (!S.config.migracoes.includes('quarto')) {
     if (!habito('quarto')) {

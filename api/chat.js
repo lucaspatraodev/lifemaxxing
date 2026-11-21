@@ -21,29 +21,39 @@ export default async function handler(req, res) {
     && mensagens[mensagens.length - 1].role === 'user';
   if (!ok) return res.status(400).json({ erro: 'Pedido inválido' });
 
-  const p = escolher(provedor);
-  if (!p) return res.status(503).json({ erro: 'Nenhuma IA configurada. Adicione GEMINI_API_KEY, GROQ_API_KEY ou OPENAI_API_KEY na Vercel.' });
+  const principal = escolher(provedor);
+  if (!principal) return res.status(503).json({ erro: 'Nenhuma IA configurada. Adicione GEMINI_API_KEY, GROQ_API_KEY ou OPENAI_API_KEY na Vercel.' });
+  // se a escolhida falhar antes de escrever, tenta as outras configuradas
+  const fila = [principal, ...disponiveis().filter((x) => x.id !== principal.id)];
 
   const ctl = new AbortController();
   res.on('close', () => { if (!res.writableEnded) ctl.abort(); }); // o app parou ou fechou
-  res.setHeader('X-Provedor', p.id);
-  let escreveu = false;
-  try {
-    for await (const t of conversar(p.id, sistema, mensagens, ctl.signal)) {
-      if (!escreveu) {
-        res.statusCode = 200;
-        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.setHeader('X-Accel-Buffering', 'no');
-        escreveu = true;
+  let escreveu = false, ultimoErro = null, ultimo = principal;
+  for (const p of fila) {
+    ultimo = p;
+    try {
+      for await (const t of conversar(p.id, sistema, mensagens, ctl.signal)) {
+        if (!escreveu) {
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+          res.setHeader('X-Provedor', p.id);
+          res.setHeader('X-Accel-Buffering', 'no');
+          escreveu = true;
+        }
+        res.write(t);
       }
-      res.write(t);
+      if (escreveu) break;
+      ultimoErro = Object.assign(new Error('resposta vazia'), { status: 0 });
+    } catch (e) {
+      if (ctl.signal.aborted) return res.end();
+      console.error(p.id, e.message, e.detalhe || '');
+      ultimoErro = e;
+      if (escreveu) { res.write('\n\n[resposta interrompida]'); break; }
     }
-    if (!escreveu) return res.status(502).json({ erro: 'A IA respondeu vazio. Tente de novo.' });
-  } catch (e) {
-    if (ctl.signal.aborted) return res.end();
-    console.error(p.id, e.message, e.detalhe || '');
-    if (!escreveu) return res.status(502).json({ erro: erroAmigavel(e, p.id) });
-    res.write('\n\n[resposta interrompida]');
+  }
+  if (!escreveu) {
+    const msg = ultimoErro && ultimoErro.status === 0 ? 'A IA respondeu vazio. Tente de novo.' : erroAmigavel(ultimoErro, ultimo.id);
+    return res.status(502).json({ erro: msg });
   }
   return res.end();
 }

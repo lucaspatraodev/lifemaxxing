@@ -1206,3 +1206,142 @@ h3.sec .sec-n { color: var(--muted); }
 .fx-moeda { background: var(--blue); color: #fff; box-shadow: none; }
 .hero::before { display: none !important; }
 .tabs.topo button { justify-content: center; align-items: center; }
+
+/* ---------- Chat no estilo do Claude ---------- */
+.chat { background: #0E0E0F; }
+.chat-head { background: #0E0E0F; border-bottom: 1px solid var(--line); padding: 8px 16px 12px; }
+.chat-head .grab { background: var(--s3); }
+.chat-av { width: 30px; height: 30px; background: transparent; color: var(--blue); }
+.chat-av .ic { width: 22px; height: 22px; stroke-width: 2.2; }
+.chat-av.lg { width: 44px; height: 44px; background: transparent; }
+.chat-tt b { font-size: 15px; font-weight: 600; }
+.chat-tt small { font-size: 12px; color: var(--muted); }
+.chat-head .icon-sm { background: transparent; color: var(--muted); }
+.chat-msgs { gap: 18px; padding: 20px 18px; }
+.msg { max-width: 100%; padding: 0; border-radius: 0; font-size: 15px; line-height: 1.6; animation: msgEntra .25s ease-out; }
+.msg.ia { align-self: stretch; background: transparent; box-shadow: none; color: var(--ink); }
+.msg.ia p { margin: 0 0 10px; }
+.msg.eu { align-self: flex-end; max-width: 82%; background: var(--s2); color: var(--ink); padding: 10px 14px; border-radius: 18px; }
+.msg.erro { box-shadow: none; color: var(--ink2); border-left: 2px solid var(--red); padding-left: 12px; }
+.pensando-surf { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); }
+.pensando-surf .ic { width: 18px; height: 18px; color: var(--blue); stroke-width: 2.4; animation: giraSpark 2.4s linear infinite; }
+.pensando-surf em { font-style: normal; font-size: 14.5px; background: linear-gradient(90deg, var(--muted) 30%, var(--ink) 50%, var(--muted) 70%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: brilhoTexto 1.6s linear infinite; }
+@keyframes giraSpark { to { transform: rotate(360deg); } }
+@keyframes brilhoTexto { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.chat-vazio b { font-size: 20px; font-weight: 600; }
+.chips.sug .chip { background: transparent; border: 1px solid var(--s3); font-weight: 500; font-size: 13px; }
+.chat-bar { background: #0E0E0F; border-top: 0; padding: 8px 12px calc(14px + env(safe-area-inset-bottom)); }
+.chat-input { background: var(--s2); border-radius: 24px; padding: 6px 6px 6px 10px; box-shadow: none; border: 1px solid var(--s3); }
+.chat-input textarea { font-size: 15.5px; color: var(--ink); }
+.chat-btn { width: 36px; height: 36px; border-radius: 50%; background: transparent; color: var(--muted); }
+.chat-btn.envia { background: var(--blue); color: #fff; }
+.chat-btn.envia .ic { width: 18px; height: 18px; }
+.chat-btn.parar { background: var(--ink); }
+.chat-btn .sq { background: #000; width: 11px; height: 11px; }
+
+/* =========================================================
+   Hoje no estilo das referências (saudação, card laranja
+   chapado, blocos pequenos, card de números, pílulas, lista)
+   ========================================================= */
+:root { --blue: #F26A1B; --blue2: #FF8A3D; --laranja: #F26A1B; }
+#view { padding: 0 18px; }
+.ola { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 22px 0 18px; }
+.ola h1 { margin: 0; font-size: 34px; line-height: 1.05; font-weight: 700; letter-spacing: -.035em; }
+.ola p { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.avatar-pet { position: relative; width: 52px; height: 52px; border-radius: 50%; flex: none; padding: 0; }
+.avatar-pet > svg, .avatar-pet > img { width: 52px; height: 52px; border-radius: 50%; display: block; object-fit: cover; border: 1.5px solid var(--s3); }
+.avatar-pet .pet-fala {
+  position: absolute; right: 60px; top: 12px; top: 12px; white-space: nowrap; max-width: none;
+  background: var(--ink); color: #000; font-size: 12px; font-weight: 600; padding: 6px 11px; border-radius: 999px; box-shadow: none;
+}
+.rotulo { display: block; font-size: 13px; font-weight: 600; color: var(--ink2); margin: 4px 2px 10px; }
+
+.cta { display: flex; align-items: center; gap: 12px; width: 100%; padding: 16px 16px 16px 18px; border-radius: 20px; background: var(--laranja); color: #fff; }
+.cta-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cta-tx b { font-size: 17px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cta-tx small { font-size: 12.5px; color: rgba(255, 255, 255, .82); }
+.cta-seta { width: 38px; height: 38px; border-radius: 50%; background: #000; color: #fff; display: grid; place-items: center; flex: none; }
+.cta-seta .ic { width: 18px; height: 18px; }
+.cta.feito { background: var(--card); color: var(--ink); }
+.cta.feito small { color: var(--muted); }
+.cta.feito .cta-seta { background: var(--laranja); }
+
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+.tile { border-radius: 20px; padding: 16px 16px 14px; background: var(--card); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tile b { font-size: 26px; font-weight: 700; letter-spacing: -.02em; display: flex; align-items: center; gap: 6px; }
+.tile b small { font-size: 15px; color: var(--muted); font-weight: 600; }
+.tile span { font-size: 12.5px; color: var(--muted); }
+.tile.escuro { background: #000; border: 1px solid var(--s3); }
+.tile.escuro b { color: var(--blue2); }
+.tile.escuro .ic { width: 18px; height: 18px; fill: currentColor; stroke: none; }
+
+.stat-card { background: var(--card); border-radius: 22px; padding: 18px; }
+.stat-row { display: grid; grid-template-columns: 1fr 1fr 1.2fr; }
+.stat-row > div { display: flex; flex-direction: column; gap: 3px; padding-left: 12px; border-left: 1px solid var(--s3); min-width: 0; }
+.stat-row > div:first-child { padding-left: 0; border-left: 0; }
+.stat-row b { font-size: 22px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; }
+.stat-row b.laranja { color: var(--blue2); }
+.stat-row span { font-size: 12px; color: var(--muted); }
+.stat-card .bar { height: 4px; margin: 16px 0 10px; background: var(--s3); }
+.stat-card .bar i { background: var(--laranja); }
+.stat-pe { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink2); }
+.stat-pe #xpnum { color: var(--muted); }
+
+h3.sec { font-size: 17px; font-weight: 700; color: var(--ink); margin: 26px 2px 12px; }
+.filtros { display: flex; gap: 8px; margin-bottom: 12px; }
+.filtros button { padding: 9px 14px; border-radius: 999px; background: var(--s2); color: var(--ink2); font-size: 13px; font-weight: 600; }
+.filtros button.on { background: var(--ink); color: #000; }
+.filtros button.completo:not(.on) { color: var(--blue2); }
+.filtros .tab-n { font-size: 11.5px; opacity: .55; margin-left: 2px; }
+
+.tasks.lista { gap: 8px; }
+.tasks.lista .task.mis {
+  min-height: 0; padding: 14px 16px; gap: 14px; border-radius: 18px; background: var(--card); border: 0; box-shadow: none;
+}
+.tasks.lista .task.mis .task-ic { width: 36px; height: 36px; border-radius: 50%; background: var(--s2); color: var(--ink2); box-shadow: none; }
+.tasks.lista .task.mis .task-ic .ic { width: 17px; height: 17px; }
+.tasks.lista .task.mis .task-tx { gap: 2px; }
+.mis-rot { font-size: 11.5px !important; font-weight: 600; color: var(--blue2) !important; margin: 0 !important; }
+.tasks.lista .task.mis .task-tx b { font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.tasks.lista .task.mis .task-xp { color: var(--ink); font-size: 13.5px; font-weight: 600; background: none; padding: 0; box-shadow: none; }
+.tasks.lista .task.mis .task-ok { width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: #000; box-shadow: none; }
+.tasks.lista .task.mis .task-ok .ic { width: 13px; height: 13px; stroke-width: 3; }
+.tasks.lista .task.mis.done .task-tx b { color: var(--muted); text-decoration: none; }
+.tasks.lista .task.mis.done .mis-rot { color: var(--muted) !important; }
+.tasks.lista .task.mis.done .task-ic { background: var(--s2); color: var(--muted); }
+.tasks.lista .task.mis.pagamento:not(.done) .task-ic { background: var(--laranja); color: #fff; }
+.tasks.lista .task.add-bonus { background: transparent; border: 1px dashed var(--s3); }
+.tasks.lista .task.add-bonus b { color: var(--ink2) !important; }
+.linha-cfg { display: flex; align-items: center; gap: 14px; width: 100%; margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: transparent; border: 1px solid var(--s3); color: var(--ink); }
+.linha-cfg .task-ic { width: 36px; height: 36px; border-radius: 50%; background: var(--s2); color: var(--ink2); display: grid; place-items: center; }
+.linha-cfg .task-tx b { font-size: 15px; font-weight: 600; }
+.linha-cfg > .ic { color: var(--muted); width: 18px; }
+
+/* menu: botão do coach branco (como o "+" da referência), ativo em laranja sem fundo */
+.nav-ia span { background: var(--ink); color: #000; box-shadow: 0 0 0 5px var(--bg); width: 52px; height: 52px; margin-top: -22px; }
+.nav button.on { color: var(--blue2); }
+.nav-ind { display: none; }
+body.chat-aberto .nav-ia span { box-shadow: 0 0 0 5px var(--bg); }
+
+/* Ajustes: escolha do logo */
+.card.logos { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.logo-op { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; border-radius: 16px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.logo-op svg { width: 54px; height: 54px; border-radius: 14px; }
+.logo-op.on { background: var(--s2); color: var(--ink); }
+.logo-op.on svg { outline: 2px solid var(--blue2); outline-offset: 2px; }
+
+/* barra do app: logo escolhido */
+.appbar-logo svg { width: 30px; height: 30px; border-radius: 9px; }
+
+/* tirar laranjas cheios/brilhantes que sobraram */
+.slide-fill { background: var(--s3); }
+.sd.on i, .cal-d.on, .path.ok .path-n, .set.feito .set-ok, .fixo.pago .check-box, .check-box.on { background: var(--ink); color: #000; }
+.chip.on { background: var(--ink); color: #000; }
+.ticket.livre { background: var(--ink); color: #555; } .ticket.livre span { color: #000; }
+.banner { background: var(--card); color: var(--ink); border: 1px solid var(--s3); }
+.banner .eyebrow { color: var(--muted); } .banner > .ic { color: var(--muted); }
+.fx-moeda { background: var(--ink); color: #000; }
+.lv-chest .chest-anim, .chest-anim.cheio { background: var(--ink); color: #000; }
+.chest-anim { box-shadow: none !important; }
+.tasks.lista.bonus .task.mis:not(.done):not(.add-bonus) .task-ic { background: var(--s2); color: var(--ink2); }
+.tasks.lista .task.mis.done { background: var(--card); }

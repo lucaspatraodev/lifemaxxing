@@ -1,7 +1,7 @@
 // Conexões de IA. Cada provedor liga quando a chave dele existe nas variáveis de ambiente.
 // Gemini usa a API própria do Google; os outros usam o formato compatível com OpenAI.
 export const PROVEDORES = {
-  gemini: { nome: 'Gemini', chave: 'GEMINI_API_KEY', modelo: 'GEMINI_MODEL', padrao: 'gemini-2.5-flash', tipo: 'gemini', gratis: true },
+  gemini: { nome: 'Gemini', chave: 'GEMINI_API_KEY', modelo: 'GEMINI_MODEL', padrao: 'gemini-flash-latest', reserva: ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash'], tipo: 'gemini', gratis: true },
   groq: { nome: 'Groq', chave: 'GROQ_API_KEY', modelo: 'GROQ_MODEL', padrao: 'llama-3.3-70b-versatile', tipo: 'openai', base: 'https://api.groq.com/openai/v1', gratis: true },
   openai: { nome: 'OpenAI', chave: 'OPENAI_API_KEY', modelo: 'OPENAI_MODEL', padrao: 'gpt-4o-mini', tipo: 'openai', base: 'https://api.openai.com/v1' },
   // extras no mesmo formato
@@ -53,15 +53,22 @@ export async function* conversar(id, sistema, mensagens, signal) {
   const modelo = modeloDe(p);
 
   if (p.tipo === 'gemini') {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo)}:streamGenerateContent?alt=sse`, {
-      method: 'POST', signal,
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: sistema }] },
-        contents: mensagens.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-        generationConfig: { temperature: 0.6, maxOutputTokens: 1200 }
-      })
-    });
+    // tenta o modelo configurado e, se ele não existir (404), os apelidos de reserva
+    const modelos = [modelo, ...(p.reserva || [])].filter((m, i, a) => m && a.indexOf(m) === i);
+    let r = null;
+    for (const m of modelos) {
+      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:streamGenerateContent?alt=sse`, {
+        method: 'POST', signal,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: sistema }] },
+          contents: mensagens.map((x) => ({ role: x.role === 'assistant' ? 'model' : 'user', parts: [{ text: x.content }] })),
+          // limite alto: modelos que "pensam" gastam parte dele antes de escrever
+          generationConfig: { temperature: 0.6, maxOutputTokens: 8192 }
+        })
+      });
+      if (r.status !== 404) break;
+    }
     await checar(r, p.nome);
     for await (const ev of eventosSSE(r.body)) {
       let j; try { j = JSON.parse(ev); } catch (e) { continue; }
@@ -74,7 +81,7 @@ export async function* conversar(id, sistema, mensagens, signal) {
   const cab = { 'Content-Type': 'application/json', Authorization: `Bearer ${chave}` };
   if (id === 'openrouter') cab['X-Title'] = 'Lifemaxxing';
   const corpo = { model: modelo, stream: true, temperature: 0.6, messages: [{ role: 'system', content: sistema }, ...mensagens] };
-  if (id === 'openai') corpo.max_completion_tokens = 1200; else corpo.max_tokens = 1200;
+  if (id === 'openai') corpo.max_completion_tokens = 8192; else corpo.max_tokens = 4096; // folga para modelos que raciocinam
   const r = await fetch(`${p.base}/chat/completions`, { method: 'POST', signal, headers: cab, body: JSON.stringify(corpo) });
   await checar(r, p.nome);
   for await (const ev of eventosSSE(r.body)) {

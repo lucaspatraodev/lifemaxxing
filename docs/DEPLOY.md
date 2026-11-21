@@ -73,7 +73,7 @@ As duas ficam com RLS ligada e sem regras: ninguém de fora lê nada com a chave
 
 **Recomendado:** Gemini como principal e Groq de reserva. Quando o limite gratuito de uma acabar, troque em **Ajustes › IA do coach**.
 
-**Modelo:** cada IA tem um padrão (`gemini-2.5-flash`, `llama-3.3-70b-versatile`, `gpt-4o-mini`, `deepseek-chat`). Para outro modelo, cadastre a variável `GEMINI_MODEL` (ou `GROQ_MODEL`, `OPENAI_MODEL`...) com o nome **exato** que aparece no painel do provedor. Nome errado → o coach avisa "Modelo não encontrado".
+**Modelo:** cada IA tem um padrão (`gemini-flash-latest`, que aponta sempre para o Gemini Flash mais novo, `llama-3.3-70b-versatile`, `gpt-4o-mini`, `deepseek-chat`). Para outro modelo, cadastre a variável `GEMINI_MODEL` (ou `GROQ_MODEL`, `OPENAI_MODEL`...) com o nome **exato** que aparece no painel do provedor. Nome errado → o coach avisa "Modelo não encontrado".
 
 ---
 

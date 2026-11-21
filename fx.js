@@ -116,9 +116,8 @@ const FX = (() => {
       if (w && parseFloat(w) > 0) anim(b, { width: ['0%', w] }, { ...MOLA_SUAVE, delay: 0.18 });
     });
     anim(view.querySelectorAll('.segs i.on'), { scaleX: [0, 1] }, { ...MOLA_SUAVE, delay: M.stagger(0.08, { startDelay: 0.2 }) });
-    anim(view.querySelectorAll('.hero-seg i'), { scaleX: [0, 1] }, { ...MOLA_SUAVE, delay: M.stagger(0.05, { startDelay: 0.15 }) });
     anim(view.querySelectorAll('.wk i, .sd i'), { scale: [0, 1] }, { ...MOLA_PULO, delay: M.stagger(0.05, { startDelay: 0.2 }) });
-    anim(view.querySelector('.pet'), { opacity: [0, 1], x: [40, 0], rotate: [8, 0] }, { ...MOLA_SUAVE, delay: 0.1 });
+    anim(view.querySelector('.avatar-pet'), { opacity: [0, 1], scale: [0.6, 1] }, { ...MOLA_PULO, delay: 0.1 });
     anim(view.querySelectorAll('.map-row:not(.head) i'), { opacity: [0, 1], scale: [0.4, 1] }, { ...MOLA_SUAVE, delay: M.stagger(0.004, { startDelay: 0.2 }) });
     anim(view.querySelectorAll('.path'), { opacity: [0, 1], x: [-16, 0] }, { ...MOLA_SUAVE, delay: M.stagger(0.045, { startDelay: 0.15 }) });
     anim(view.querySelectorAll('.cal-d.on'), { scale: [0, 1] }, { ...MOLA_PULO, delay: M.stagger(0.04, { startDelay: 0.2 }) });
@@ -230,7 +229,7 @@ const FX = (() => {
       onda(row);
       if (!virouDiaBom) setTimeout(manobra, 250);
       anim(row.querySelector('.task-ok'), { scale: [0, 1.3, 1], rotate: [-40, 0] }, MOLA_PULO);
-      anim(row, { backgroundColor: ['#1C1C1E', 'rgba(0,0,0,0)'] }, { duration: 0.8, ease: SAIDA });
+      fim(anim(row, { backgroundColor: ['#2A2A2D', '#111112'] }, { duration: 0.8, ease: SAIDA })).then(() => { row.style.backgroundColor = ''; });
       anim(row.querySelector('.task-ic'), { scale: [1, 1.18, 1], rotate: [0, -8, 0] }, MOLA_PULO);
       anim(row.querySelectorAll('.task-seg i.on'), { scaleY: [1, 2, 1] }, { duration: 0.4, delay: M.stagger(0.05) });
     }
@@ -243,63 +242,54 @@ const FX = (() => {
   }
 
   // Bolinha do card Dia bom: pulo + anel
-  // Missão do dia bom completa: o segmento do topo enche brilhando
-  function bolinha(hid) {
-    const seg = document.querySelector(`.hero-seg i[data-h="${hid}"]`);
-    anim(seg, { scaleY: [1, 2.2, 1] }, { duration: 0.5, ease: 'easeOut' });
-    anim(document.querySelector('.hero-sub'), { scale: [1, 1.06, 1] }, MOLA_PULO);
+  // Missão do dia bom completa: o contador de missões pula
+  function bolinha() {
+    anim(document.querySelector('.tile b'), { scale: [1, 1.18, 1] }, MOLA_PULO);
   }
 
   // Dia bom completo: card pula, bolinhas fazem onda, confete
   function diaBom() {
-    const hero = document.querySelector('.hero.surf');
-    if (!hero) return;
     segurar(1900);
-    anim(hero.querySelector('h1'), { scale: [0.7, 1.12, 1], opacity: [0, 1, 1] }, { ...MOLA_PULO, delay: 0.1 });
-    anim(hero.querySelectorAll('.hero-seg i'), { y: [0, -6, 0] }, { duration: 0.45, delay: M.stagger(0.05), ease: 'easeInOut' });
-    anim(document.querySelector('.card.missoes .pill'), { scale: [0.6, 1.15, 1] }, { ...MOLA_PULO, delay: 0.25 });
+    anim(document.querySelector('.cta'), { scale: [0.96, 1.02, 1] }, MOLA_PULO);
+    anim(document.querySelectorAll('.tile'), { y: [0, -6, 0] }, { duration: 0.45, delay: M.stagger(0.08), ease: 'easeInOut' });
     aereo();
-    const pet = hero.querySelector('.pet');
-    const c = pet ? centro(pet) : centro(hero);
-    setTimeout(() => confete(c.x, c.y, 50, 200), 380);
+    const av = document.querySelector('.avatar-pet');
+    const c = av ? centro(av) : { x: innerWidth / 2, y: 140 };
+    setTimeout(() => confete(c.x, c.y, 44, 190), 380);
     vibrar([20, 40, 20]);
   }
 
   /* ---------- Surf e o pet ---------- */
 
-  // Pet na água: balança na prancha e a onda corre por baixo
-  let falaAnterior = '';
+  // Pet no avatar: balança de leve, como numa prancha
+  const avatar = () => document.querySelector('.avatar-pet > svg, .avatar-pet > img');
   function pet() {
-    const corpo = document.querySelector('.pet .pet-corpo'), onda = document.querySelector('.pet .pet-onda');
-    anim(corpo, { y: [0, -4, 0, 2, 0], rotate: [0, -2.5, 0, 2, 0] }, { duration: 3, repeat: Infinity, ease: 'easeInOut' });
-    anim(onda, { x: [0, -6, 0, 6, 0] }, { duration: 3.2, repeat: Infinity, ease: 'easeInOut' });
-    const fala = document.querySelector('.pet-fala');
-    if (fala && fala.textContent !== falaAnterior) {
-      falaAnterior = fala.textContent;
-      anim(fala, { scale: [0.4, 1.1, 1], opacity: [0, 1, 1], y: [8, 0, 0] }, { ...MOLA_PULO, delay: 0.25 });
-    }
+    anim(avatar(), { rotate: [0, -4, 0, 3, 0], y: [0, -2, 0, 1, 0] }, { duration: 3.4, repeat: Infinity, ease: 'easeInOut' });
   }
   const FALAS_MANOBRA = ['Rasgou!', 'Que onda!', 'Boa, brother!', 'Na crista!', 'Aloha!', 'Isso aí!'];
+  // Balão de fala: aparece, fala e some
   function falar(txt, ms = 1600) {
     const fala = document.querySelector('.pet-fala');
     if (!fala) return;
-    const antes = fala.textContent;
     fala.textContent = txt;
-    anim(fala, { scale: [0.5, 1.12, 1], opacity: [0, 1, 1] }, MOLA_PULO);
-    setTimeout(() => { if (fala.isConnected && fala.textContent === txt) { fala.textContent = antes; } }, ms);
+    fala.hidden = false;
+    anim(fala, { scale: [0.5, 1.08, 1], opacity: [0, 1, 1], x: [8, 0, 0] }, MOLA_PULO);
+    clearTimeout(falar.t);
+    falar.t = setTimeout(() => {
+      if (!fala.isConnected) return;
+      fim(anim(fala, { opacity: 0, scale: 0.9 }, { duration: 0.2 })).then(() => { fala.hidden = true; });
+    }, ms);
   }
   // Manobra: cavada e volta, com respingo
   function manobra() {
-    const corpo = document.querySelector('.pet .pet-corpo');
-    anim(corpo, { rotate: [0, -18, 14, 0], x: [0, 12, -8, 0], y: [0, -12, -4, 0] }, { duration: 0.95, ease: 'easeInOut' });
-    const pet = document.querySelector('.pet');
-    if (pet) { const c = centro(pet); respingo(c.x + 10, c.y + 40, 14); }
+    anim(avatar(), { rotate: [0, -22, 16, 0], x: [0, 6, -4, 0], y: [0, -8, -2, 0] }, { duration: 0.9, ease: 'easeInOut' });
+    const av = document.querySelector('.avatar-pet');
+    if (av) { const c = centro(av); respingo(c.x, c.y + 26, 12); }
     falar(FALAS_MANOBRA[Math.floor(Math.random() * FALAS_MANOBRA.length)]);
   }
   // Aéreo 360 (dia bom)
   function aereo() {
-    const corpo = document.querySelector('.pet .pet-corpo');
-    anim(corpo, { y: [0, -70, -70, 0], rotate: [0, -180, -360, -360] }, { duration: 1.2, ease: [0.3, 0, 0.2, 1], times: [0, 0.4, 0.75, 1] });
+    anim(avatar(), { y: [0, -34, -34, 0], rotate: [0, -180, -360, -360], scale: [1, 1.15, 1.15, 1] }, { duration: 1.1, ease: [0.3, 0, 0.2, 1], times: [0, 0.4, 0.75, 1] });
     falar('Aéreo! Dia bom!', 2200);
   }
   // Respingo de água e espuma
@@ -332,9 +322,8 @@ const FX = (() => {
   // Toque no pet
   function petToque() {
     if (!ativo) return;
-    const corpo = document.querySelector('.pet .pet-corpo');
-    anim(corpo, { y: [0, -26, 0], rotate: [0, -10, 0] }, { duration: 0.6, ease: 'easeOut' });
-    falar(['E aí, brother!', 'Bora remar?', 'Hoje tem onda!', 'Missão dada é missão cumprida.', 'Partiu mar!'][Math.floor(Math.random() * 5)]);
+    anim(avatar(), { y: [0, -14, 0], rotate: [0, -12, 0] }, { duration: 0.55, ease: 'easeOut' });
+    falar(['E aí, brother!', 'Bora remar?', 'Hoje tem onda!', 'Partiu mar!', 'Missão dada, missão cumprida.'][Math.floor(Math.random() * 5)]);
     vibrar(10);
   }
 
