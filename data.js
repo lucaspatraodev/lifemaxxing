@@ -9,7 +9,7 @@ const DADOS_INICIAIS = {
   horaDormir: '23:30',
   metaAguaMl: 2300,        // meta diária de água
   garrafaMl: 767,          // 2,3 L em 3 garrafas (ajuste quando souber o tamanho real)
-  fimDeSemanaSantos: 300,  // custo de um fim de semana em Santos (para o "custo real" do fast food)
+  fimDeSemanaSantos: 300,  // custo de um fim de semana de viagem (para o "custo real" do fast food)
   xpDiaBom: 40,
 
   // Bônus de XP fora dos hábitos
@@ -24,11 +24,13 @@ const DADOS_INICIAIS = {
 
   // Divisão do dinheiro livre (depois de separar o delivery)
   potes: { xp: 0.40, semana: 0.30, bau: 0.15, desafio: 0.15 },
-  xpParaReal: { xp: 100, valor: 13 }, // cada 100 XP libera R$13
+  // O pote de XP enche quando a quinzena chega nesta meta. Com R$350 no pote, cada 100 XP vale ~R$13;
+  // se o montante for maior (sobrou da quinzena anterior), cada 100 XP vale mais.
+  metaXpQuinzena: 2700,
 
   delivery: { total: 60, ticket: 30, diasSeguidos: 4 },
 
-  // Orçamento das duas quinzenas. "santos: true" marca o que vai para a Caixa de Santos.
+  // Orçamento das duas quinzenas. "santos: true" marca a Caixa de viagem (liberada inteira no pagamento).
   orcamento: {
     d15: {
       entrada: 3000,
@@ -39,7 +41,7 @@ const DADOS_INICIAIS = {
         { id: 'playstation', nome: 'PlayStation', valor: 100 },
         { id: 'marmitas', nome: 'Marmitas (15)', valor: 325 },
         { id: 'mercado', nome: 'Frutas e mercado básico', valor: 60 },
-        { id: 'santos', nome: 'Caixa de Santos', valor: 300, santos: true }
+        { id: 'santos', nome: 'Caixa de viagem', valor: 300, santos: true }
       ]
     },
     d30: {
@@ -50,7 +52,7 @@ const DADOS_INICIAIS = {
         { id: 'avo_celular', nome: 'Celular da avó', valor: 220 },
         { id: 'marmitas', nome: 'Marmitas (15)', valor: 325 },
         { id: 'mercado', nome: 'Frutas e mercado básico', valor: 60 },
-        { id: 'santos', nome: 'Caixa de Santos', valor: 300, santos: true }
+        { id: 'santos', nome: 'Caixa de viagem', valor: 300, santos: true }
       ]
     }
   },
@@ -166,13 +168,16 @@ const DESAFIOS = [
   { id: 'sol', texto: '8 dias pegando sol', meta: 8 }
 ];
 
-// Chances do baú surpresa (cada extra registrado rola um baú)
+// Baú surpresa: cada bônus rola um baú. O prêmio é uma fatia do pote de baús da quinzena
+// (com R$131 no pote: vazio, ~R$5, ~R$15 ou ~R$40). Montante maior, baú maior.
 const BAU_CHANCES = [
-  { valor: 0, p: 0.40 },
-  { valor: 5, p: 0.30 },
-  { valor: 15, p: 0.20 },
-  { valor: 40, p: 0.10 }
+  { pct: 0, p: 0.40 },
+  { pct: 0.04, p: 0.30 },
+  { pct: 0.11, p: 0.20 },
+  { pct: 0.30, p: 0.10 }
 ];
+// Baú de nível: entre 19% e 38% do pote de baús (~R$25 a R$50 com R$131 no pote)
+const BAU_NIVEL = { min: 0.19, max: 0.38 };
 
 // Tipos de treino
 const TIPOS_TREINO = [

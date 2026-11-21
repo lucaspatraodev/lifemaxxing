@@ -14,12 +14,12 @@ O banco de um app pessoal é pequeno. Em vez de deixar a IA rodar SQL, **mandamo
 
 | Bloco | Conteúdo |
 | --- | --- |
-| Regras | Como XP, dia bom, potes, saque e Caixa de Santos funcionam (texto fixo) |
+| Regras | Como XP, dia bom, potes, saque e Caixa de viagem funcionam (texto fixo) |
 | Agora | Data, nível, XP, sequência, hábitos (obrigação ou bônus) |
 | Quinzena | Entrada, fixos, livre, liberado, disponível, sacado, travado, potes, desafio, tickets, gastos, saques |
 | Dias | Uma linha por dia dos últimos 60: dia bom, XP, hábitos feitos, fast food |
 | Treinos | Últimos 30, com séries (carga × reps), volume, intensidade, recordes |
-| Histórico | Quinzenas fechadas e Caixa de Santos |
+| Histórico | Quinzenas fechadas e Caixa de viagem |
 
 Tamanho estimado: 15 a 25 KB de texto (uns 5 a 8 mil tokens). Cabe com folga e custa pouco.
 

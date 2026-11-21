@@ -18,7 +18,7 @@ Capturas do protótipo em tamanho de iPhone 14 (390 × 844 pt, @3x). Abra `index
 | 10 | Treino ativo | Séries marcadas e timer de descanso |
 | 11 | Finalizar treino | Intensidade, duração, XP, quanto vale e libera |
 | 12 | Treino concluído | Resumo, XP e quanto liberou |
-| 13 | Fast food | Custo real em % do fim de semana em Santos |
+| 13 | Fast food | Custo real em % do fim de semana de viagem |
 | 14 | Novo gasto | Valor e categoria em dois toques |
 | 15 | Dia de pagamento | Folha para registrar os custos fixos da quinzena |
 | 16 | Grana · Resumo | Disponível para saque, sacado, travado, montante, insights e histórico de gastos |

@@ -37,7 +37,7 @@ Na Vercel o app começa **valendo hoje**. O modo teste (data simulada, Próximo 
 - **Hoje:** card Dia bom com as 6 obrigações e o Treino (que não conta para o dia bom). Abaixo, **Obrigações** por período (manhã, tarde, noite) e **Bônus** (opcionais, valem mais), com **Adicionar bônus** para criar hobbies como ler um livro.
 - **Registrar:** folha com motivos, XP, quanto vale e quanto libera em reais, e deslizar para confirmar.
 - **Treino:** fichas A, B e C, corrida, surf e skate, séries com carga e reps, última vez, recordes, timer de descanso. Ao finalizar mostra XP e quanto vale e libera em reais.
-- **Grana › Resumo:** disponível para saque, já sacado, travado e montante. Sacar tira o valor do montante. Insights e histórico de gastos e saques, potes, tickets de delivery, Caixa de Santos.
+- **Grana › Resumo:** disponível para saque, já sacado, travado e montante. Sacar tira o valor do montante. Insights e histórico de gastos e saques, potes, tickets de delivery, Caixa de viagem.
 - **Grana › Fixos:** fixos da quinzena editáveis, com "pago". Em todo dia 15 e 30 abre a folha para registrar.
 - **Progresso:** sequência, médias de 30 dias, mapa de 14 dias, caminho até Surfista, quinzenas fechadas.
 - **Coach:** botão no centro do menu. Toque ou arraste para cima. Responde em streaming, com voz pelo navegador.
@@ -47,19 +47,19 @@ Na Vercel o app começa **valendo hoje**. O modo teste (data simulada, Próximo 
 
 **XP:** cada obrigação vale 10 (dividido entre as partes, ex.: garrafas 3 + 3 + 4). Dia bom +40. Sol 20, menos tela 25, natureza 40, treino 100, surf 150, bônus criados com o XP que você escolher. Treino: +25 por recorde (até 2), +20 com intensidade 8+, +20 acima de 45 min. 3 treinos na semana (sex a qui) +150 no corte de sexta. 7 dias bons seguidos +100.
 
-**Níveis:** de Na toca (0) a Surfista (9.000). Depois do 10, a contagem recomeça com uma estrela. Cada nível novo abre um baú de R$25 a R$50.
+**Níveis:** de Na toca (0) a Surfista (9.000). Depois do 10, a contagem recomeça com uma estrela. Cada nível novo abre um baú (19% a 38% do pote de baús).
 
-**Dinheiro livre** (entra todo travado; R$60 de delivery à parte, o resto dividido):
+**Dinheiro livre** = entrada − fixos + o que sobrou travado da quinzena anterior. Entra todo travado; R$60 de delivery à parte, o resto dividido em potes. **Tudo é porcentagem desse montante:** se sobrou da quinzena anterior, as tarefas valem mais na seguinte.
 
-- **XP 40%:** R$13 a cada 100 XP da quinzena, até o teto.
+- **XP 40%:** o pote enche quando a quinzena chega a 2.700 XP. Com R$350 no pote, cada 100 XP vale ~R$13; com montante maior, vale mais.
 - **Terça e sexta 30%:** liberado no **corte da meia-noite**. O corte de terça paga os dias bons de sex a seg (1 parte); o de sexta, os de ter a qui (2 partes), +20% com a semana toda boa e +20% com 3 treinos. Se a quinzena acaba no meio de uma janela, os dias que sobraram entram num corte parcial no fechamento.
-- **Baú surpresa 15%:** cada bônus registrado rola um baú (vazio 40%, R$5 30%, R$15 20%, R$40 10%). O baú de nível também sai daqui.
+- **Baú surpresa 15%:** cada bônus registrado rola um baú: vazio (40%), 4% do pote (30%), 11% (20%) ou 30% (10%). Com R$131 no pote, isso dá vazio, ~R$5, ~R$15 ou ~R$40. O baú de nível também sai daqui (19% a 38% do pote).
 - **Desafio 15%:** missão sorteada no pagamento; cumpriu, libera tudo.
 - **Delivery:** 2 tickets de R$30; cada um abre com 4 dias bons seguidos. O que sobrar vira disponível no fim.
-- **Saque:** um único por terça e sexta, liberado depois de completar as **obrigações da manhã**. O XP que você ganha de manhã ainda entra no saque. Sacar tira o valor do montante. Fast food sem ticket é descontado do montante; os outros gastos são registro do que você gastou com o que já sacou.
+- **Saque:** um único por terça e sexta, **total ou parcial** (o que você deixar soma no próximo saque), liberado depois de completar as **obrigações da manhã**. O XP que você ganha de manhã ainda entra no saque. Sacar tira o valor do montante. Fast food sem ticket é descontado do montante; os outros gastos são registro do que você gastou com o que já sacou.
 - **Teto do saque (liberação gradual):** a cada terça o teto acumulado sobe 1 fatia do montante e a cada sexta 2 fatias, chegando a 100% no último saque da quinzena. O que passar do teto fica para o próximo saque. Assim o dinheiro sai aos poucos, conforme o progresso, e o caixa nunca falta.
 - **Fim da quinzena:** o que ficou travado continua travado e soma no dinheiro livre da próxima quinzena. O disponível não sacado (e os tickets que sobraram) também passa.
-- **Caixa de Santos:** custo fixo de R$300 por quinzena, liberado inteiro no dia do pagamento (15 e 30) para escolher semana e hospedagem. Em Grana, o botão **Usar** registra o que saiu da caixa.
+- **Caixa de viagem:** custo fixo de R$300 por quinzena, liberado inteiro no dia do pagamento (15 e 30), para hospedagem e os custos mais pesados de qualquer viagem. O resto da viagem vem dos saques. Em Grana, o botão **Usar** registra o que saiu da caixa.
 
 ## Em aberto
 
