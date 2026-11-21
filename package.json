@@ -1,0 +1,11 @@
+{
+  "name": "lifemaxxing",
+  "private": true,
+  "version": "1.0.0",
+  "description": "App pessoal de hábitos com ciclo quinzenal. PWA estático + funções na Vercel + Supabase.",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "dev": "vercel dev"
+  }
+}

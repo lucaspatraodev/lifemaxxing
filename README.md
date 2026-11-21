@@ -1,91 +1,66 @@
-# Lifemaxxing — protótipo
+# Lifemaxxing
 
-App pessoal de hábitos, mobile-first, com ciclo quinzenal (dias 15 e 30): hábitos dão XP e o XP libera o dinheiro livre da quinzena.
+App pessoal de hábitos, mobile-first, com ciclo **quinzenal** (dias 15 e 30): as obrigações e os bônus dão XP, e o XP libera o dinheiro livre da quinzena. Tem treino, grana, progresso e um coach de IA que conhece todos os seus dados.
 
-Este é o **protótipo MVP**: HTML, CSS e JavaScript puro, sem framework e sem back-end. Tudo fica salvo no `localStorage` do navegador. A ideia é abrir no celular e simular várias quinzenas em uns 30 minutos.
+- **Para subir (Vercel + Supabase + IA):** [`docs/DEPLOY.md`](docs/DEPLOY.md)
+- **Telas:** [`design/`](design/README.md)
+- **Como o coach de IA funciona:** [`docs/chat-ia.md`](docs/chat-ia.md)
 
-## Arquivos
+## Stack
 
-| Arquivo | O que tem |
-| --- | --- |
-| `index.html` | Estrutura da página, menu inferior e barra do simulador |
-| `styles.css` | Visual (fundo claro, preto `#0A0E17`, azul `#1756C8`, Plus Jakarta Sans) |
-| `data.js` | Dados iniciais: hábitos, motivos, orçamento, níveis, desafios, frases e fichas de treino |
-| `app.js` | Toda a lógica: XP, níveis, potes de dinheiro, simulador, telas |
-| `manifest.json`, `sw.js`, `icons/` | PWA (instalar na tela inicial e abrir offline) |
+HTML, CSS e JavaScript puro (sem framework e sem build), instalável como PWA. Funções Node na pasta `/api` da Vercel, sem dependências. Banco Postgres no Supabase.
 
-## Como abrir
+```
+index.html, styles.css, app.js, data.js   o app
+manifest.json, sw.js, icons/              PWA (ícone, tela cheia, offline)
+api/login.js                              login por senha (APP_PASSWORD)
+api/state.js                              lê e grava o estado no Supabase
+api/chat.js                               coach de IA em streaming
+api/_lib/                                 sessão, Supabase e conexões de IA
+supabase/schema.sql                       tabelas e backup automático
+docs/                                     deploy e abordagem do chat
+design/                                   pacote de telas
+```
 
-- **No computador:** dê dois cliques no `index.html`. Funciona direto do arquivo.
-- **No celular:** publique na Vercel (abaixo) e abra o link.
+## Três jeitos de rodar
 
-## Publicar na Vercel
+| Onde | Dados | Data | Coach |
+| --- | --- | --- | --- |
+| **Vercel** (de verdade) | Supabase + cópia no aparelho | Real | Gemini, Groq ou OpenAI (+ DeepSeek, OpenRouter) |
+| Arquivo `index.html` aberto direto | Só no navegador | Modo teste | Sem IA |
+| Artifact no claude.ai (protótipo) | Só no navegador | Modo teste | Claude da sua conta |
 
-1. Crie uma conta em [vercel.com](https://vercel.com) entrando com o GitHub.
-2. Clique em **Add New… › Project** e importe o repositório `lifemaxxing`.
-3. Em **Framework Preset** escolha **Other**. Deixe Build Command e Output Directory vazios.
-4. Clique em **Deploy**. Em uns segundos sai um link do tipo `lifemaxxing.vercel.app`.
-
-Cada `git push` publica de novo sozinho.
-
-Sem GitHub: instale a CLI (`npm i -g vercel`), entre na pasta e rode `vercel`.
-
-## Abrir no celular e instalar como app
-
-1. Abra o link da Vercel no celular.
-2. **iPhone (Safari):** Compartilhar › **Adicionar à Tela de Início**.
-3. **Android (Chrome):** menu ⋮ › **Instalar app** (ou Adicionar à tela inicial).
-
-Os dados ficam só naquele aparelho e naquele navegador.
-
-## Como testar (modo teste)
-
-A barra fina no topo é o simulador. O app inteiro usa a **data simulada**, que começa em **15/12/2026**.
-
-- **Manhã / Tarde / Noite:** troca o período simulado (e as tarefas mostradas em Hoje).
-- **Próximo dia:** fecha o dia (calcula dia bom, sequência, bônus, liberação de terça ou sexta, desafio) e avança a data. Na virada da quinzena mostra o resumo e sorteia o novo desafio.
-- **+7:** preenche 7 dias com resultados aleatórios e fecha cada um.
-- **↺:** reseta tudo.
-
-O modo teste pode ser desligado em Ajustes. Com ele ligado, o treino sugere 50 minutos de duração se o cronômetro marcar menos de 10 (para não precisar esperar).
-
-Roteiro rápido de 30 minutos:
-
-1. Registre umas tarefas em Hoje (toque, leia os motivos, deslize para confirmar).
-2. Complete os 6 mínimos e veja o +40 XP do dia bom.
-3. Faça um treino completo na aba Treino (marque séries, use o timer, finalize com intensidade).
-4. Registre um fast food e veja o custo real.
-5. Clique em **Próximo dia** algumas vezes, depois **+7** até virar a quinzena.
-6. Na terça ou sexta, vá em Grana e saque.
-7. Veja Progresso e mexa em Ajustes (valores, hábitos, frases com imagem).
+Na Vercel o app começa **valendo hoje**. O modo teste (data simulada, Próximo dia, +7, Resetar) fica em **Ajustes › Modo**.
 
 ## Telas e funções
 
-- **Hoje:** card Dia bom com as 6 obrigações e o Treino (que não conta para o dia bom). Abaixo, **Obrigações** separadas por período e **Bônus** (opcionais, valem mais), com botão **Adicionar bônus** para criar hobbies como ler um livro.
-- **Treino:** ao finalizar mostra o XP, **quanto vale em reais** e quanto libera na hora.
-- **Grana › Resumo:** disponível para saque, já sacado, travado e montante. **Sacar tira o valor do montante.** Gastos com insights (total, média por dia, categoria que mais pesa, fast food, comparação com a quinzena anterior) e histórico de gastos e saques.
-- **Grana › Fixos:** os fixos da quinzena atual, editáveis, com "pago". Em todo dia de pagamento (15 e 30) abre a folha para registrar os custos fixos.
-- **Coach (botão central do menu):** toque ou arraste para cima para abrir o chat de IA. Abordagem em [`docs/chat-ia.md`](docs/chat-ia.md).
-- **Pacote de design:** todas as telas em [`design/`](design/README.md).
+- **Hoje:** card Dia bom com as 6 obrigações e o Treino (que não conta para o dia bom). Abaixo, **Obrigações** por período (manhã, tarde, noite) e **Bônus** (opcionais, valem mais), com **Adicionar bônus** para criar hobbies como ler um livro.
+- **Registrar:** folha com motivos, XP, quanto vale e quanto libera em reais, e deslizar para confirmar.
+- **Treino:** fichas A, B e C, corrida, surf e skate, séries com carga e reps, última vez, recordes, timer de descanso. Ao finalizar mostra XP e quanto vale e libera em reais.
+- **Grana › Resumo:** disponível para saque, já sacado, travado e montante. Sacar tira o valor do montante. Insights e histórico de gastos e saques, potes, tickets de delivery, Caixa de Santos.
+- **Grana › Fixos:** fixos da quinzena editáveis, com "pago". Em todo dia 15 e 30 abre a folha para registrar.
+- **Progresso:** sequência, médias de 30 dias, mapa de 14 dias, caminho até Surfista, quinzenas fechadas.
+- **Coach:** botão no centro do menu. Toque ou arraste para cima. Responde em streaming, com voz pelo navegador.
+- **Ajustes:** nome, horário de dormir, garrafa, hábitos, orçamento padrão, IA do coach, frases do dia com imagem, modo.
 
-## Regras implementadas
+## Regras
 
-**XP:** cada hábito mínimo vale 10 (dividido entre as partes, ex.: garrafas 3 + 3 + 4). Dia bom +40. Sol 20, menos tela 25, natureza 40, treino 100, surf 150. Treino: +25 por recorde (até 2), +20 com intensidade 8+, +20 acima de 45 min. 3 treinos na semana (sáb a sex) +150 ao fechar a sexta. 7 dias bons seguidos +100.
+**XP:** cada obrigação vale 10 (dividido entre as partes, ex.: garrafas 3 + 3 + 4). Dia bom +40. Sol 20, menos tela 25, natureza 40, treino 100, surf 150, bônus criados com o XP que você escolher. Treino: +25 por recorde (até 2), +20 com intensidade 8+, +20 acima de 45 min. 3 treinos na semana (sáb a sex) +150 ao fechar a sexta. 7 dias bons seguidos +100.
 
 **Níveis:** de Na toca (0) a Surfista (9.000). Depois do 10, a contagem recomeça com uma estrela. Cada nível novo abre um baú de R$25 a R$50.
 
 **Dinheiro livre** (entra todo travado; R$60 de delivery à parte, o resto dividido):
 
 - **XP 40%:** R$13 a cada 100 XP da quinzena, até o teto.
-- **Terça e sexta 30%:** terça vale 1 parte (dias bons de sáb a ter), sexta vale 2 partes (dias bons de qua a sex) +20% com a semana toda boa e +20% com 3 treinos. O valor da parte = pote ÷ (terças + 2 × sextas da quinzena). Nunca passa do pote.
-- **Baú surpresa 15%:** cada extra rola um baú (vazio 40%, R$5 30%, R$15 20%, R$40 10%). O baú de nível também sai daqui.
-- **Desafio 15%:** missão sorteada no pagamento; cumpriu, libera tudo na hora.
-- **Delivery:** 2 tickets de R$30; cada um abre com 4 dias bons seguidos. Ticket liberado e não usado vira dinheiro livre no fim.
-- **Saque:** só terças e sextas. Sacar tira o valor do montante da quinzena. Fast food sem ticket é descontado do montante; os outros gastos são só registro do que você gastou com o que já sacou.
-- **Fim da quinzena:** o que ficou travado vai para a Caixa de Santos. O disponível não sacado (e os tickets que sobraram) passa para a próxima quinzena.
+- **Terça e sexta 30%:** terça vale 1 parte (dias bons de sáb a ter), sexta 2 partes (dias bons de qua a sex) +20% com a semana toda boa e +20% com 3 treinos.
+- **Baú surpresa 15%:** cada bônus registrado rola um baú (vazio 40%, R$5 30%, R$15 20%, R$40 10%). O baú de nível também sai daqui.
+- **Desafio 15%:** missão sorteada no pagamento; cumpriu, libera tudo.
+- **Delivery:** 2 tickets de R$30; cada um abre com 4 dias bons seguidos. O que sobrar vira disponível no fim.
+- **Saque:** só terças e sextas, e tira o valor do montante. Fast food sem ticket é descontado do montante; os outros gastos são registro do que você gastou com o que já sacou.
+- **Fim da quinzena:** o travado vai para a Caixa de Santos; o disponível não sacado passa para a próxima.
 
-## Em aberto (do documento)
+## Em aberto
 
-- Tamanho da garrafa: está 767 ml (3 garrafas para 2,3 L). Mude em Ajustes › Garrafa; o número de garrafas se ajusta sozinho.
-- Preço real das marmitas: editável em Ajustes › Orçamento.
-- Lojinha de recompensas: não existe no protótipo; o dinheiro livre faz esse papel.
+- Tamanho da garrafa: está 767 ml (3 garrafas para 2,3 L). Mude em Ajustes; o número de garrafas se ajusta sozinho.
+- Preço real das marmitas: Grana › Fixos (só a quinzena) ou Ajustes › Orçamento (padrão).
+- Treino contar ou não para o dia bom (hoje não conta).

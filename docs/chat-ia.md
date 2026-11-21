@@ -29,17 +29,23 @@ No protótipo isso está em `contextoIA()` e `promptIA()` no `app.js`.
 
 ## Onde roda
 
-**Protótipo publicado no claude.ai (hoje):** usa o Claude da sua própria conta pela capacidade `sample` da página. O primeiro uso pede permissão. Modelo rápido (`quick`) para a resposta começar quase na hora.
+**Vercel (versão de verdade):** `POST /api/chat` (`api/chat.js`).
 
-**Versão Vercel (próximo passo):**
+1. O app monta o retrato (`promptIA()`) e envia junto com as últimas 12 mensagens.
+2. A função escolhe a IA: a que você marcou em **Ajustes › IA do coach**, senão `IA_PROVEDOR`, senão a primeira com chave.
+3. Chama a IA em streaming e repassa o texto conforme chega. A chave fica só na Vercel.
+4. Conexões prontas (`api/_lib/ia.js`):
+   - **Gemini**: API própria do Google (`streamGenerateContent`)
+   - **Groq**: gratuito, modelos Llama, formato OpenAI
+   - **OpenAI**
+   - **DeepSeek** e **OpenRouter**: extras, também no formato OpenAI
+5. Voz: transcrição do próprio navegador (`webkitSpeechRecognition`, funciona no Safari do iPhone), em português. O microfone do teclado também funciona.
 
-1. `POST /api/chat` (função Node na Vercel) recebe a mensagem e o histórico curto.
-2. A função monta o mesmo retrato a partir do Postgres (Neon/Supabase): 4 ou 5 consultas fixas escritas por nós, não pela IA.
-3. Chama a API do Claude com o retrato no `system` e **prompt caching** nesse bloco: perguntas seguidas na mesma conversa reaproveitam o contexto e ficam mais baratas e rápidas.
-4. Devolve a resposta em streaming (SSE) para a página.
-5. A chave da API fica em variável de ambiente da Vercel, nunca no navegador.
+**Protótipo publicado no claude.ai:** usa o Claude da sua conta pela capacidade `sample` da página.
 
-**Voz na versão Vercel:** Web Speech API (`webkitSpeechRecognition`, funciona no Safari do iPhone) para transcrever no aparelho; se ficar ruim, gravar o áudio e mandar para um serviço de transcrição na função `/api`.
+**Arquivo aberto direto:** sem IA (mostra um aviso).
+
+Configuração das chaves: [`DEPLOY.md`](DEPLOY.md).
 
 ## Quando o histórico crescer
 
@@ -52,4 +58,4 @@ Com anos de dados, as linhas diárias passam de 100 KB. Aí:
 
 - [ ] Arrastar para cima é o único gesto ou também tocar? (hoje: os dois)
 - [ ] O coach pode **registrar** coisas por você ("marquei 2 garrafas")? Exigiria ferramentas de escrita com confirmação.
-- [ ] Voz: transcrição no aparelho ou serviço externo.
+- [ ] Voz: a transcrição do navegador basta ou vale um serviço externo (ex.: Whisper) para mais precisão.

@@ -1,5 +1,6 @@
-/* Service worker simples: guarda os arquivos do app para abrir offline. */
-const CACHE = 'lifemaxxing-v1';
+/* Service worker: guarda os arquivos do app para abrir rápido e sem internet.
+   As chamadas /api (dados e IA) nunca passam pelo cache. */
+const CACHE = 'lifemaxxing-v3';
 const ARQUIVOS = ['./', './index.html', './styles.css', './app.js', './data.js', './manifest.json', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -8,16 +9,14 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
-// Rede primeiro (para pegar atualizações), cache se estiver offline
+// Rede primeiro (pega atualizações), cache quando estiver sem internet
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
   e.respondWith(
     fetch(e.request).then((r) => {
-      if (r.ok && new URL(e.request.url).origin === location.origin) {
-        const copia = r.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copia));
-      }
+      if (r.ok) { const copia = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copia)); }
       return r;
-    }).catch(() => caches.match(e.request))
+    }).catch(() => caches.match(e.request).then((m) => m || caches.match('./index.html')))
   );
 });

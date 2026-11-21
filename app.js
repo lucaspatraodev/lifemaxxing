@@ -104,12 +104,17 @@ let S; // estado salvo
 // Estado só da interface (não é salvo)
 const UI = { aba: 'hoje', periodoAba: null, exercicio: null, descanso: null, simAberta: true };
 
-function estadoInicial() {
+const DATA_TESTE = '2026-12-15'; // o modo teste sempre começa aqui
+const hojeReal = () => paraIso(new Date());
+function periodoReal() { const h = new Date().getHours(); return h < 12 ? 'manha' : h < 18 ? 'tarde' : 'noite'; }
+
+// teste = simulador (data inventada, botões de avançar dia). Sem teste = data e hora reais.
+function estadoInicial(config, data, teste) {
   return {
     v: 1,
-    config: clone(DADOS_INICIAIS),
-    sim: { data: '2026-12-15', periodo: 'manha', teste: true },
-    inicioApp: '2026-12-15',
+    config: config ? clone(config) : clone(DADOS_INICIAIS),
+    sim: { data, periodo: teste ? 'manha' : periodoReal(), teste },
+    inicioApp: data,
     dias: {},        // { 'AAAA-MM-DD': { feitos: {'agua:0': true}, fastfood: [], fechado, bom } }
     xpLog: [],       // cada ganho de XP: { id, data, xp, rotulo }
     nivelMax: 1,     // maior nível já alcançado (estrelas*10 + nível), para não repetir o baú
@@ -121,19 +126,28 @@ function estadoInicial() {
   };
 }
 
-function carregar() {
-  try {
-    const raw = localStorage.getItem(CHAVE);
-    if (raw) { S = JSON.parse(raw); return; }
-  } catch (e) { /* localStorage indisponível: segue com estado novo */ }
-  S = estadoInicial();
+// Lê o estado salvo no aparelho (true se havia)
+function lerLocal() {
+  try { const raw = localStorage.getItem(CHAVE); if (raw) { S = JSON.parse(raw); return true; } } catch (e) { /* ignora */ }
+  return false;
+}
+
+// Começa do zero: em teste (data simulada) ou de verdade (hoje). Pode manter os ajustes.
+function recomecar(teste, manterConfig) {
+  const cfg = manterConfig && S ? S.config : null;
+  S = estadoInicial(cfg, teste ? DATA_TESTE : hojeReal(), teste);
   S.quinzena = abrirQuinzena(S.sim.data);
   salvar();
 }
 
-function salvar() {
+function salvarLocal() {
   try { localStorage.setItem(CHAVE, JSON.stringify(S)); }
   catch (e) { toast('Não deu para salvar (armazenamento cheio?)'); }
+}
+// Salva no aparelho e, com servidor, agenda o envio para o Supabase
+function salvar() {
+  salvarLocal();
+  if (NUVEM.ativo) marcarPendente();
 }
 
 /* ---------------------------------------------------------
@@ -831,7 +845,12 @@ function animarXp(antes, ganho) {
 function render() {
   renderSimBar();
   const telas = { hoje: renderHoje, treino: renderTreino, grana: renderGrana, progresso: renderProgresso, ajustes: renderAjustes };
-  $('#view').innerHTML = telas[UI.aba]();
+  const view = $('#view');
+  view.innerHTML = telas[UI.aba]();
+  if (UI.ultimaAba !== UI.aba) { // transição curta ao trocar de aba
+    view.classList.remove('entra'); void view.offsetWidth; view.classList.add('entra');
+    UI.ultimaAba = UI.aba;
+  }
   document.querySelectorAll('.nav button').forEach((b) => b.classList.toggle('on', b.dataset.aba === UI.aba || (UI.aba === 'ajustes' && b.dataset.aba === 'hoje')));
   renderDescanso();
 }
@@ -1162,8 +1181,8 @@ function modalPagamento(resumo, q) {
 function modalPulo(r) {
   abrirModal(`
     <div class="modal-card">
-      <span class="eyebrow">Simulação · 7 dias</span>
-      <h2>${r.bons} de 7 dias bons</h2>
+      <span class="eyebrow">${esc(r.titulo || 'Simulação · 7 dias')}</span>
+      <h2>${r.bons} de ${r.dias || 7} dias bons</h2>
       <div class="stats3">
         <div><span class="eyebrow">XP</span><b>+${num(r.xp)}</b></div>
         <div><span class="eyebrow">Treinos</span><b>${r.treinos}</b></div>
@@ -1673,8 +1692,22 @@ function renderAjustes() {
     <label class="inline">Garrafa (ml)<input type="number" inputmode="numeric" value="${c.garrafaMl}" data-cfg="garrafaMl" data-num></label>
     <label class="inline">Meta de água (ml)<input type="number" inputmode="numeric" value="${c.metaAguaMl}" data-cfg="metaAguaMl" data-num></label>
     <label class="inline">Fim de semana em Santos<input type="number" inputmode="decimal" value="${c.fimDeSemanaSantos}" data-cfg="fimDeSemanaSantos" data-num></label>
-    <label class="inline">Modo teste (simulador)<input type="checkbox" ${S.sim.teste ? 'checked' : ''} data-a="modoTeste"></label>
   </section>
+
+  <h3 class="sec">Modo</h3>
+  <section class="card form">
+    <div class="modo"><b>${S.sim.teste ? 'Modo teste' : 'Valendo'}</b><small>${S.sim.teste ? 'Data simulada e botões para avançar os dias.' : `Data e hora reais desde ${dataCurta(S.inicioApp)}.`}${NUVEM.ativo ? ' Salvo na nuvem.' : ' Salvo só neste aparelho.'}</small></div>
+    ${S.sim.teste ? '<button class="btn" data-a="comecarDeVerdade">Começar de verdade hoje</button>' : '<button class="btn ghost" data-a="abrirModoTeste">Abrir modo teste</button>'}
+  </section>
+
+  ${CHAT.provedores && CHAT.provedores.length ? `
+  <h3 class="sec">IA do coach</h3>
+  <section class="card list">
+    ${[{ id: '', nome: 'Padrão do servidor', modelo: (CHAT.provedores.find((x) => x.id === CHAT.padrao) || {}).nome || '' }, ...CHAT.provedores].map((x) => `
+      <button class="fixo ${(S.config.iaProvedor || '') === x.id ? 'pago' : ''}" data-a="iaProvedor" data-id="${x.id}">
+        <span class="check-box">${ic('check')}</span><span class="task-tx"><b>${esc(x.nome)}</b><small>${esc(x.modelo)}${x.gratis ? ' · gratuito' : ''}</small></span>
+      </button>`).join('')}
+  </section>` : ''}
 
   <h3 class="sec">Hábitos</h3>
   <section class="card list">${hab}<button class="link" data-a="editarHabito" data-h="">${ic('plus')} Novo hábito</button></section>
@@ -1705,8 +1738,9 @@ function renderAjustes() {
   <h3 class="sec">Frases · uma por dia</h3>
   <section class="card list">${frases}<button class="link" data-a="editarFrase" data-i="-1">${ic('plus')} Nova frase</button></section>
 
-  <button class="btn ghost danger-tx" data-a="reset">${ic('reset')} Resetar tudo</button>
-  <p class="nota center">Lifemaxxing · protótipo · dados só neste aparelho</p>`;
+  ${S.sim.teste ? `<button class="btn ghost danger-tx" data-a="reset">${ic('reset')} Resetar tudo</button>` : ''}
+  ${NUVEM.ativo ? '<button class="btn ghost" data-a="sair">Sair deste aparelho</button>' : ''}
+  <p class="nota center">Lifemaxxing · ${NUVEM.ativo ? 'dados no Supabase e neste aparelho' : 'dados só neste aparelho'}</p>`;
 }
 
 function abrirEditarHabito(id) {
@@ -1860,16 +1894,94 @@ const r2 = (v) => Math.round(v * 100) / 100;
 
 async function iniciarIA() {
   CHAT.turnos = Array.isArray(S.chat) ? S.chat : [];
+  if (NUVEM.ativo) {
+    // Vercel: a IA roda em /api/chat (Gemini, Groq, OpenAI...). Voz pelo navegador.
+    CHAT.sample = null;
+    CHAT.servidor = true;
+    CHAT.dictation = ditadoNavegador();
+    registrarDitado(CHAT.dictation);
+    try {
+      const r = await fetch('/api/chat', { credentials: 'same-origin' });
+      if (r.ok) { const j = await r.json(); CHAT.provedores = j.provedores; CHAT.padrao = j.padrao; }
+    } catch (e) { /* offline */ }
+    if ($('#chat')) { renderChatBarra(); renderChatCabecalho(); }
+    return;
+  }
   if (!window.claude || !window.claude.use) { CHAT.sample = null; CHAT.dictation = null; return; }
   try { CHAT.sample = await window.claude.use('sample'); } catch (e) { CHAT.sample = null; }
   try { CHAT.dictation = await window.claude.use('dictation'); } catch (e) { CHAT.dictation = null; }
-  const d = CHAT.dictation;
+  registrarDitado(CHAT.dictation);
+  if ($('#chat')) renderChatBarra();
+}
+
+function registrarDitado(d) {
   if (d) {
     d.onPartial(({ text }) => { const t = $('#chat-in'); if (t) { t.value = (CHAT.base + ' ' + text).trim(); autoAltura(t); } });
     d.onFinal(({ text }) => { CHAT.base = (CHAT.base + ' ' + text).trim(); const t = $('#chat-in'); if (t) { t.value = CHAT.base; autoAltura(t); } });
     d.onState(({ state }) => { const b = $('#chat-mic'); if (b) b.classList.toggle('ouvindo', state === 'listening'); });
   }
-  if ($('#chat')) renderChatBarra();
+}
+
+// Voz pelo próprio navegador (Safari do iPhone e Chrome têm). Mesma interface do ditado do claude.ai.
+function ditadoNavegador() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+  let rec = null, cbP = () => {}, cbF = () => {}, cbS = () => {};
+  return {
+    onPartial(f) { cbP = f; }, onFinal(f) { cbF = f; }, onState(f) { cbS = f; },
+    start() {
+      return new Promise((ok, nao) => {
+        try {
+          rec = new SR();
+          rec.lang = 'pt-BR'; rec.interimResults = true; rec.continuous = true;
+          rec.onresult = (e) => {
+            let parcial = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+              const r = e.results[i];
+              if (r.isFinal) cbF({ text: r[0].transcript.trim() }); else parcial += r[0].transcript;
+            }
+            cbP({ text: parcial.trim() });
+          };
+          rec.onend = () => cbS({ state: 'idle' });
+          rec.onerror = (e) => { cbS({ state: 'idle' }); if (e.error === 'not-allowed') nao({ code: 'not_granted' }); };
+          rec.start(); cbS({ state: 'listening' }); ok();
+        } catch (e) { nao({ code: 'erro' }); }
+      });
+    },
+    stop() { try { if (rec) rec.stop(); } catch (e) { /* ignora */ } return Promise.resolve(); }
+  };
+}
+
+// Nome da IA no cabeçalho do chat
+function renderChatCabecalho() {
+  const el = $('.chat-tt small'); if (!el) return;
+  if (CHAT.servidor && CHAT.provedores) {
+    const id = S.config.iaProvedor || CHAT.padrao;
+    const p = CHAT.provedores.find((x) => x.id === id) || CHAT.provedores[0];
+    el.textContent = p ? `${p.nome} · lê seus hábitos, treinos e grana` : 'Nenhuma IA configurada no servidor';
+  }
+}
+
+// Envia para /api/chat e lê a resposta em streaming
+async function perguntarServidor(hist, resp, signal) {
+  const r = await fetch('/api/chat', {
+    method: 'POST', credentials: 'same-origin', signal,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ provedor: S.config.iaProvedor || null, sistema: promptIA(), mensagens: hist })
+  });
+  if (!r.ok) {
+    let j = {}; try { j = await r.json(); } catch (e) { /* ignora */ }
+    throw { code: r.status === 401 ? 'login' : 'servidor', message: j.erro || `Erro ${r.status}` };
+  }
+  const leitor = r.body.getReader(), dec = new TextDecoder();
+  let txt = '';
+  for (;;) {
+    const { done, value } = await leitor.read();
+    if (done) break;
+    txt += dec.decode(value, { stream: true });
+    resp.pensando = false; resp.content = txt; atualizarUltima();
+  }
+  return txt;
 }
 
 // Tudo o que a IA sabe: um retrato compacto do app
@@ -1996,7 +2108,7 @@ function renderChatBarra() {
   const valor = $('#chat-in') ? $('#chat-in').value : '';
   const semIA = CHAT.sample === null;
   bar.innerHTML = `
-    ${semIA ? '<p class="chat-aviso">O chat responde na versão publicada no claude.ai. Para a Vercel, veja docs/chat-ia.md.</p>' : ''}
+    ${semIA && !CHAT.servidor ? '<p class="chat-aviso">Sem IA aqui. Na Vercel o coach usa Gemini, Groq ou OpenAI (docs/DEPLOY.md).</p>' : ''}
     <div class="chat-input">
       ${CHAT.dictation ? `<button class="chat-btn" id="chat-mic" data-chat="mic" aria-label="Falar">${ic('mic')}</button>` : ''}
       <textarea id="chat-in" rows="1" placeholder="Pergunte qualquer coisa" enterkeyhint="send">${esc(valor)}</textarea>
@@ -2021,9 +2133,20 @@ async function enviarChat(texto) {
   if ($('#chat-in')) $('#chat-in').value = '';
   renderChatMsgs(); renderChatBarra();
 
-  if (!CHAT.sample) {
+  if (CHAT.servidor) {
+    const hist = CHAT.turnos.filter((t) => t !== resp && !t.erro && !t.pensando).slice(-12);
+    try {
+      resp.content = (await perguntarServidor(hist, resp, ctl.signal)) || 'Sem resposta.';
+    } catch (e) {
+      resp.pensando = false;
+      if (e && e.name === 'AbortError') resp.content = resp.content || 'Parado.';
+      else if (e && e.code === 'login') { resp.erro = true; resp.content = 'Sua sessão expirou. Entre de novo.'; }
+      else if (e && e.code === 'servidor') { resp.erro = true; resp.content = e.message; }
+      else { resp.erro = true; resp.content = (resp.content ? resp.content + '\n\n' : '') + 'Sem conexão. Envie de novo quando a internet voltar.'; }
+    }
+  } else if (!CHAT.sample) {
     resp.pensando = false; resp.erro = true;
-    resp.content = CHAT.sample === undefined ? 'Conectando ao Claude. Tente de novo em alguns segundos.' : 'Aqui ainda não tem IA ligada. O chat responde na versão publicada no claude.ai; para a Vercel, o plano está em docs/chat-ia.md.';
+    resp.content = CHAT.sample === undefined ? 'Conectando ao Claude. Tente de novo em alguns segundos.' : 'Aqui ainda não tem IA ligada. Publique na Vercel com uma chave de IA (veja docs/DEPLOY.md).';
   } else {
     // conversa curta: instruções + dados sempre na frente, e as últimas trocas
     const hist = CHAT.turnos.filter((t) => t !== resp && !t.erro && !t.pensando).slice(-12);
@@ -2054,7 +2177,7 @@ function montarChat() {
   ov.className = 'chat-ov';
   ov.innerHTML = chatHtml();
   document.body.appendChild(ov);
-  renderChatMsgs(); renderChatBarra();
+  renderChatMsgs(); renderChatBarra(); renderChatCabecalho();
   ov.addEventListener('click', (e) => {
     const a = e.target.closest('[data-chat]'); if (!a) return;
     const k = a.dataset.chat;
@@ -2176,13 +2299,23 @@ const acoes = {
   },
   reset() {
     confirmar('Resetar tudo? Apaga hábitos, treinos, grana e ajustes deste aparelho.', 'Resetar', () => {
-      try { localStorage.removeItem(CHAVE); } catch (e) { /* ignora */ }
-      S = null; UI.aba = 'hoje'; UI.descanso = null;
-      carregar(); render(); window.scrollTo(0, 0);
+      UI.aba = 'hoje'; UI.descanso = null;
+      recomecar(true, false); render(); window.scrollTo(0, 0);
       toast('Tudo zerado. Começando em 15/12/2026.');
     });
   },
-  modoTeste(el) { S.sim.teste = el.checked; salvar(); render(); },
+  comecarDeVerdade() {
+    confirmar('Começar de verdade hoje? Apaga os dados de teste e mantém seus ajustes (hábitos, orçamento, frases).', 'Começar', () => {
+      UI.aba = 'hoje'; recomecar(false, true); render(); window.scrollTo(0, 0); toast('Valendo! Começou hoje.');
+    });
+  },
+  abrirModoTeste() {
+    confirmar('Abrir o modo teste? Apaga seus dados reais e começa a simulação em 15/12/2026. Os ajustes ficam.', 'Apagar e testar', () => {
+      UI.aba = 'hoje'; recomecar(true, true); render(); window.scrollTo(0, 0);
+    });
+  },
+  sair() { fetch('/api/logout', { method: 'POST' }).finally(() => { try { localStorage.removeItem(CHAVE); localStorage.removeItem(CHAVE_V); localStorage.removeItem(CHAVE_P); } catch (e) { /* ignora */ } location.reload(); }); },
+  iaProvedor(el) { S.config.iaProvedor = el.dataset.id || null; salvar(); render(); },
 
   // treino
   iniciarTreino(el) { iniciarTreino(el.dataset.t); render(); window.scrollTo(0, 0); },
@@ -2279,7 +2412,7 @@ document.addEventListener('change', (e) => {
    14. Relógio (cronômetro e descanso)
    --------------------------------------------------------- */
 setInterval(() => {
-  if (UI.aba === 'treino' && S.treinoAtivo) {
+  if (S && UI.aba === 'treino' && S.treinoAtivo) {
     const c = $('#crono');
     if (c) c.textContent = fmtTempo(Date.now() - S.treinoAtivo.inicio);
     if (UI.descanso) {
@@ -2292,13 +2425,194 @@ setInterval(() => {
   }
 }, 500);
 
+
 /* ---------------------------------------------------------
-   15. Início
+   15. Nuvem (Vercel + Supabase)
+   Na Vercel o app guarda tudo no Supabase por /api/state, com uma cópia
+   no aparelho para abrir na hora e funcionar sem internet.
+   Abrindo o arquivo direto ou no claude.ai, fica só no aparelho.
    --------------------------------------------------------- */
-carregar();
-render();
-montarBotaoIA();
-iniciarIA();
+const CHAVE_V = 'lifemaxxing_versao';    // versão do banco que o aparelho conhece
+const CHAVE_P = 'lifemaxxing_pendente';  // há mudanças ainda não enviadas
+const NUVEM = { ativo: false, versao: 0, pendente: false, timer: null, enviando: false };
+const ls = {
+  get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* ignora */ } },
+  del: (k) => { try { localStorage.removeItem(k); } catch (e) { /* ignora */ } }
+};
+const podeTerServidor = () => location.protocol.startsWith('http') && !window.claude;
+
+function marcarPendente() {
+  NUVEM.pendente = true;
+  ls.set(CHAVE_P, '1');
+  clearTimeout(NUVEM.timer);
+  NUVEM.timer = setTimeout(enviarAgora, 1200);
+}
+
+async function enviarAgora() {
+  if (!NUVEM.ativo || NUVEM.enviando || !NUVEM.pendente) return;
+  NUVEM.enviando = true;
+  NUVEM.pendente = false;
+  try {
+    const r = await fetch('/api/state', {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dados: S, versao: NUVEM.versao })
+    });
+    if (r.ok) {
+      NUVEM.versao = (await r.json()).versao;
+      ls.set(CHAVE_V, String(NUVEM.versao));
+      if (!NUVEM.pendente) ls.del(CHAVE_P);
+    } else if (r.status === 409) {
+      // outro aparelho salvou antes: fica a versão do banco
+      const j = await r.json();
+      S = j.dados; NUVEM.versao = j.versao; NUVEM.pendente = false;
+      ls.set(CHAVE_V, String(j.versao)); ls.del(CHAVE_P);
+      salvarLocal(); CHAT.turnos = Array.isArray(S.chat) ? S.chat : [];
+      render(); toast('Atualizado com os dados do outro aparelho');
+    } else if (r.status === 401) {
+      NUVEM.pendente = true; telaLogin();
+    } else {
+      NUVEM.pendente = true;
+    }
+  } catch (e) {
+    NUVEM.pendente = true; // sem internet: tenta de novo depois
+  }
+  NUVEM.enviando = false;
+  if (NUVEM.pendente) { clearTimeout(NUVEM.timer); NUVEM.timer = setTimeout(enviarAgora, 15000); }
+}
+
+// Consulta o servidor. Devolve 'local' (sem servidor), 'login', 'ok' ou 'offline'.
+async function conectarNuvem() {
+  if (!podeTerServidor()) return 'local';
+  let r;
+  try { r = await fetch('/api/state', { credentials: 'same-origin', cache: 'no-store' }); }
+  catch (e) { return ls.get('lifemaxxing_nuvem') ? 'offline' : 'local'; }
+  if (r.status === 401) return 'login';
+  const tipo = r.headers.get('content-type') || '';
+  if (r.status === 404 || !tipo.includes('json')) return 'local'; // hospedagem sem /api
+  if (!r.ok) {
+    let j = {}; try { j = await r.json(); } catch (e) { /* ignora */ }
+    toast(j.erro ? 'Servidor: ' + j.erro : 'Servidor fora do ar. Usando os dados do aparelho.');
+    return ls.get('lifemaxxing_nuvem') ? 'offline' : 'local';
+  }
+  const j = await r.json();
+  NUVEM.ativo = true;
+  ls.set('lifemaxxing_nuvem', '1');
+  const vLocal = Number(ls.get(CHAVE_V) || 0), pendente = ls.get(CHAVE_P) === '1';
+  if (!j.dados) {
+    // banco vazio: começa valendo hoje (mantém ajustes de um teste anterior, se houver)
+    recomecarDaNuvem();
+  } else if (pendente && S && vLocal === j.versao) {
+    NUVEM.versao = j.versao; marcarPendente(); // o aparelho tem mudanças novas em cima da mesma versão
+  } else {
+    S = j.dados; NUVEM.versao = j.versao;
+    ls.set(CHAVE_V, String(j.versao)); ls.del(CHAVE_P);
+    salvarLocal();
+  }
+  return 'ok';
+}
+function recomecarDaNuvem() {
+  const manter = !!S;
+  recomecar(false, manter);
+  NUVEM.versao = 0;
+  marcarPendente();
+}
+
+// Tela de login (senha definida em APP_PASSWORD na Vercel)
+function telaLogin(erro) {
+  document.body.classList.add('login');
+  $('#simbar').innerHTML = '';
+  $('#view').innerHTML = `
+    <div class="login-box">
+      <div class="login-logo">${ic('wave')}</div>
+      <h1>Lifemaxxing</h1>
+      <p>Entre com a sua senha.</p>
+      <form id="f-login" autocomplete="on">
+        <input type="password" id="senha" name="password" autocomplete="current-password" placeholder="Senha" required>
+        <button class="btn" type="submit">Entrar</button>
+        <p class="login-erro" role="alert">${erro ? esc(erro) : ''}</p>
+      </form>
+    </div>`;
+  $('#f-login').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button');
+    btn.disabled = true; btn.textContent = 'Entrando...';
+    try {
+      const r = await fetch('/api/login', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ senha: $('#senha').value }) });
+      if (r.ok) { document.body.classList.remove('login'); iniciar(); return; }
+      const j = await r.json().catch(() => ({}));
+      telaLogin(j.erro || 'Não deu para entrar');
+    } catch (err) { telaLogin('Sem internet'); }
+  });
+  setTimeout(() => { const s = $('#senha'); if (s) s.focus(); }, 50);
+}
+
+/* ---------------------------------------------------------
+   16. Relógio real (fora do modo teste)
+   Fecha os dias que passaram, acompanha manhã/tarde/noite.
+   --------------------------------------------------------- */
+function sincronizarRelogio() {
+  if (!S || S.sim.teste) return false;
+  let mudou = false;
+  const hoje = hojeReal();
+  if (S.sim.data < hoje) {
+    const res = [];
+    while (S.sim.data < hoje && res.length < 400) res.push(fecharDia());
+    const ultimo = res[res.length - 1];
+    if (res.length === 1) fila.push(() => modalResumoDia(ultimo));
+    else {
+      const xp = soma(res.map((r) => r.xp));
+      fila.push(() => modalPulo({ titulo: `Você ficou ${res.length} dias sem abrir`, dias: res.length, bons: res.filter((r) => r.bom).length, xp, treinos: 0, ff: 0, msgs: res.flatMap((r) => r.msgs).slice(-4) }));
+    }
+    const q = [...res].reverse().find((r) => r.quinzena);
+    if (q) { fila.push(() => modalPagamento(q.quinzena, q.novaQuinzena)); fila.push(() => abrirFixosFolha()); }
+    const sub = res.flatMap((r) => r.subidas);
+    if (sub.length) fila.push(() => modalNivel(sub));
+    mudou = true;
+  }
+  const p = periodoReal();
+  if (S.sim.periodo !== p) { S.sim.periodo = p; UI.periodoAba = null; mudou = true; }
+  if (mudou) salvar();
+  return mudou;
+}
+function telaLivre() { return !$('#folha') && !modalAberto && !document.body.classList.contains('chat-aberto') && !document.body.classList.contains('login'); }
+
+/* ---------------------------------------------------------
+   17. Início
+   --------------------------------------------------------- */
+let jaMontou = false;
+function posCarregar() {
+  sincronizarRelogio();
+  render();
+  if (!jaMontou) { montarBotaoIA(); jaMontou = true; }
+  iniciarIA();
+  rodarFila();
+}
+
+async function iniciar() {
+  const temCache = lerLocal();
+  if (!podeTerServidor()) { if (!temCache) recomecar(true, false); posCarregar(); return; }
+  // Na web: mostra o que está no aparelho na hora e confere o servidor em seguida
+  if (temCache) posCarregar(); else $('#view').innerHTML = '<div class="splash">' + ic('wave') + '</div>';
+  const modo = await conectarNuvem();
+  if (modo === 'login') return telaLogin();
+  if (modo === 'offline') NUVEM.ativo = true;
+  if (!S) recomecar(modo === 'local', false);
+  posCarregar();
+}
+iniciar();
+
+// Volta ao app: confere a data, o período e envia o que ficou pendente
+document.addEventListener('visibilitychange', () => {
+  if (!S) return;
+  if (document.visibilityState === 'hidden') { enviarAgora(); return; }
+  if (sincronizarRelogio() && telaLivre()) { render(); rodarFila(); }
+  // busca mudanças feitas em outro aparelho (só com a tela livre, para não trocar dados no meio de um registro)
+  if (NUVEM.ativo && !NUVEM.pendente && telaLivre()) conectarNuvem().then((m) => { if (m === 'ok' && telaLivre()) { CHAT.turnos = Array.isArray(S.chat) ? S.chat : []; render(); } });
+});
+setInterval(() => { if (S && sincronizarRelogio() && telaLivre()) { render(); rodarFila(); } }, 60000);
+window.addEventListener('online', () => { if (NUVEM.pendente) enviarAgora(); });
 
 // Service worker só funciona em http(s) (na Vercel). Abrindo o arquivo direto, é ignorado.
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
