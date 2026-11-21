@@ -58,7 +58,8 @@ Na Vercel o app começa **valendo hoje**. O modo teste (data simulada, Próximo 
 - **Delivery:** 2 tickets de R$30; cada um abre com 4 dias bons seguidos. O que sobrar vira disponível no fim.
 - **Saque:** um único por terça e sexta, liberado depois de completar as **obrigações da manhã**. O XP que você ganha de manhã ainda entra no saque. Sacar tira o valor do montante. Fast food sem ticket é descontado do montante; os outros gastos são registro do que você gastou com o que já sacou.
 - **Teto do saque (liberação gradual):** a cada terça o teto acumulado sobe 1 fatia do montante e a cada sexta 2 fatias, chegando a 100% no último saque da quinzena. O que passar do teto fica para o próximo saque. Assim o dinheiro sai aos poucos, conforme o progresso, e o caixa nunca falta.
-- **Fim da quinzena:** o travado vai para a Caixa de Santos; o disponível não sacado passa para a próxima.
+- **Fim da quinzena:** o que ficou travado continua travado e soma no dinheiro livre da próxima quinzena. O disponível não sacado (e os tickets que sobraram) também passa.
+- **Caixa de Santos:** custo fixo de R$300 por quinzena, liberado inteiro no dia do pagamento (15 e 30) para escolher semana e hospedagem. Em Grana, o botão **Usar** registra o que saiu da caixa.
 
 ## Em aberto
 
