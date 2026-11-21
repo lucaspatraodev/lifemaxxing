@@ -45,18 +45,19 @@ Na Vercel o app começa **valendo hoje**. O modo teste (data simulada, Próximo 
 
 ## Regras
 
-**XP:** cada obrigação vale 10 (dividido entre as partes, ex.: garrafas 3 + 3 + 4). Dia bom +40. Sol 20, menos tela 25, natureza 40, treino 100, surf 150, bônus criados com o XP que você escolher. Treino: +25 por recorde (até 2), +20 com intensidade 8+, +20 acima de 45 min. 3 treinos na semana (sáb a sex) +150 ao fechar a sexta. 7 dias bons seguidos +100.
+**XP:** cada obrigação vale 10 (dividido entre as partes, ex.: garrafas 3 + 3 + 4). Dia bom +40. Sol 20, menos tela 25, natureza 40, treino 100, surf 150, bônus criados com o XP que você escolher. Treino: +25 por recorde (até 2), +20 com intensidade 8+, +20 acima de 45 min. 3 treinos na semana (sex a qui) +150 no corte de sexta. 7 dias bons seguidos +100.
 
 **Níveis:** de Na toca (0) a Surfista (9.000). Depois do 10, a contagem recomeça com uma estrela. Cada nível novo abre um baú de R$25 a R$50.
 
 **Dinheiro livre** (entra todo travado; R$60 de delivery à parte, o resto dividido):
 
 - **XP 40%:** R$13 a cada 100 XP da quinzena, até o teto.
-- **Terça e sexta 30%:** terça vale 1 parte (dias bons de sáb a ter), sexta 2 partes (dias bons de qua a sex) +20% com a semana toda boa e +20% com 3 treinos.
+- **Terça e sexta 30%:** liberado no **corte da meia-noite**. O corte de terça paga os dias bons de sex a seg (1 parte); o de sexta, os de ter a qui (2 partes), +20% com a semana toda boa e +20% com 3 treinos. Se a quinzena acaba no meio de uma janela, os dias que sobraram entram num corte parcial no fechamento.
 - **Baú surpresa 15%:** cada bônus registrado rola um baú (vazio 40%, R$5 30%, R$15 20%, R$40 10%). O baú de nível também sai daqui.
 - **Desafio 15%:** missão sorteada no pagamento; cumpriu, libera tudo.
 - **Delivery:** 2 tickets de R$30; cada um abre com 4 dias bons seguidos. O que sobrar vira disponível no fim.
-- **Saque:** só terças e sextas, e tira o valor do montante. Fast food sem ticket é descontado do montante; os outros gastos são registro do que você gastou com o que já sacou.
+- **Saque:** um único por terça e sexta, liberado depois de completar as **obrigações da manhã**. O XP que você ganha de manhã ainda entra no saque. Sacar tira o valor do montante. Fast food sem ticket é descontado do montante; os outros gastos são registro do que você gastou com o que já sacou.
+- **Teto do saque (liberação gradual):** a cada terça o teto acumulado sobe 1 fatia do montante e a cada sexta 2 fatias, chegando a 100% no último saque da quinzena. O que passar do teto fica para o próximo saque. Assim o dinheiro sai aos poucos, conforme o progresso, e o caixa nunca falta.
 - **Fim da quinzena:** o travado vai para a Caixa de Santos; o disponível não sacado passa para a próxima.
 
 ## Em aberto

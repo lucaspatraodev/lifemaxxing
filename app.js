@@ -298,10 +298,21 @@ function calcularPotes(q) {
   const resto = q.livre - q.delivery;
   const p = S.config.potes;
   q.potes = { xp: resto * p.xp, semana: resto * p.semana, bau: resto * p.bau, desafio: resto * p.desafio };
-  // Cada terça vale 1 parte e cada sexta 2 partes
-  const partes = intervalo(q.inicio, q.fim).reduce((s, d) => s + (diaSemana(d) === 2 ? 1 : diaSemana(d) === 5 ? 2 : 0), 0);
-  q.parteValor = partes ? q.potes.semana / partes : 0;
+  // Pote de terça e sexta: cada dia da quinzena vale um pedaço. Os 4 dias que fecham no
+  // corte de terça (sex a seg) somam 1 parte; os 3 que fecham no corte de sexta (ter a qui) somam 2.
+  const pesoTotal = soma(intervalo(q.inicio, q.fim).map(pesoDia));
+  q.valorPeso = pesoTotal ? q.potes.semana / pesoTotal : 0;
 }
+
+// Corte = meia-noite que começa a terça ou a sexta. Cada dia entra em um corte só.
+const PESO_TERCA = 1, PESO_SEXTA = 2;
+function pesoDia(iso) { return [2, 3, 4].includes(diaSemana(iso)) ? PESO_SEXTA / 3 : PESO_TERCA / 4; }
+// Dia de saque cujo corte fecha esse dia (sex, sáb, dom, seg → terça; ter, qua, qui → sexta)
+function saqueDoDia(iso) { const w = diaSemana(iso); return somaDias(iso, w === 2 ? 3 : w === 3 ? 2 : w === 4 ? 1 : w === 5 ? 4 : w === 6 ? 3 : w === 0 ? 2 : 1); }
+// Dias que fecham no corte de um dia de saque
+function janelaDoSaque(isoSaque) { const n = diaSemana(isoSaque) === 2 ? 4 : 3; return intervalo(somaDias(isoSaque, -n), somaDias(isoSaque, -1)); }
+// Saques (terças e sextas) dentro da quinzena
+const saquesDaQuinzena = (q) => intervalo(q.inicio, q.fim).filter((d) => diaDeSaque(d));
 
 const somaLib = (q, tipos) => soma(q.liberacoes.filter((l) => !tipos || tipos.includes(l.tipo)).map((l) => l.valor));
 const xpQuinzena = (q) => xpEntre(q.inicio, q.fim);
@@ -311,31 +322,40 @@ function liberadoXp(q, xpExtra = 0) {
 }
 const treinosEntre = (a, b) => S.treinos.filter((t) => entre(t.data, a, b)).length;
 
-// Liberação de terça (sáb→ter, 1 parte) ou sexta (qua→sex, 2 partes, com bônus)
-function calcSemanal(q, iso) {
-  const w = diaSemana(iso);
-  const partes = w === 2 ? 1 : 2;
-  const dias = intervalo(somaDias(iso, w === 2 ? -3 : -2), iso).filter((d) => entre(d, q.inicio, q.fim));
-  const bons = dias.filter(ehBom).length;
-  let mult = dias.length ? bons / dias.length : 0;
+// Liberação do corte de um dia de saque: dias bons da janela × valor de cada dia.
+// Sexta ganha +20% com a semana toda boa (sex a qui) e +20% com 3 treinos nessa semana.
+// Nunca passa do que sobra no pote.
+function calcSemanal(q, isoSaque) {
+  const sexta = diaSemana(isoSaque) === 5;
+  const dias = janelaDoSaque(isoSaque).filter((d) => entre(d, q.inicio, q.fim));
+  const bons = dias.filter(ehBom);
+  const cheio = soma(dias.map(pesoDia)) * q.valorPeso;
+  let base = soma(bons.map(pesoDia)) * q.valorPeso;
   let bonusSemana = false, bonusTreino = false;
-  if (w === 5) {
-    const semana = intervalo(somaDias(iso, -6), iso).filter((d) => d >= S.inicioApp);
+  if (sexta) {
+    const semana = intervalo(somaDias(isoSaque, -7), somaDias(isoSaque, -1)).filter((d) => d >= S.inicioApp);
     bonusSemana = semana.length > 0 && semana.every(ehBom);
-    bonusTreino = treinosEntre(somaDias(iso, -6), iso) >= 3;
-    mult *= 1 + (bonusSemana ? 0.2 : 0) + (bonusTreino ? 0.2 : 0);
+    bonusTreino = treinosEntre(somaDias(isoSaque, -7), somaDias(isoSaque, -1)) >= 3;
+    base *= 1 + (bonusSemana ? 0.2 : 0) + (bonusTreino ? 0.2 : 0);
   }
   const restante = q.potes.semana - somaLib(q, ['terca', 'sexta']);
-  const valor = Math.max(0, Math.min(restante, q.parteValor * partes * mult));
-  return { valor, bons, total: dias.length, partes, bonusSemana, bonusTreino, cheio: q.parteValor * partes };
+  return { valor: Math.max(0, Math.min(restante, base)), bons: bons.length, total: dias.length, bonusSemana, bonusTreino, cheio };
 }
 
-// Liberação de hoje ainda aberta (terça ou sexta antes de fechar o dia)
-function pendenteHoje(q) {
-  const iso = S.sim.data;
-  if (q.fechada || !entre(iso, q.inicio, q.fim) || diaLer(iso).fechado) return 0;
-  const w = diaSemana(iso);
-  return w === 2 || w === 5 ? calcSemanal(q, iso).valor : 0;
+// Teto do saque: a cada terça (1) e sexta (2) o teto acumulado sobe uma fatia do montante.
+// No último saque da quinzena chega a 100%. Assim o dinheiro sai aos poucos e o caixa nunca falta.
+function tetoAcumulado(q, iso) {
+  const saques = saquesDaQuinzena(q);
+  const peso = (d) => (diaSemana(d) === 2 ? PESO_TERCA : PESO_SEXTA);
+  const total = soma(saques.map(peso));
+  const ate = soma(saques.filter((d) => d <= iso).map(peso));
+  return total ? (q.livre + q.saldoAnterior) * (ate / total) : q.livre + q.saldoAnterior;
+}
+const proximoSaque = (iso) => { for (let d = iso, k = 0; k < 7; k++, d = somaDias(d, 1)) if (diaDeSaque(d)) return d; return iso; };
+// Obrigações da manhã feitas (libera o saque do dia)
+function manhaFeita(iso) {
+  const lista = tarefasDoPeriodo('manha').filter((t) => t.h.tipo === 'minimo');
+  return { feitas: lista.filter((t) => parteFeita(iso, t.h, t.i)).length, total: lista.length, ok: lista.every((t) => parteFeita(iso, t.h, t.i)) };
 }
 
 // Tickets de delivery: cada 4 dias bons seguidos abre um
@@ -358,8 +378,8 @@ function ticketsInfo(q) {
 function financas(q = S.quinzena) {
   const xp = liberadoXp(q);
   const outros = somaLib(q);
-  const pend = pendenteHoje(q);
-  const liberado = xp + outros + pend;
+  const pend = 0; // tudo de terça e sexta já é liberado no corte da meia-noite
+  const liberado = xp + outros;
   const t = ticketsInfo(q);
   const descontos = soma(q.gastos.filter((g) => g.descontado).map((g) => g.valor));
   const gastos = soma(q.gastos.map((g) => g.valor));
@@ -370,7 +390,8 @@ function financas(q = S.quinzena) {
     sacado: q.sacado,
     disponivel: Math.max(0, entra - q.sacado - descontos),
     travado: Math.max(0, q.livre - liberado - t.liberados * S.config.delivery.ticket - excesso),
-    montante: Math.max(0, q.livre + q.saldoAnterior - q.sacado - descontos)
+    montante: Math.max(0, q.livre + q.saldoAnterior - q.sacado - descontos),
+    ...infoSaque(q, Math.max(0, entra - q.sacado - descontos), descontos)
   };
 }
 
@@ -389,6 +410,24 @@ function insightsGastos(q) {
   const ffValor = soma(ff.map((x) => x.valor));
   const ant = S.historico.find((h) => h.inicio < q.inicio);
   return { dias, total, porDia: dias ? total / dias : 0, cats, ff: ff.length, ffValor, anterior: ant ? ant.gastos : null };
+}
+
+// Saque do dia (único): disponível até o teto, só depois da manhã feita
+function infoSaque(q, disponivel, descontos) {
+  const iso = S.sim.data;
+  const hojeSaque = diaDeSaque(iso) && entre(iso, q.inicio, q.fim);
+  const dataSaque = hojeSaque ? iso : proximoSaque(somaDias(iso, 1));
+  const naQuinzena = entre(dataSaque, q.inicio, q.fim);
+  const teto = naQuinzena ? Math.max(0, tetoAcumulado(q, dataSaque) - q.sacado - descontos) : disponivel;
+  const sacadoHoje = q.saques.find((x) => x.data === iso);
+  const manha = manhaFeita(iso);
+  const valorSaque = Math.max(0, Math.min(disponivel, teto));
+  return {
+    hojeSaque, dataSaque, teto, manha, valorSaque,
+    sacouHoje: sacadoHoje ? sacadoHoje.valor : 0,
+    paraDepois: Math.max(0, disponivel - valorSaque),  // passou do teto: fica para o próximo saque
+    podeSacar: hojeSaque && !sacadoHoje && manha.ok && valorSaque > 0
+  };
 }
 
 // Recalcula a quinzena depois de mudar entrada ou fixos (e acerta a Caixa de Santos)
@@ -507,11 +546,12 @@ function registrarFastFood(valor) {
 
 function sacar() {
   const q = S.quinzena, f = financas(q);
-  if (!diaDeSaque(S.sim.data) || f.disponivel <= 0) return 0;
-  q.sacado += f.disponivel;
-  q.saques.push({ id: uid(), data: S.sim.data, valor: f.disponivel });
+  if (!f.podeSacar) return 0;
+  const v = Math.round(f.valorSaque * 100) / 100;
+  q.sacado += v;
+  q.saques.push({ id: uid(), data: S.sim.data, valor: v });
   salvar();
-  return f.disponivel;
+  return v;
 }
 
 /* ---------------------------------------------------------
@@ -629,14 +669,16 @@ function fecharDia() {
     addXp(`s7:${iso}`, iso, b.sequencia7, '7 dias bons seguidos');
     res.msgs.push(`${res.seq} dias bons seguidos: +${b.sequencia7} XP`);
   }
-  if (w === 5) {
+  // Corte da meia-noite: fechando segunda (vira terça) ou quinta (vira sexta)
+  if (w === 4) {
     const n = treinosEntre(somaDias(iso, -6), iso);
-    if (n >= 3) { addXp(`w3:${iso}`, iso, b.semana3, '3 treinos na semana'); res.msgs.push(`${n} treinos na semana: +${b.semana3} XP`); }
+    if (n >= 3) { addXp(`w3:${iso}`, iso, b.semana3, '3 treinos na semana'); res.msgs.push(`${n} treinos na semana (sex a qui): +${b.semana3} XP`); }
   }
-  if ((w === 2 || w === 5) && entre(iso, q.inicio, q.fim)) {
-    const c = calcSemanal(q, iso);
-    if (c.valor > 0) q.liberacoes.push({ id: uid(), data: iso, tipo: w === 2 ? 'terca' : 'sexta', valor: c.valor, rotulo: w === 2 ? 'Terça leve' : 'Sexta robusta' });
-    res.semanal = { ...c, dia: w === 2 ? 'Terça' : 'Sexta' };
+  if (w === 1 || w === 4) {
+    const isoSaque = somaDias(iso, 1);
+    const c = calcSemanal(q, isoSaque);
+    if (c.valor > 0) q.liberacoes.push({ id: uid(), data: iso, tipo: w === 1 ? 'terca' : 'sexta', valor: c.valor, rotulo: w === 1 ? 'Corte de terça' : 'Corte de sexta' });
+    res.semanal = { ...c, dia: w === 1 ? 'Terça' : 'Sexta' };
   }
   if (checarDesafio()) res.msgs.push('Desafio cumprido: ' + q.desafio.texto);
   res.xp = xpDoDia(iso);
@@ -660,6 +702,12 @@ function fecharDia() {
 // Fecha a quinzena: tickets que sobraram viram dinheiro livre, o travado vai para Santos
 function fecharQuinzena() {
   const q = S.quinzena;
+  // dias depois do último corte (a quinzena acabou no meio de uma janela): corte parcial agora
+  if (![1, 4].includes(diaSemana(q.fim))) {
+    const isoSaque = saqueDoDia(q.fim);
+    const c = calcSemanal(q, isoSaque);
+    if (c.valor > 0) q.liberacoes.push({ id: uid(), data: q.fim, tipo: diaSemana(isoSaque) === 2 ? 'terca' : 'sexta', valor: c.valor, rotulo: 'Corte do fim da quinzena' });
+  }
   const t = ticketsInfo(q);
   // ticket liberado e não usado vira dinheiro livre (passa para a próxima como disponível)
   const sobra = Math.max(0, t.liberados - q.ticketsUsados) * S.config.delivery.ticket;
@@ -905,10 +953,10 @@ function renderHoje() {
   const bonus = extras().flatMap((h) => h.partes.map((pt, i) => ({ h, i, pt })));
   const bonusFeitos = bonus.filter((t) => parteFeita(iso, t.h, t.i)).length;
 
-  const saque = diaDeSaque(iso) ? `
-    <button class="card banner" data-a="ir" data-aba="grana">
-      <span class="banner-ic">${ic('wallet')}</span>
-      <span><span class="eyebrow">Dia de saque</span><b>${f.disponivel > 0 ? `${brl(f.disponivel)} disponível para saque` : 'Feche o dia bom para liberar'}</b></span>
+  const saque = f.hojeSaque ? `
+    <button class="card banner ${f.podeSacar ? '' : 'dark'}" data-a="ir" data-aba="grana">
+      <span class="banner-ic">${ic(f.sacouHoje ? 'check' : f.manha.ok ? 'unlock' : 'lock')}</span>
+      <span><span class="eyebrow">Dia de saque</span><b>${f.sacouHoje ? `Saque feito: ${brl(f.sacouHoje)}` : f.manha.ok ? `${brl(f.valorSaque)} para sacar` : `Feche a manhã para sacar ${brl(f.valorSaque)}`}</b></span>
       ${ic('next')}
     </button>` : '';
 
@@ -1149,7 +1197,7 @@ function modalNivel(subidas) {
 function modalResumoDia(r) {
   const sem = r.semanal;
   const linhas = [];
-  if (sem) linhas.push(`<li>${ic('wallet')}<span>${sem.dia}: ${sem.bons} de ${sem.total} dias bons → <b>${brl(sem.valor)}</b> liberados${sem.bonusSemana ? ' · semana toda boa +20%' : ''}${sem.bonusTreino ? ' · 3 treinos +20%' : ''}</span></li>`);
+  if (sem) linhas.push(`<li>${ic('wallet')}<span>Corte de ${sem.dia.toLowerCase()}: ${sem.bons} de ${sem.total} dias bons → <b>${brl(sem.valor)}</b> liberados${sem.bonusSemana ? ' · semana toda boa +20%' : ''}${sem.bonusTreino ? ' · 3 treinos +20%' : ''}. Saque depois da manhã.</span></li>`);
   r.msgs.forEach((m) => linhas.push(`<li>${ic('bolt')}<span>${esc(m)}</span></li>`));
   abrirModal(`
     <div class="modal-card">
@@ -1206,10 +1254,10 @@ function renderTreino() {
   return S.treinoAtivo ? renderTreinoAtivo() : renderTreinoInicio();
 }
 
-// Semana do treino: sábado a sexta (o bônus conta na sexta)
+// Semana do treino: sexta a quinta (o bônus conta no corte de sexta)
 function semanaTreino(iso) {
   const w = diaSemana(iso);
-  const ini = somaDias(iso, -((w + 1) % 7)); // volta até o sábado
+  const ini = somaDias(iso, -((w + 2) % 7)); // volta até a sexta
   return { ini, fim: somaDias(ini, 6) };
 }
 
@@ -1238,7 +1286,7 @@ function renderTreinoInicio() {
   return `
   <div class="page-head"><span class="eyebrow">${dataLonga(iso)}</span><h1>Treino</h1></div>
   <section class="card">
-    <div class="card-head"><div><span class="eyebrow">Meta da semana · sáb a sex</span><h2>${n} <small>de 3 treinos</small></h2></div><span class="pill ${n >= 3 ? 'blue' : ''}">${n >= 3 ? 'Bônus garantido' : `+${S.config.xpBonus.semana3} XP na sexta`}</span></div>
+    <div class="card-head"><div><span class="eyebrow">Meta da semana · sex a qui</span><h2>${n} <small>de 3 treinos</small></h2></div><span class="pill ${n >= 3 ? 'blue' : ''}">${n >= 3 ? 'Bônus garantido' : `+${S.config.xpBonus.semana3} XP no corte de sexta`}</span></div>
     <div class="segs">${[0, 1, 2].map((k) => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</div>
   </section>
   <h3 class="sec">Começar</h3>
@@ -1436,7 +1484,6 @@ function renderGrana() {
 
 function renderGranaResumo() {
   const q = S.quinzena, f = financas(q), iso = S.sim.data, cfg = S.config;
-  const podeSacar = diaDeSaque(iso) && f.disponivel > 0;
   const total = q.livre + q.saldoAnterior || 1;
   const pSac = Math.min(100, ((f.sacado + f.descontos) / total) * 100);
   const pDisp = Math.min(100 - pSac, (f.disponivel / total) * 100);
@@ -1468,7 +1515,7 @@ function renderGranaResumo() {
        <button class="icon-sm" data-a="apagarGasto" data-id="${g.id}" aria-label="Apagar gasto">${ic('x')}</button></div>`).join('');
 
   // potes
-  const libSem = somaLib(q, ['terca', 'sexta']) + f.pend;
+  const libSem = somaLib(q, ['terca', 'sexta']);
   const libBau = somaLib(q, ['bau', 'nivel']);
   const r = cfg.xpParaReal, xpQ = xpQuinzena(q);
   const desProg = progressoDesafio(q);
@@ -1484,7 +1531,8 @@ function renderGranaResumo() {
     if (w !== 2 && w !== 5) continue;
     if (d === iso && diaLer(d).fechado) continue;
     const c = calcSemanal(q, d);
-    prox.push(`<div><b>${w === 2 ? 'Terça' : 'Sexta'} ${dataCurta(d)}${d === iso ? ' · hoje' : ''}</b><span>${d === iso ? brl(c.valor) : 'até ' + brl(Math.min(c.cheio * (w === 5 ? 1.4 : 1), q.potes.semana - somaLib(q, ['terca', 'sexta'])))}</span></div>`);
+    const teto = Math.max(0, tetoAcumulado(q, d) - f.sacado - f.descontos);
+    prox.push(`<div><b>${w === 2 ? 'Terça' : 'Sexta'} ${dataCurta(d)}${d === iso ? ' · hoje' : ''}</b><span>${d === iso ? `teto ${brl(f.teto)}` : `corte até ${brl(Math.min(c.cheio * (w === 5 ? 1.4 : 1), q.potes.semana - somaLib(q, ['terca', 'sexta'])))} · teto ${brl(teto)}`}</span></div>`);
     if (prox.length >= 2) break;
   }
   if (!q.desafio.concluido) prox.push(`<div><b>Desafio</b><span>${brl(q.potes.desafio)} · ${Math.min(desProg, q.desafio.meta)}/${q.desafio.meta}</span></div>`);
@@ -1497,16 +1545,23 @@ function renderGranaResumo() {
 
   return `
   <section class="hero money">
-    <span class="eyebrow light">Disponível para saque</span>
-    <div class="money-big">${brl(f.disponivel)}</div>
+    <span class="eyebrow light">${f.hojeSaque ? 'Saque de hoje' : `Próximo saque · ${SEMANA[diaSemana(f.dataSaque)]} ${dataCurta(f.dataSaque)}`}</span>
+    <div class="money-big">${brl(f.sacouHoje || f.valorSaque)}</div>
+    <p class="money-nota">${f.sacouHoje ? 'Saque de hoje feito. O que liberar agora fica para o próximo.'
+      : f.hojeSaque ? (f.manha.ok ? 'Um saque por dia de saque. O que passar do teto fica para o próximo.' : `Complete as obrigações da manhã (${f.manha.feitas} de ${f.manha.total}) para liberar. O XP da manhã ainda entra, até o teto.`)
+      : `Acumulado até agora. Fecha no corte de ${SEMANA[diaSemana(somaDias(f.dataSaque, -1))]} à meia-noite.`}
+      ${f.paraDepois > 0 && !f.sacouHoje ? `<br>Teto deste saque: ${brl(f.teto)} · ${brl(f.paraDepois)} ficam para o próximo.` : ''}</p>
     <div class="money-row">
       <div><span class="eyebrow light">Já sacado</span><b>${brl(f.sacado)}</b></div>
       <div><span class="eyebrow light">Travado</span><b>${brl(f.travado)}</b></div>
       <div><span class="eyebrow light">Montante</span><b>${brl(f.montante)}</b></div>
     </div>
     <div class="bar duo"><i class="sac" style="width:${pSac.toFixed(1)}%"></i><i style="width:${pDisp.toFixed(1)}%"></i></div>
-    <div class="bar-leg"><span><i class="sac"></i>Sacado</span><span><i></i>Disponível</span><span><i class="trav"></i>Travado</span></div>
-    <button class="btn ${podeSacar ? 'light' : 'off'}" data-a="sacar" ${podeSacar ? '' : 'disabled'}>${podeSacar ? `Sacar ${brl(f.disponivel)}` : diaDeSaque(iso) ? 'Nada para sacar agora' : 'Saque só às terças e sextas'}</button>
+    <div class="bar-leg"><span><i class="sac"></i>Sacado</span><span><i></i>Liberado</span><span><i class="trav"></i>Travado</span></div>
+    <button class="btn ${f.podeSacar ? 'light' : 'off'}" data-a="sacar" ${f.podeSacar ? '' : 'disabled'}>${f.podeSacar ? `Sacar ${brl(f.valorSaque)}`
+      : f.sacouHoje ? `${ic('check')} Saque de hoje feito`
+      : f.hojeSaque ? (f.manha.ok ? 'Nada liberado ainda' : `${ic('lock')} Feche a manhã para sacar`)
+      : `Saque na ${SEMANA[diaSemana(f.dataSaque)]} ${dataCurta(f.dataSaque)}`}</button>
   </section>
 
   <button class="btn dark add" data-a="gasto">${ic('plus')} Gasto</button>
@@ -1524,7 +1579,7 @@ function renderGranaResumo() {
   <h3 class="sec">Potes · ${brl(f.liberado)} liberados</h3>
   <section class="card list">
     ${pote('bolt', 'XP', f.xp, q.potes.xp, f.xp >= q.potes.xp ? 'Pote cheio' : `${num(xpQ)} XP na quinzena · faltam ${r.xp - (xpQ % r.xp)} XP para +${brl(r.valor)}`)}
-    ${pote('calendar', 'Terça e sexta', libSem, q.potes.semana, `Parte vale ${brl(q.parteValor)} · terça 1 parte, sexta 2`)}
+    ${pote('calendar', 'Terça e sexta', libSem, q.potes.semana, `Corte de terça (sex a seg) e de sexta (ter a qui), à meia-noite`)}
     ${pote('chest', 'Baú surpresa', libBau, q.potes.bau, 'Cada extra pode abrir um baú')}
     ${pote('target', 'Desafio', q.desafio.concluido ? q.potes.desafio : 0, q.potes.desafio, `${esc(q.desafio.texto)} · ${q.desafio.concluido ? 'cumprido' : `${Math.min(desProg, q.desafio.meta)} de ${q.desafio.meta}`}`)}
   </section>
@@ -1735,11 +1790,13 @@ function renderAjustes() {
     <div><b>Dia bom (todos os mínimos)</b><span>+${c.xpDiaBom} XP</span></div>
     <div><b>Recorde no treino (até ${b.maxRecordes})</b><span>+${b.recorde} cada</span></div>
     <div><b>Intensidade 8+ / mais de 45 min</b><span>+${b.intensidade} / +${b.duracao}</span></div>
-    <div><b>3 treinos na semana (sexta)</b><span>+${b.semana3} XP</span></div>
+    <div><b>3 treinos na semana (sex a qui)</b><span>+${b.semana3} XP no corte de sexta</span></div>
     <div><b>7 dias bons seguidos</b><span>+${b.sequencia7} XP</span></div>
     <div><b>Potes do dinheiro livre</b><span>XP ${p.xp * 100}% · terça/sexta ${p.semana * 100}% · baú ${p.bau * 100}% · desafio ${p.desafio * 100}%</span></div>
     <div><b>XP em dinheiro</b><span>${brl(c.xpParaReal.valor)} a cada ${c.xpParaReal.xp} XP</span></div>
-    <div><b>Saque</b><span>Só terças e sextas</span></div>
+    <div><b>Corte</b><span>Meia-noite que começa a terça (dias bons de sex a seg) e a sexta (ter a qui). O valor do saque fecha aí.</span></div>
+    <div><b>Saque</b><span>Um por terça e sexta, depois das obrigações da manhã. O XP da manhã ainda entra.</span></div>
+    <div><b>Teto do saque</b><span>Sobe aos poucos: terça 1 fatia, sexta 2 fatias do montante; 100% no último saque. O excedente vai para o próximo.</span></div>
     <div><b>Não liberado no fim</b><span>Vai para a Caixa de Santos</span></div>
   </section>
 
@@ -2016,8 +2073,8 @@ function contextoIA() {
       fixos: q.fixos.map((x) => ({ nome: x.nome, valor: x.valor, pago: !!x.pago })), fixosConfirmados: !!q.fixosOk,
       dinheiroLivre: q.livre, liberado: r2(f.liberado), disponivelParaSaque: r2(f.disponivel), jaSacado: r2(f.sacado),
       travado: r2(f.travado), montanteRestante: r2(f.montante), saldoQueVeioDaAnterior: q.saldoAnterior,
-      potes: { xp: [r2(f.xp), r2(q.potes.xp)], tercaESexta: [r2(somaLib(q, ['terca', 'sexta']) + f.pend), r2(q.potes.semana)], bau: [r2(somaLib(q, ['bau', 'nivel'])), r2(q.potes.bau)], desafio: [q.desafio.concluido ? r2(q.potes.desafio) : 0, r2(q.potes.desafio)] },
-      valorDaParteSemanal: r2(q.parteValor),
+      potes: { xp: [r2(f.xp), r2(q.potes.xp)], tercaESexta: [r2(somaLib(q, ['terca', 'sexta'])), r2(q.potes.semana)], bau: [r2(somaLib(q, ['bau', 'nivel'])), r2(q.potes.bau)], desafio: [q.desafio.concluido ? r2(q.potes.desafio) : 0, r2(q.potes.desafio)] },
+      saque: { hojeEDiaDeSaque: f.hojeSaque, proximoSaque: f.dataSaque, valorDoSaque: r2(f.valorSaque), tetoDoSaque: r2(f.teto), ficaParaDepois: r2(f.paraDepois), jaSacouHoje: f.sacouHoje, manhaFeita: `${f.manha.feitas}/${f.manha.total}` },
       desafio: { texto: q.desafio.texto, progresso: Math.min(progressoDesafio(q), q.desafio.meta), meta: q.desafio.meta, cumprido: q.desafio.concluido },
       ticketsDelivery: { liberados: f.tickets.liberados, usados: f.tickets.usados, de: f.tickets.max, diasBonsSeguidosAgora: f.tickets.run },
       gastos: q.gastos.map((g) => ({ data: g.data, valor: g.valor, categoria: g.categoria, nota: g.nota || undefined, descontadoDoMontante: !!g.descontado })),
@@ -2038,7 +2095,7 @@ function promptIA() {
   const c = S.config, { dados, dias } = contextoIA();
   return `Você é o coach do Lifemaxxing, o app pessoal de hábitos de ${c.nome}. Responda em português do Brasil, curto e direto (2 a 6 frases, ou uma lista curta), como um amigo que treina junto. Sem emoji. Use só os dados abaixo; se faltar um dado, diga que não tem. Dinheiro em R$. Você não altera nada no app: se pedirem para registrar algo, diga onde tocar.
 
-Como o app funciona: dia bom = todas as obrigações feitas (+${c.xpDiaBom} XP). Bônus são opcionais e valem mais. Cada ${c.xpParaReal.xp} XP da quinzena libera ${brl(c.xpParaReal.valor)} até o teto do pote de XP. Terça libera 1 parte (dias bons de sáb a ter) e sexta 2 partes (dias bons de qua a sex, +20% com a semana toda boa e +20% com 3 treinos). Cada bônus pode abrir um baú (vazio, R$5, R$15 ou R$40). Subir de nível dá um baú de R$25 a R$50. Desafio cumprido libera o pote inteiro. ${c.delivery.diasSeguidos} dias bons seguidos liberam um ticket de delivery de ${brl(c.delivery.ticket)}. Saque só às terças e sextas; sacar tira o valor do montante. No fim da quinzena o travado vai para a Caixa de Santos.
+Como o app funciona: dia bom = todas as obrigações feitas (+${c.xpDiaBom} XP). Bônus são opcionais e valem mais. Cada ${c.xpParaReal.xp} XP da quinzena libera ${brl(c.xpParaReal.valor)} até o teto do pote de XP. À meia-noite que começa a terça há um corte que libera pelos dias bons de sexta a segunda (1 parte); à meia-noite que começa a sexta, pelos dias bons de terça a quinta (2 partes, +20% com a semana toda boa e +20% com 3 treinos de sexta a quinta). Cada bônus pode abrir um baú (vazio, R$5, R$15 ou R$40). Subir de nível dá um baú de R$25 a R$50. Desafio cumprido libera o pote inteiro. ${c.delivery.diasSeguidos} dias bons seguidos liberam um ticket de delivery de ${brl(c.delivery.ticket)}. Saque: um único por terça e sexta, liberado depois de completar as obrigações da manhã; o XP da manhã ainda entra. Cada saque tem um teto que sobe aos poucos na quinzena (terça vale 1 fatia e sexta 2 do montante, 100% no último saque); o que passar do teto fica para o próximo saque. Sacar tira o valor do montante. No fim da quinzena o travado vai para a Caixa de Santos.
 
 DADOS (JSON):
 ${JSON.stringify(dados)}
