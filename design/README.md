@@ -6,7 +6,7 @@ Capturas do protótipo em tamanho de iPhone 14 (390 × 844 pt, @3x). Abra `index
 
 | # | Tela | O que mostra |
 | --- | --- | --- |
-| 01 | Hoje | Header compacto, card Dia bom (6 obrigações + Treino), abas Manhã/Tarde/Noite com contagem, tarefa de custos fixos (só no dia 15 e 30), Bônus |
+| 01 | Hoje | Header compacto, card Dia bom (obrigações + Treino), abas Manhã/Tarde/Noite com contagem, tarefa de custos fixos (só no dia 15 e 30), Bônus |
 | 02 | Registrar obrigação | Motivos, XP, quanto vale e libera, deslizar para confirmar |
 | 03 | Novo bônus | Criar hobby opcional (nome, XP, ícone, porquê) |
 | 04 | Registrar bônus | Bônus criado pelo usuário, com chance de baú |

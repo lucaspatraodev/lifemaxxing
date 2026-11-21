@@ -86,6 +86,12 @@ const DADOS_INICIAIS = {
     { id: 'sair', nome: 'Sair', tipo: 'minimo', xp: 10, icone: 'door',
       partes: [{ periodo: 'manha', rotulo: 'Sair de casa 15 min' }],
       motivos: ['Luz natural acerta o sono', 'Quebra o ciclo da toca', 'Cabeça mais leve'] },
+    { id: 'quarto', nome: 'Quarto', tipo: 'minimo', xp: 10, icone: 'bed',
+      partes: [
+        { periodo: 'manha', rotulo: 'Arrumar o quarto' },
+        { periodo: 'tarde', rotulo: 'Arrumar o quarto' }
+      ],
+      motivos: ['Quarto arrumado, cabeça arrumada', 'Começa o dia já vencendo uma', 'Dorme melhor num lugar em ordem'] },
 
     { id: 'treino', nome: 'Treino', tipo: 'extra', xp: 100, icone: 'dumbbell', especial: 'treino',
       partes: [{ periodo: 'todos', rotulo: 'Treino' }],

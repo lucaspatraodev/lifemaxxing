@@ -34,7 +34,7 @@ Na Vercel o app começa **valendo hoje**. O modo teste (data simulada, Próximo 
 
 ## Telas e funções
 
-- **Hoje:** card Dia bom com as 6 obrigações e o Treino (que não conta para o dia bom). Abaixo, **Obrigações** por período (manhã, tarde, noite) e **Bônus** (opcionais, valem mais), com **Adicionar bônus** para criar hobbies como ler um livro.
+- **Hoje:** card Dia bom com as 7 obrigações (dentes, skincare, água, frutas, dormir, sair de casa e arrumar o quarto) e o Treino (que não conta para o dia bom). Abaixo, **Obrigações** por período (manhã, tarde, noite) e **Bônus** (opcionais, valem mais), com **Adicionar bônus** para criar hobbies como ler um livro.
 - **Registrar:** folha com motivos, XP, quanto vale e quanto libera em reais, e deslizar para confirmar.
 - **Treino:** fichas A, B e C, corrida, surf e skate, séries com carga e reps, última vez, recordes, timer de descanso. Ao finalizar mostra XP e quanto vale e libera em reais.
 - **Grana › Resumo:** disponível para saque, já sacado, travado e montante. Sacar tira o valor do montante. Insights e histórico de gastos e saques, potes, tickets de delivery, Caixa de viagem.

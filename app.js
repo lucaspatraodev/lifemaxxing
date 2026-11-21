@@ -92,9 +92,10 @@ const IC = {
   dot: '<circle cx="12" cy="12" r="5"/>',
   heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
+  bed: '<path d="M3 18.5V6.5M3 14h18v4.5M21 14v-2.5a3 3 0 0 0-3-3h-7v5.5"/><circle cx="7" cy="11" r="2"/>',
   book: '<path d="M4.5 5.5A2 2 0 0 1 6.5 3.5H19v15H6.5a2 2 0 0 0-2 2z"/><path d="M4.5 20.5v-15M19 18.5v2H6.5"/>'
 };
-const ICONES_HABITO = ['dot', 'tooth', 'sparkle', 'drop', 'apple', 'moon', 'door', 'sun', 'phoneoff', 'tree', 'wave', 'dumbbell', 'heart', 'book', 'bolt', 'run'];
+const ICONES_HABITO = ['dot', 'tooth', 'sparkle', 'drop', 'apple', 'moon', 'door', 'bed', 'sun', 'phoneoff', 'tree', 'wave', 'dumbbell', 'heart', 'book', 'bolt', 'run'];
 const ic = (n, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || IC.dot}</svg>`;
 
 /* ---------------------------------------------------------
@@ -573,8 +574,8 @@ function registrarFastFood(valor) {
 function sacar(valor) {
   const q = S.quinzena, f = financas(q);
   if (!f.podeSacar) return 0;
-  const max = Math.round(f.valorSaque * 100) / 100;
-  const v = Math.min(max, Math.round((valor === undefined ? max : Number(valor) || 0) * 100) / 100);
+  const max = Math.floor(f.valorSaque * 100) / 100;
+  const v = Math.min(max, Math.floor((valor === undefined ? max : Number(valor) || 0) * 100) / 100);
   if (!(v > 0)) return 0;
   q.sacado += v;
   q.saques.push({ id: uid(), data: S.sim.data, valor: v });
@@ -1261,7 +1262,7 @@ function modalResumoDia(r) {
         <div><span class="eyebrow">Sequência</span><b>${r.seq}</b></div>
         <div><span class="eyebrow">Hoje</span><b>${SEMANA_CURTA[diaSemana(S.sim.data)]} ${dataCurta(S.sim.data)}</b></div>
       </div>
-      ${linhas.length ? `<ul class="motivos">${linhas.join('')}</ul>` : `<p class="muted">${r.bom ? 'Tudo do mínimo feito. Bora repetir.' : 'Amanhã é outro dia. O mínimo é pouco: 6 coisas.'}</p>`}
+      ${linhas.length ? `<ul class="motivos">${linhas.join('')}</ul>` : `<p class="muted">${r.bom ? 'Tudo do mínimo feito. Bora repetir.' : `Amanhã é outro dia. O mínimo é pouco: ${minimos().length} coisas.`}</p>`}
       <button class="btn" data-fechar>Começar ${SEMANA[diaSemana(S.sim.data)]}</button>
     </div>`);
 }
@@ -1969,7 +1970,7 @@ function reduzirImagem(file, lado) {
 function abrirSacar() {
   const f = financas();
   if (!f.podeSacar) return;
-  const max = Math.round(f.valorSaque * 100) / 100;
+  const max = Math.floor(f.valorSaque * 100) / 100;
   let valor = max;
   const prox = proximoSaque(somaDias(S.sim.data, 1));
   const info = () => `<div class="custo"><b>${brl(valor)}</b><span class="azul">${valor < max ? `${brl(max - valor)} ficam para ${SEMANA[diaSemana(prox)]} ${dataCurta(prox)}` : 'saque total'}</span></div>`;
@@ -2779,6 +2780,16 @@ function migrar() {
   if (S.quinzena) (S.quinzena.fixos || []).forEach(renomear);
   if (!S.config.metaXpQuinzena) S.config.metaXpQuinzena = 2700;
   if (!S.santosUsos) S.santosUsos = [];
+  S.config.migracoes = S.config.migracoes || [];
+  if (!S.config.migracoes.includes('quarto')) {
+    if (!habito('quarto')) {
+      const novo = clone(DADOS_INICIAIS.habitos.find((h) => h.id === 'quarto'));
+      const pos = S.config.habitos.findIndex((h) => h.tipo === 'extra');
+      S.config.habitos.splice(pos < 0 ? S.config.habitos.length : pos, 0, novo);
+    }
+    S.config.migracoes.push('quarto');
+    salvar(); // vai para o banco também
+  }
   const q = S.quinzena;
   if (q && q.fator === undefined && !S.sim.teste && S.inicioApp > q.inicio && q.inicio === inicioQuinzena(S.inicioApp).inicio) {
     ajustarComecoNoMeio(q, S.inicioApp); calcularPotes(q); salvarLocal();
