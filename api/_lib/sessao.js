@@ -1,13 +1,14 @@
-// Login por senha (variável APP_PASSWORD). A sessão é um cookie assinado com HMAC.
+// Login opcional. Sem a variável APP_PASSWORD o app abre direto, sem senha.
+// Com APP_PASSWORD, pede a senha uma vez e guarda a sessão num cookie assinado com HMAC.
 import crypto from 'node:crypto';
 
 const NOME = 'lm_sessao';
 const DIAS = 180;
 
+export const temSenha = () => !!process.env.APP_PASSWORD;
+
 function segredo() {
-  const s = process.env.SESSION_SECRET || process.env.APP_PASSWORD;
-  if (!s) throw new Error('Defina APP_PASSWORD nas variáveis de ambiente da Vercel');
-  return s;
+  return process.env.SESSION_SECRET || process.env.APP_PASSWORD || 'lifemaxxing-sem-senha';
 }
 const assinar = (v) => crypto.createHmac('sha256', segredo()).update(v).digest('base64url');
 
@@ -37,7 +38,7 @@ export function senhaConfere(senha) {
 }
 
 export function exigirLogin(req, res) {
-  if (logado(req)) return true;
+  if (!temSenha() || logado(req)) return true;
   res.status(401).json({ erro: 'login' });
   return false;
 }

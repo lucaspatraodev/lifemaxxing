@@ -2,7 +2,7 @@
 
 App pessoal de hábitos, mobile-first, com ciclo **quinzenal** (dias 15 e 30): as obrigações e os bônus dão XP, e o XP libera o dinheiro livre da quinzena. Tem treino, grana, progresso e um coach de IA que conhece todos os seus dados.
 
-- **Para subir (Vercel + Supabase + IA):** [`docs/DEPLOY.md`](docs/DEPLOY.md)
+- **Para subir (Supabase + Vercel + IA), passo a passo:** [`docs/DEPLOY.md`](docs/DEPLOY.md). Sem senha: o app abre direto.
 - **Telas:** [`design/`](design/README.md)
 - **Como o coach de IA funciona:** [`docs/chat-ia.md`](docs/chat-ia.md)
 
@@ -13,7 +13,7 @@ HTML, CSS e JavaScript puro (sem framework e sem build), instalável como PWA. F
 ```
 index.html, styles.css, app.js, data.js   o app
 manifest.json, sw.js, icons/              PWA (ícone, tela cheia, offline)
-api/login.js                              login por senha (APP_PASSWORD)
+api/login.js                              senha opcional (só com APP_PASSWORD)
 api/state.js                              lê e grava o estado no Supabase
 api/chat.js                               coach de IA em streaming
 api/_lib/                                 sessão, Supabase e conexões de IA

@@ -1,11 +1,12 @@
 // GET  /api/state           → { dados, versao }  (dados = null se o banco está vazio)
 // PUT  /api/state { dados, versao } → { versao }  ou 409 com o estado atual se outro aparelho salvou antes
-import { exigirLogin } from './_lib/sessao.js';
+import { exigirLogin, temSenha } from './_lib/sessao.js';
 import { lerEstado, gravarEstado } from './_lib/supabase.js';
 
 export default async function handler(req, res) {
   if (!exigirLogin(req, res)) return;
   res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Login', temSenha() ? 'senha' : 'aberto');
   try {
     if (req.method === 'GET') {
       const e = await lerEstado();

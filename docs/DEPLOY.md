@@ -1,119 +1,184 @@
-# Subir o Lifemaxxing (Vercel + Supabase)
+# Colocar o Lifemaxxing no ar (Supabase + Vercel)
 
-Tempo: uns 20 minutos. Custo: zero (planos gratuitos da Vercel, do Supabase e do Gemini ou Groq).
+Tempo: uns 20 minutos. Custo: zero (planos gratuitos do Supabase, da Vercel e do Gemini ou Groq).
 
 ```
-Celular (PWA)  ──►  Vercel: arquivos do app + funções /api  ──►  Supabase (Postgres)
-                                    │
-                                    └──►  IA do coach: Gemini, Groq ou OpenAI
+iPhone (app na Tela de Início)
+        │
+        ▼
+Vercel ── arquivos do app (HTML, CSS, JS)
+   │      funções /api: /api/state (dados) e /api/chat (coach)
+   │
+   ├──► Supabase (Postgres): guarda tudo
+   └──► IA do coach: Gemini, Groq ou OpenAI
 ```
 
-- O app (HTML, CSS e JS) é servido como site estático.
-- `/api/login`, `/api/state` e `/api/chat` são funções Node da Vercel, sem dependências.
-- O Supabase guarda o estado inteiro em uma linha (`jsonb`), com cópia automática das últimas 200 versões.
-- As chaves (Supabase e IA) ficam só na Vercel. O navegador nunca vê nenhuma.
+- As chaves do Supabase e da IA ficam só na Vercel. O navegador nunca vê nenhuma.
+- **Sem senha:** o app abre direto. Quem tiver o link consegue abrir, então não compartilhe o endereço. Se um dia quiser proteger, veja "Senha (opcional)" no fim.
+
+Ordem: **1. Supabase → 2. chave de IA → 3. Vercel → 4. iPhone**.
 
 ---
 
-## 1. Supabase (banco)
+## 1. Supabase (o banco)
 
-1. Crie uma conta em [supabase.com](https://supabase.com) e clique em **New project**.
-   - Nome: `lifemaxxing`. Região: **South America (São Paulo)**. Guarde a senha do banco.
-2. No menu da esquerda, abra **SQL Editor › New query**.
-3. Cole todo o conteúdo de [`supabase/schema.sql`](../supabase/schema.sql) e clique em **Run**. Deve aparecer "Success".
-4. Abra **Project Settings › API Keys** e copie:
-   - **Project URL** (ex.: `https://abcd1234.supabase.co`). Em alguns painéis ela fica em **Project Settings › Data API**.
-   - A chave **secret** (`sb_secret_...`). Em projetos antigos ela aparece como **service_role** (começa com `eyJ`); serve também.
+### 1.1 Criar o projeto
 
-> A chave secreta dá acesso total ao banco. Nunca coloque ela no código nem mande para ninguém. Ela vai só nas variáveis da Vercel.
+1. Entre em [supabase.com](https://supabase.com) e clique em **Start your project** (pode entrar com o GitHub).
+2. Clique em **New project**.
+3. Preencha:
+   - **Name:** `lifemaxxing`
+   - **Database Password:** clique em **Generate a password** e guarde num lugar seguro (o app não usa essa senha, mas o Supabase pede)
+   - **Region:** **South America (São Paulo)**
+4. Clique em **Create new project** e espere 1 a 2 minutos até ficar pronto.
 
-## 2. Chave de IA (pelo menos uma)
+### 1.2 Criar as tabelas
 
-| IA | Custo | Onde pegar a chave | Variáveis |
-| --- | --- | --- | --- |
-| **Gemini** (Google) | Gratuito com limite diário | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `GEMINI_API_KEY`, `GEMINI_MODEL` |
-| **Groq** (Llama) | Gratuito com limite por minuto | [console.groq.com/keys](https://console.groq.com/keys) | `GROQ_API_KEY`, `GROQ_MODEL` |
-| **OpenAI** | Pago por uso | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | `OPENAI_API_KEY`, `OPENAI_MODEL` |
-| DeepSeek (extra) | Pago, bem barato | [platform.deepseek.com](https://platform.deepseek.com) | `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` |
-| OpenRouter (extra) | Tem modelos `:free` | [openrouter.ai/keys](https://openrouter.ai/keys) | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` (obrigatório) |
+1. No menu da esquerda, abra **SQL Editor**.
+2. Clique em **New query**.
+3. Abra o arquivo [`supabase/schema.sql`](../supabase/schema.sql) deste repositório, copie **tudo** e cole no editor.
+4. Clique em **Run** (ou Ctrl/Cmd + Enter). Tem que aparecer **Success. No rows returned**.
+5. Para conferir: abra **Table Editor** no menu. Devem aparecer as tabelas `estado` e `estado_backup` (vazias, o app preenche sozinho).
 
-**Modelo:** cada IA usa um padrão (`gemini-2.5-flash`, `llama-3.3-70b-versatile`, `gpt-4o-mini`, `deepseek-chat`). Para usar outro, preencha a variável `..._MODEL` com o nome exato que aparece no painel do provedor. Por exemplo, um Gemini mais antigo e gratuito: copie o nome do modelo na lista do AI Studio e coloque em `GEMINI_MODEL`. Se o nome estiver errado, o coach avisa "Modelo não encontrado".
+O que o `schema.sql` cria:
 
-**Recomendação:** comece com **Gemini** e cadastre também **Groq** como reserva. Quando o limite gratuito de uma acabar, troque em **Ajustes › IA do coach** no app.
-
-## 3. Vercel (app e funções)
-
-1. Crie uma conta em [vercel.com](https://vercel.com) entrando com o GitHub.
-2. **Add New… › Project** e importe o repositório `lifemaxxing`.
-3. Configuração do projeto:
-   - **Framework Preset:** Other
-   - **Root Directory:** `./`
-   - **Build Command** e **Output Directory:** deixe vazios
-4. Abra **Environment Variables** e cadastre:
-
-| Variável | Valor |
+| Tabela | Para quê |
 | --- | --- |
-| `APP_PASSWORD` | A senha para entrar no app (use uma forte) |
-| `SUPABASE_URL` | Project URL do passo 1 |
-| `SUPABASE_SECRET_KEY` | Chave secreta do passo 1 |
-| `GEMINI_API_KEY` | Chave do Gemini (se usar) |
-| `GROQ_API_KEY` | Chave do Groq (se usar) |
-| `OPENAI_API_KEY` | Chave da OpenAI (se usar) |
-| `IA_PROVEDOR` | Qual IA usar por padrão: `gemini`, `groq`, `openai`, `deepseek` ou `openrouter` |
+| `estado` | Uma linha com todos os seus dados (hábitos, XP, treinos, grana, conversa do coach) |
+| `estado_backup` | Cópia automática de cada versão anterior (guarda as últimas 200) |
 
-   As variáveis `..._MODEL` e `SESSION_SECRET` são opcionais. A lista completa está em [`.env.example`](../.env.example).
+As duas ficam com RLS ligada e sem regras: ninguém de fora lê nada com a chave pública. Só a Vercel, com a chave secreta, acessa.
 
-5. Clique em **Deploy**. Em menos de um minuto sai o link, tipo `lifemaxxing.vercel.app`.
+### 1.3 Copiar o endereço e a chave
 
-Mudou alguma variável depois? Vá em **Deployments**, abra o último e clique em **Redeploy**: as funções só leem as variáveis novas depois disso.
+1. Abra **Project Settings** (engrenagem no menu) e depois **Data API** (ou **API**).
+2. Copie a **Project URL**, algo como `https://abcdefghijk.supabase.co`.
+3. Abra **API Keys**.
+4. Copie a chave **secret** (começa com `sb_secret_`). Se aparecer só o formato antigo, use a **service_role** (começa com `eyJ`).
 
-Cada `git push` na `main` publica de novo sozinho.
+> Use a **secret / service_role**. A **publishable / anon** não funciona (dá erro 401).
+> Essa chave dá acesso total ao banco: guarde e cole só na Vercel.
+
+---
+
+## 2. Chave de IA do coach (pelo menos uma)
+
+| IA | Custo | Onde pegar | Variável da chave |
+| --- | --- | --- | --- |
+| **Gemini** (Google) | Gratuito, com limite diário | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) › **Create API key** | `GEMINI_API_KEY` |
+| **Groq** (Llama) | Gratuito, com limite por minuto | [console.groq.com/keys](https://console.groq.com/keys) › **Create API Key** | `GROQ_API_KEY` |
+| **OpenAI** | Pago por uso | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | `OPENAI_API_KEY` |
+| DeepSeek (extra) | Pago, barato | [platform.deepseek.com](https://platform.deepseek.com) | `DEEPSEEK_API_KEY` |
+| OpenRouter (extra) | Tem modelos `:free` | [openrouter.ai/keys](https://openrouter.ai/keys) | `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` |
+
+**Recomendado:** Gemini como principal e Groq de reserva. Quando o limite gratuito de uma acabar, troque em **Ajustes › IA do coach**.
+
+**Modelo:** cada IA tem um padrão (`gemini-2.5-flash`, `llama-3.3-70b-versatile`, `gpt-4o-mini`, `deepseek-chat`). Para outro modelo, cadastre a variável `GEMINI_MODEL` (ou `GROQ_MODEL`, `OPENAI_MODEL`...) com o nome **exato** que aparece no painel do provedor. Nome errado → o coach avisa "Modelo não encontrado".
+
+---
+
+## 3. Vercel (o app no ar)
+
+### 3.1 Importar o repositório
+
+1. Entre em [vercel.com](https://vercel.com) com o **GitHub** (Continue with GitHub).
+2. Clique em **Add New… › Project**.
+3. Ache o repositório **lifemaxxing** e clique em **Import**. Se ele não aparecer, clique em **Adjust GitHub App Permissions** e libere o repositório.
+4. Em **Configure Project**:
+   - **Framework Preset:** `Other`
+   - **Root Directory:** `./`
+   - **Build and Output Settings:** deixe tudo vazio (não tem build)
+
+### 3.2 Variáveis de ambiente
+
+Ainda na mesma tela, abra **Environment Variables** e adicione uma por uma (Key e Value, depois **Add**):
+
+| Key | Value | Obrigatória? |
+| --- | --- | --- |
+| `SUPABASE_URL` | Project URL do passo 1.3 | Sim |
+| `SUPABASE_SECRET_KEY` | Chave secret do passo 1.3 | Sim |
+| `GEMINI_API_KEY` | Chave do Gemini | Pelo menos uma IA |
+| `GROQ_API_KEY` | Chave do Groq | Opcional (reserva) |
+| `OPENAI_API_KEY` | Chave da OpenAI | Opcional |
+| `IA_PROVEDOR` | `gemini` (ou `groq`, `openai`, `deepseek`, `openrouter`) | Opcional |
+| `GEMINI_MODEL` | Nome de outro modelo Gemini | Opcional |
+
+A lista completa está em [`.env.example`](../.env.example).
+
+### 3.3 Publicar
+
+1. Clique em **Deploy** e espere menos de 1 minuto.
+2. Clique em **Continue to Dashboard** e depois no endereço (ex.: `lifemaxxing.vercel.app` ou `lifemaxxing-seunome.vercel.app`).
+3. O app abre direto no **Hoje**, valendo a partir de hoje.
+
+**Para conferir se o banco ligou:** abra **Ajustes** no app. No bloco **Modo** deve aparecer "Salvo na nuvem". No Supabase, em **Table Editor › estado**, aparece uma linha `principal`.
+
+**Para conferir o coach:** toque no botão azul do centro do menu e mande "Como está minha quinzena?".
+
+### 3.4 Atualizações
+
+- Cada `git push` na branch `main` publica de novo sozinho.
+- **Mudou ou criou uma variável?** Vá em **Deployments**, clique nos três pontinhos do último deploy e em **Redeploy**. As funções só leem as variáveis novas depois disso.
+
+---
 
 ## 4. Instalar no iPhone
 
-1. Abra o link no **Safari**.
-2. Entre com a senha (`APP_PASSWORD`).
-3. Toque em **Compartilhar › Adicionar à Tela de Início**.
-4. Abra pelo ícone: o app abre em tela cheia, sem a barra do Safari.
+1. Abra o endereço da Vercel no **Safari** (não funciona instalar pelo Chrome no iPhone).
+2. Toque em **Compartilhar** (quadrado com seta para cima).
+3. Role e toque em **Adicionar à Tela de Início** › **Adicionar**.
+4. Abra pelo ícone novo: o app abre em tela cheia, sem a barra do Safari.
 
-No Android (Chrome): menu ⋮ › **Instalar app**.
+No Android: Chrome › menu ⋮ › **Instalar app**.
 
-O login vale por 180 dias no aparelho. Para sair: **Ajustes › Sair deste aparelho**.
+---
 
-## 5. Primeiro uso
+## Como funciona no dia a dia
 
-- Com o banco vazio, o app começa **valendo hoje**: data e horário reais, e o período (manhã, tarde, noite) segue o relógio.
-- No primeiro acesso aparece **Registrar custos fixos**: confira os valores da quinzena e confirme.
-- Os dias fecham sozinhos à meia-noite. Se você ficar dias sem abrir, o app fecha esses dias e mostra um resumo.
-- O simulador continua disponível: **Ajustes › Modo › Abrir modo teste**. Ele apaga os dados reais, então use antes de começar de verdade.
+- **Dados:** cada mudança é salva no celular na hora e enviada ao Supabase cerca de 1 segundo depois. Sem internet, o app continua funcionando e envia quando a conexão volta.
+- **Dias:** fecham sozinhos à meia-noite. Se ficar dias sem abrir, o app fecha esses dias e mostra um resumo.
+- **Dois aparelhos:** vale o que salvou primeiro; o outro recebe os dados novos e mostra um aviso.
+- **Backup:** cada gravação guarda a versão anterior em `estado_backup`. Para voltar a uma versão, veja o comando no final do `supabase/schema.sql`.
+- **Modo teste:** em **Ajustes › Modo › Abrir modo teste** (apaga os dados reais e simula a partir de 15/12/2026). Para voltar: **Começar de verdade hoje**.
 
-## 6. Como os dados ficam salvos
-
-- Cada mudança é salva no aparelho na hora e enviada ao Supabase cerca de 1 segundo depois.
-- Sem internet, o app continua funcionando e envia quando a conexão volta.
-- Dois aparelhos: vale o que salvou primeiro. Se o outro aparelho salvou antes, este recebe os dados dele e mostra um aviso.
-- Cópias: cada gravação guarda a versão anterior na tabela `estado_backup` (últimas 200). Para voltar a uma delas, veja o final de `supabase/schema.sql`.
-
-## 7. Rodar no computador (opcional)
-
-```bash
-npm i -g vercel
-vercel link        # liga a pasta ao projeto da Vercel
-vercel env pull .env.local
-vercel dev         # abre em http://localhost:3000
-```
-
-Sem a Vercel, dá para abrir o `index.html` direto: o app roda só no navegador (modo teste, sem login, sem coach).
+---
 
 ## Problemas comuns
 
-| Sintoma | Causa provável |
+| O que aparece | O que fazer |
 | --- | --- |
-| "APP_PASSWORD não configurada" | Faltou a variável, ou faltou o Redeploy depois de criar |
-| "Servidor: Defina SUPABASE_URL..." | Faltam as variáveis do Supabase |
-| "Supabase respondeu 404" | O `schema.sql` não rodou (a tabela `estado` não existe) |
-| "Supabase respondeu 401" | Chave errada: use a **secret** ou **service_role**, não a publishable/anon |
-| Coach: "Nenhuma IA configurada" | Nenhuma `..._API_KEY` cadastrada (ou faltou o Redeploy) |
-| Coach: "Limite do plano gratuito" | Espere ou troque de IA em Ajustes › IA do coach |
-| Coach: "Modelo não encontrado" | Nome errado em `..._MODEL` |
-| App antigo depois de atualizar | Feche e abra de novo; o service worker pega a versão nova na segunda abertura |
+| Toast "Servidor: Defina SUPABASE_URL..." | Faltam as variáveis do Supabase. Cadastre e faça **Redeploy** |
+| "Supabase respondeu 401" | Chave errada: use a **secret** (`sb_secret_`) ou **service_role**, não a publishable/anon |
+| "Supabase respondeu 404" | O `schema.sql` não rodou. Volte ao passo 1.2 |
+| Ajustes diz "Salvo só neste aparelho" | O app não achou o `/api`. Confira se o deploy terminou e se está abrindo o endereço da Vercel |
+| Coach: "Nenhuma IA configurada" | Falta `GEMINI_API_KEY` (ou outra) ou o **Redeploy** |
+| Coach: "Limite do plano gratuito" | Espere ou troque de IA em **Ajustes › IA do coach** |
+| Coach: "Modelo não encontrado" | Nome errado em `GEMINI_MODEL` (ou na variável da IA usada) |
+| App com versão antiga depois de atualizar | Feche o app e abra de novo; a versão nova entra na segunda abertura |
+
+Para ver erros detalhados: Vercel › seu projeto › **Logs**.
+
+---
+
+## Senha (opcional)
+
+Se um dia quiser que o app peça senha:
+
+1. Na Vercel, crie a variável `APP_PASSWORD` com a senha que quiser.
+2. Faça **Redeploy**.
+3. Na próxima abertura o app pede a senha uma vez; o aparelho fica lembrado por 180 dias. Em **Ajustes** aparece **Sair deste aparelho**.
+
+Para tirar a senha, apague a variável e faça Redeploy.
+
+---
+
+## Rodar no computador (opcional)
+
+```bash
+npm i -g vercel
+vercel link              # liga a pasta ao projeto da Vercel
+vercel env pull .env.local
+vercel dev               # abre em http://localhost:3000
+```
+
+Sem a Vercel, dá para abrir o `index.html` direto no navegador: o app roda só no navegador, em modo teste, sem coach.

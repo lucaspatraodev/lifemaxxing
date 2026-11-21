@@ -794,7 +794,7 @@ function abrirFolha(html, aoMontar) {
   ov.innerHTML = `<div class="sheet" role="dialog"><div class="grab"></div>${html}</div>`;
   ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('[data-fechar]')) fecharFolha(); });
   document.body.appendChild(ov);
-  requestAnimationFrame(() => ov.classList.add('on'));
+  if (!FX.folhaAbrir(ov)) requestAnimationFrame(() => ov.classList.add('on'));
   if (aoMontar) aoMontar(ov.querySelector('.sheet'));
 }
 function fecharFolha(imediato) {
@@ -802,6 +802,8 @@ function fecharFolha(imediato) {
   if (!ov) return;
   ov.id = '';
   if (imediato) { ov.remove(); return; }
+  const saindo = FX.folhaFechar(ov);
+  if (saindo) { saindo.then(() => { ov.remove(); rodarFila(); }); return; }
   ov.classList.remove('on');
   setTimeout(() => { ov.remove(); rodarFila(); }, 260);
 }
@@ -811,6 +813,8 @@ const fila = [];
 let modalAberto = false;
 function rodarFila() {
   if (modalAberto || $('#folha') || !fila.length) return;
+  const espera = FX.espera(); // deixa a animação de conquista terminar antes do próximo modal
+  if (espera > 0) { clearTimeout(rodarFila.t); rodarFila.t = setTimeout(rodarFila, espera); return; }
   fila.shift()();
 }
 function abrirModal(html, classe = '', aoMontar) {
@@ -820,12 +824,17 @@ function abrirModal(html, classe = '', aoMontar) {
   ov.innerHTML = html;
   ov.addEventListener('click', (e) => { if (e.target.closest('[data-fechar]')) fecharModal(ov); });
   document.body.appendChild(ov);
-  requestAnimationFrame(() => ov.classList.add('on'));
+  if (!FX.modalAbrir(ov)) requestAnimationFrame(() => ov.classList.add('on'));
   if (aoMontar) aoMontar(ov);
 }
 function fecharModal(ov) {
+  if (ov.fechando) return;
+  ov.fechando = true;
+  const pronto = () => { ov.remove(); modalAberto = false; render(); rodarFila(); };
+  const saindo = FX.modalFechar(ov);
+  if (saindo) { saindo.then(pronto); return; }
   ov.classList.remove('on');
-  setTimeout(() => { ov.remove(); modalAberto = false; render(); rodarFila(); }, 240);
+  setTimeout(pronto, 240);
 }
 
 // Confirmação dentro do app (o confirm() do navegador não funciona em todo lugar)
@@ -908,11 +917,14 @@ function render() {
   const telas = { hoje: renderHoje, treino: renderTreino, grana: renderGrana, progresso: renderProgresso, ajustes: renderAjustes };
   const view = $('#view');
   view.innerHTML = telas[UI.aba]();
-  if (UI.ultimaAba !== UI.aba) { // transição curta ao trocar de aba
-    view.classList.remove('entra'); void view.offsetWidth; view.classList.add('entra');
-    UI.ultimaAba = UI.aba;
+  const trocou = UI.ultimaAba !== UI.aba;
+  if (trocou) { // entrada ao trocar de aba: cascata e progresso enchendo (ou fade simples sem Motion)
+    if (!FX.entrarTela(view)) { view.classList.remove('entra'); void view.offsetWidth; view.classList.add('entra'); }
   }
   document.querySelectorAll('.nav button').forEach((b) => b.classList.toggle('on', b.dataset.aba === UI.aba || (UI.aba === 'ajustes' && b.dataset.aba === 'hoje')));
+  FX.nav(UI.ultimaAba === undefined);
+  UI.ultimaAba = UI.aba;
+  if (UI.aba === 'hoje') FX.chama();
   renderDescanso();
 }
 
@@ -1008,7 +1020,7 @@ function renderHoje() {
     </div>
     <div class="dots" style="grid-template-columns:repeat(${minimos().length + (habito('treino') ? 1 : 0)},1fr)">${minimos().map((h) => {
       const feito = habitoFeito(iso, h), parc = partesFeitas(iso, h) / h.partes.length;
-      return `<div class="dotw"><span class="dot ${feito ? 'on' : ''}" style="--p:${(parc * 100).toFixed(0)}">${ic(h.icone)}</span><small>${esc(h.nome)}</small></div>`;
+      return `<div class="dotw" data-h="${h.id}"><span class="dot ${feito ? 'on' : ''}" style="--p:${(parc * 100).toFixed(0)}">${ic(h.icone)}</span><small>${esc(h.nome)}</small></div>`;
     }).join('')}${habito('treino') ? `<button class="dotw treino" data-a="tarefa" data-h="treino" data-i="0" aria-label="Treino">
       <span class="dot extra ${habitoFeitoId(iso, 'treino') ? 'on' : ''}" style="--p:0">${ic('dumbbell')}</span><small>Treino</small></button>` : ''}</div>
   </section>
@@ -1071,7 +1083,11 @@ function abrirTarefa(hid, i) {
 }
 
 function confirmarTarefa(h, i) {
+  const iso = S.sim.data;
   const antes = nivelInfo(xpTotal());
+  const linha = document.querySelector(`.task[data-h="${h.id}"][data-i="${i}"]`);
+  const origem = linha ? linha.getBoundingClientRect() : null;
+  const habitoAntes = habitoFeito(iso, h), bomAntes = diaBom(iso);
   const r = registrarParte(h, i);
   if (r.bau !== null && r.bau !== undefined) fila.push(() => modalBau(r.bau));
   const sub = checarNivel();
@@ -1079,7 +1095,13 @@ function confirmarTarefa(h, i) {
   if (r.desafio) toast('Desafio da quinzena cumprido!');
   fecharFolha();
   render();
-  animarXp(antes, r.ganho);
+  celebrarXp({ h: h.id, i, origem, ganho: r.ganho, antes, habitoCompletou: !habitoAntes && habitoFeito(iso, h), virouDiaBom: !bomAntes && diaBom(iso) });
+}
+
+// Anima o ganho de XP (Motion); sem Motion, usa a animação simples
+function celebrarXp(o) {
+  const ok = UI.aba === 'hoje' && FX.tarefaFeita({ ...o, depois: nivelInfo(xpTotal()), formatoXp: (v, falta) => `${num(v)} / ${num(falta)} XP` });
+  if (!ok) animarXp(o.antes, o.ganho);
 }
 
 // Quanto um ganho de XP vale e libera em reais (usado no treino)
@@ -1122,7 +1144,7 @@ function abrirEspecial(h) {
       if (r.bau !== null) fila.push(() => modalBau(r.bau));
       const sub = checarNivel(); if (sub.length) fila.push(() => modalNivel(sub));
       if (r.desafio) toast('Desafio da quinzena cumprido!');
-      fecharFolha(); render(); animarXp(antes, xpTotal() - x0);
+      fecharFolha(); render(); celebrarXp({ h: h.id, i: 0, origem: null, ganho: xpTotal() - x0, antes });
     });
   });
 }
@@ -1177,7 +1199,7 @@ function modalBau(valor) {
       <h2 class="big">${valor ? brl(valor) : 'Vazio'}</h2>
       <p class="muted">${valor ? 'Liberado no dinheiro da quinzena.' : `Desta vez não veio nada. O próximo pode ter ${brl(bauMax())}.`}</p>
       <button class="btn" data-fechar>Boa</button>
-    </div>`);
+    </div>`, '', (ov) => FX.bau(ov, valor));
 }
 
 function modalNivel(subidas) {
@@ -1203,7 +1225,9 @@ function modalNivel(subidas) {
       b.querySelector('.lv-chest-tx').innerHTML = `<span class="eyebrow light">Baú de nível</span><b>${total ? '+' + brl(total) : 'Pote de baús vazio'}</b>`;
       ov.querySelector('.lv-saldo').hidden = false;
       if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+      FX.abrirBauNivel(ov, total);
     });
+    FX.nivel(ov);
   });
 }
 
@@ -1400,6 +1424,7 @@ function renderDescanso() {
   const d = UI.descanso;
   if (!d || UI.aba !== 'treino' || !S.treinoAtivo) { el.hidden = true; return; }
   const rest = d.fim - Date.now();
+  if (el.hidden) FX.descanso(el); // entra deslizando de baixo
   el.hidden = false;
   if (rest <= 0) {
     el.innerHTML = `<b>Bora pra próxima série</b><button data-a="pularDescanso">Ok</button>`;
@@ -1483,7 +1508,7 @@ function modalTreinoFeito(t, c, liberou = 0) {
       <p class="muted center">${liberou > 0 ? `Liberou <b>${brl(liberou)}</b> na quinzena (incluindo baú)` : `Vale ${brl((c.total * taxaXp().valor) / 100)} rumo à próxima liberação`}</p>
       ${c.nPrs ? `<p class="muted center">${ic('trophy')} ${c.nPrs} recorde${c.nPrs > 1 ? 's' : ''} pessoal${c.nPrs > 1 ? 'is' : ''}</p>` : ''}
       <button class="btn" data-fechar>Fechar</button>
-    </div>`);
+    </div>`, '', (ov) => FX.treinoFeito(ov, c.total, c.nPrs));
 }
 
 // --- Grana ---
@@ -1560,7 +1585,7 @@ function renderGranaResumo() {
   return `
   <section class="hero money">
     <span class="eyebrow light">${f.hojeSaque ? 'Saque de hoje' : `Próximo saque · ${SEMANA[diaSemana(f.dataSaque)]} ${dataCurta(f.dataSaque)}`}</span>
-    <div class="money-big">${brl(f.sacouHoje || f.valorSaque)}</div>
+    <div class="money-big" data-contar="${f.sacouHoje || f.valorSaque}">${brl(f.sacouHoje || f.valorSaque)}</div>
     ${f.sacouHoje && f.valorSaque > 0 ? `<p class="money-nota">${brl(f.disponivel)} ficaram para o próximo saque.</p>` : ''}
     <p class="money-nota">${f.sacouHoje ? 'Saque de hoje feito. O que liberar agora fica para o próximo.'
       : f.hojeSaque ? (f.manha.ok ? 'Um saque por dia de saque: tudo ou só uma parte. O que ficar, e o que passar do teto, soma no próximo.' : `Complete as obrigações da manhã (${f.manha.feitas} de ${f.manha.total}) para liberar. O XP da manhã ainda entra, até o teto.`)
@@ -1822,7 +1847,7 @@ function renderAjustes() {
   <section class="card list">${frases}<button class="link" data-a="editarFrase" data-i="-1">${ic('plus')} Nova frase</button></section>
 
   ${S.sim.teste ? `<button class="btn ghost danger-tx" data-a="reset">${ic('reset')} Resetar tudo</button>` : ''}
-  ${NUVEM.ativo ? '<button class="btn ghost" data-a="sair">Sair deste aparelho</button>' : ''}
+  ${NUVEM.ativo && NUVEM.comSenha ? '<button class="btn ghost" data-a="sair">Sair deste aparelho</button>' : ''}
   <p class="nota center">Lifemaxxing · ${NUVEM.ativo ? 'dados no Supabase e neste aparelho' : 'dados só neste aparelho'}</p>`;
 }
 
@@ -1955,6 +1980,7 @@ function abrirSacar() {
     montarSlide(el, () => {
       const v = sacar(valor);
       fecharFolha(); render();
+      if (v) FX.saque(v);
       if (v) toast(v < max ? `${brl(v)} sacados. ${brl(max - v)} ficam para o próximo saque.` : `${brl(v)} sacados. Saíram do montante.`);
     });
   });
@@ -2402,7 +2428,7 @@ function montarBotaoIA() {
 const acoes = {
   ir(el) { UI.aba = el.dataset.aba; render(); window.scrollTo(0, 0); },
   periodo(el) { S.sim.periodo = el.dataset.p; UI.periodoAba = null; salvar(); render(); },
-  abaPeriodo(el) { UI.periodoAba = el.dataset.p; render(); },
+  abaPeriodo(el) { UI.periodoAba = el.dataset.p; render(); FX.lista($('.tasks.obrigacoes')); },
   frase() { UI.fraseAberta = !UI.fraseAberta; render(); },
   tarefa(el) { abrirTarefa(el.dataset.h, Number(el.dataset.i)); },
   fastfood() { abrirFastFood(); },
@@ -2472,7 +2498,11 @@ const acoes = {
     const s = S.treinoAtivo.exercicios[el.dataset.e].series[el.dataset.s];
     s.feito = !s.feito;
     salvar(); render();
-    if (s.feito) iniciarDescanso(UI.ultimoDescanso || 90);
+    if (s.feito) {
+      const ex = S.treinoAtivo.exercicios[el.dataset.e];
+      FX.serie($(`.set-ok[data-e="${el.dataset.e}"][data-s="${el.dataset.s}"]`), serieRecorde(ex, S.treinoAtivo.id) === Number(el.dataset.s));
+      iniciarDescanso(UI.ultimoDescanso || 90);
+    }
   },
   addSerie(el) {
     const e = S.treinoAtivo.exercicios[el.dataset.e];
@@ -2640,6 +2670,7 @@ async function conectarNuvem() {
   }
   const j = await r.json();
   NUVEM.ativo = true;
+  NUVEM.comSenha = r.headers.get('x-login') === 'senha';
   ls.set('lifemaxxing_nuvem', '1');
   const vLocal = Number(ls.get(CHAVE_V) || 0), pendente = ls.get(CHAVE_P) === '1';
   if (!j.dados) {
@@ -2732,6 +2763,9 @@ function migrar() {
   if (!S.config.metaXpQuinzena) S.config.metaXpQuinzena = 2700;
   if (!S.santosUsos) S.santosUsos = [];
 }
+
+FX.formatoDinheiro = brl;
+FX.montarToque();
 
 let jaMontou = false;
 function posCarregar() {
