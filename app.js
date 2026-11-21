@@ -422,12 +422,13 @@ function financas(q = S.quinzena) {
   const pend = 0; // tudo de terça e sexta já é liberado no corte da meia-noite
   const liberado = xp + outros;
   const t = ticketsInfo(q);
-  const descontos = soma(q.gastos.filter((g) => g.descontado).map((g) => g.valor));
+  const bloqueado = somaBloqueio(q);
+  const descontos = soma(q.gastos.filter((g) => g.descontado).map((g) => g.valor)) + bloqueado;
   const gastos = soma(q.gastos.map((g) => g.valor));
   const entra = liberado + q.saldoAnterior;
   const excesso = Math.max(0, q.sacado + descontos - entra);
   return {
-    xp, pend, liberado, descontos, gastos, tickets: t,
+    xp, pend, liberado, descontos, bloqueado, gastos, tickets: t,
     sacado: q.sacado,
     disponivel: Math.max(0, entra - q.sacado - descontos),
     travado: Math.max(0, q.livre - liberado - t.liberados * S.config.delivery.ticket - excesso),
@@ -598,6 +599,26 @@ function statusDano(id, iso = S.sim.data) {
   const n = registrosDano(id, s.ini, iso).length;
   return { n, meta: (S.config.danos || {})[id] ?? 0, periodo: 'semana', rotulo: 'nesta semana', ini: s.ini, fim: s.fim, t };
 }
+// ---------- Caixa bloqueada ----------
+// Cada dano tira um valor do livre desta quinzena e guarda para a próxima (entra no livre dela).
+const somaBloqueio = (q) => soma((q.bloqueios || []).map((b) => b.valor));
+const cfgBloqueio = () => S.config.bloqueio || { ativo: false, soAcimaMeta: false, valores: {} };
+// Quanto este dano bloquearia agora (0 se desligado, abaixo da meta com "só acima" ou sem livre sobrando)
+function valorBloqueio(id, nDepois) {
+  const c = cfgBloqueio(); if (!c.ativo) return 0;
+  const v = Number((c.valores || {})[id]) || 0; if (!(v > 0)) return 0;
+  if (c.soAcimaMeta && nDepois <= statusDano(id).meta) return 0;
+  return Math.min(v, Math.floor(financas().montante * 100) / 100);
+}
+function bloquear(id, ref) {
+  const q = S.quinzena, s = statusDano(id);
+  const v = valorBloqueio(id, s.n); // o registro já entrou na contagem
+  if (!(v > 0)) return 0;
+  q.bloqueios = q.bloqueios || [];
+  q.bloqueios.push({ id: uid(), data: S.sim.data, tipo: id, valor: v, ref });
+  return v;
+}
+
 // Registra um dano; o gasto (opcional) entra nos gastos com a categoria do tipo
 function registrarDano(id, valor) {
   const t = tipoDano(id), iso = S.sim.data, q = S.quinzena;
@@ -607,6 +628,7 @@ function registrarDano(id, valor) {
     q.gastos.push(g); reg.valor = valor; reg.gasto = g.id;
   }
   const d = dia(iso); d.danos = d.danos || []; d.danos.push(reg);
+  reg.bloqueado = bloquear(id, reg.id);
   salvar();
   return reg;
 }
@@ -615,6 +637,7 @@ function apagarDano(iso, regId) {
   const reg = d.danos.find((x) => x.id === regId); if (!reg) return;
   d.danos = d.danos.filter((x) => x !== reg);
   if (reg.gasto) S.quinzena.gastos = S.quinzena.gastos.filter((g) => g.id !== reg.gasto);
+  S.quinzena.bloqueios = (S.quinzena.bloqueios || []).filter((b) => b.ref !== reg.id);
   salvar();
 }
 
@@ -629,9 +652,10 @@ function registrarFastFood(valor) {
     doBolso = Math.max(0, valor - S.config.delivery.ticket);
   }
   dia(iso).fastfood.push({ valor, ticket: usouTicket });
+  const bloq = bloquear('delivery', null);
   if (doBolso > 0) q.gastos.push({ id: uid(), data: iso, valor: doBolso, categoria: 'Delivery', descontado: true, nota: usouTicket ? 'Delivery (resto do ticket)' : 'Delivery' });
   salvar();
-  return { usouTicket, doBolso };
+  return { usouTicket, doBolso, bloq };
 }
 
 // Saque total ou parcial: o que não sacar fica para o próximo saque
@@ -812,10 +836,11 @@ function fecharQuinzena() {
   const carryExato = Math.round((f.disponivel + sobra) * 100) / 100;
   const usadosValor = Math.min(q.ticketsUsados, t.liberados) * S.config.delivery.ticket;
   const passaTravado = Math.max(0, Math.round((q.livre + q.saldoAnterior - q.sacado - f.descontos - usadosValor - carryExato) * 100) / 100);
+  const bloqueado = somaBloqueio(q);
   q.fechada = true;
   const resumo = {
     inicio: q.inicio, fim: q.fim, tipo: q.tipo, livre: q.livre,
-    liberado: f.liberado + sobra, sacado: q.sacado, travadoPassa: passaTravado, santos: santosFixo(q), gastos: f.gastos, xp: xpQuinzena(q),
+    liberado: f.liberado + sobra, sacado: q.sacado, travadoPassa: Math.round((passaTravado + bloqueado) * 100) / 100, bloqueado, santos: santosFixo(q), gastos: f.gastos, xp: xpQuinzena(q),
     porCategoria: gastosPorCategoria(q),
     diasBons: intervalo(q.inicio, q.fim).filter(ehBom).length, dias: intervalo(q.inicio, q.fim).length,
     desafio: q.desafio.texto, desafioOk: q.desafio.concluido,
@@ -1065,6 +1090,8 @@ function render() {
   FX.nav(UI.ultimaAba === undefined);
   UI.ultimaAba = UI.aba;
   if (UI.aba === 'hoje') { FX.chama(); FX.pet(); }
+  const cb = document.querySelector('.caixa-valor');
+  if (cb) { const atual = Number(cb.dataset.bloq); const visto = UI.bloqVisto ?? 0; if (visto !== atual) FX.contar(cb, visto, atual, brl, 0.9); UI.bloqVisto = atual; }
   renderDescanso();
 }
 
@@ -1396,6 +1423,7 @@ function abrirDano(id) {
       <div class="rumo-bar"><i class="essa" style="width:${pct.toFixed(1)}%"></i></div>
       <small>Meta: até ${s.meta} ${s.meta === 1 ? 'vez' : 'vezes'} por semana (seg a dom). Muda em Progresso › Danos.</small>
     </div>
+    ${(() => { const v = valorBloqueio(id, s.n + 1); return v ? `<div class="bloq-aviso">${ic('lock')}<span><b>Bloqueia ${brl(v)}</b> do seu livre. Só volta na próxima quinzena.</span></div>` : ''; })()}
     <span class="eyebrow">Gasto (opcional)</span>
     <div class="chips" data-s="v"><button class="chip on" data-v="0">Sem gasto</button>${[10, 20, 35, 50].map((v) => `<button class="chip" data-v="${v}">${brl(v)}</button>`).join('')}
       <input class="chip-in" type="number" inputmode="decimal" placeholder="Outro" min="1"></div>
@@ -1409,8 +1437,8 @@ function abrirDano(id) {
     el.querySelector('.chip-in').addEventListener('input', (e) => { const v = Number(e.target.value); valor = v > 0 ? v : 0; el.querySelectorAll('[data-s="v"] .chip').forEach((c) => c.classList.toggle('on', !(v > 0) && c.dataset.v === '0')); });
     el.querySelector('[data-s="ok"]').addEventListener('click', () => {
       registrarDano(id, valor); fecharFolha(); render();
-      const n = statusDano(id);
-      toast(`${t.nome}: ${n.n} de ${n.meta} nesta semana${valor ? ` · ${brl(valor)} em ${t.categoria}` : ''}`);
+      const n = statusDano(id), reg = dia(S.sim.data).danos.at(-1);
+      toast(reg && reg.bloqueado ? `${brl(reg.bloqueado)} foram para a caixa bloqueada` : `${t.nome}: ${n.n} de ${n.meta} nesta semana${valor ? ` · ${brl(valor)} em ${t.categoria}` : ''}`);
     });
   });
 }
@@ -1426,7 +1454,8 @@ function abrirFastFood() {
     return `<div class="custo"><b>${brl(valor)}</b><span>= ${pct}% de um fim de semana de viagem</span></div>
       <p class="nota">${t.disponiveis ? `Usa 1 ticket de delivery (${brl(ticket)}).${bolso ? ` ${brl(bolso)} saem do dinheiro livre.` : ''}` : `Sem ticket liberado: ${brl(valor)} saem do dinheiro livre.`}
       ${desafioFF ? `<br><b>Zera a contagem do desafio da quinzena “${esc(S.quinzena.desafio.texto)}”.</b>` : ''}</p>
-      ${(() => { const s = statusDano('delivery'); return `<p class="nota">${s.n} de ${s.meta} delivery na quinzena${s.n + 1 > s.meta ? ' · <b>este passa da meta</b>' : ''}.</p>`; })()}`;
+      ${(() => { const s = statusDano('delivery'); return `<p class="nota">${s.n} de ${s.meta} delivery na quinzena${s.n + 1 > s.meta ? ' · <b>este passa da meta</b>' : ''}.</p>`; })()}
+      ${(() => { const v = valorBloqueio('delivery', statusDano('delivery').n + 1); return v ? `<div class="bloq-aviso">${ic('lock')}<span><b>Bloqueia ${brl(v)}</b> do seu livre. Só volta na próxima quinzena.</span></div>` : ''; })()}`;
   };
   abrirFolha(`
     <div class="sheet-head"><span class="sheet-ic warn">${ic('burger')}</span><div><span class="eyebrow">Custo real · dano</span><h3>Delivery</h3></div></div>
@@ -1448,7 +1477,7 @@ function abrirFastFood() {
     el.querySelector('[data-s="ok"]').addEventListener('click', () => {
       const r = registrarFastFood(valor);
       fecharFolha(); render();
-      toast(r.usouTicket ? 'Ticket de delivery usado' : `${brl(r.doBolso)} saíram do dinheiro livre`);
+      toast((r.usouTicket ? 'Ticket de delivery usado' : `${brl(r.doBolso)} saíram do dinheiro livre`) + (r.bloq ? ` · ${brl(r.bloq)} bloqueados` : ''));
     });
   });
 }
@@ -2061,11 +2090,40 @@ function renderDanos() {
   }).join('');
   const recentes = intervalo(somaDias(iso, -13), iso).reverse().flatMap((d) => TIPOS_DANO.flatMap((t) => registrosDano(t.id, d, d).map((r) => ({ ...r, t }))));
   const lista = recentes.slice(0, 12).map((r) => `<div class="hist"><span class="hist-ic">${ic(r.t.icone)}</span><span class="task-tx"><b>${r.t.nome}</b><small>${dataCurta(r.data)}${r.valor ? ` · ${brl(r.valor)}` : ''}${r.ticket ? ' · ticket' : ''}</small></span>${r.t.id !== 'delivery' ? `<button class="icon-sm" data-a="apagarDano" data-iso="${r.data}" data-id="${r.id}" aria-label="Apagar">${ic('trash')}</button>` : ''}</div>`).join('');
+  const c = cfgBloqueio(), bloq = somaBloqueio(q), nBloq = (q.bloqueios || []).length;
+  const caixa = `
+  <section class="card caixa-bloq ${c.ativo ? '' : 'off'}">
+    <div class="caixa-topo"><span class="eyebrow">${ic('lock')} Caixa bloqueada</span><button class="editar-meta" data-a="configBloqueio">${ic('sliders')} Configurar</button></div>
+    <b class="caixa-valor" data-bloq="${bloq.toFixed(2)}">${brl(bloq)}</b>
+    <small>${c.ativo ? `${nBloq} ${nBloq === 1 ? 'punição' : 'punições'} nesta quinzena · sai do seu livre agora e só entra no livre da próxima quinzena (${dataCurta(somaDias(q.fim, 1))})` : 'Desligada: os danos não bloqueiam dinheiro.'}</small>
+    ${c.ativo ? `<div class="caixa-regras">${TIPOS_DANO.map((t) => `<span>${ic(t.icone)} ${brl(Number(c.valores[t.id]) || 0)}</span>`).join('')}<span class="muted">${c.soAcimaMeta ? 'só acima da meta' : 'a cada vez'}</span></div>` : ''}
+  </section>`;
   return `
+  ${caixa}
   <p class="nota">Registre em Hoje › Danos. Beber e fumar contam por semana (seg a dom); delivery segue os tickets da quinzena.</p>
   ${cards}
   <h3 class="sec">Últimos 14 dias</h3>
   <section class="card list danos-hist">${lista || '<p class="vazio">Nenhum registro. Boa.</p>'}</section>`;
+}
+
+// Configurar a caixa bloqueada: liga/desliga, valor por tipo e quando cobra
+function abrirConfigBloqueio() {
+  const c = clone(cfgBloqueio()); c.valores = c.valores || {};
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic warn">${ic('lock')}</span><div><span class="eyebrow">Punição por dano</span><h3>Caixa bloqueada</h3></div></div>
+    <p class="nota">Cada dano tira esse valor do seu livre desta quinzena. O dinheiro não some: fica bloqueado e entra no livre da próxima quinzena.</p>
+    <label class="tg-linha"><span><b>Ligada</b><small>Bloquear dinheiro nos danos</small></span><input type="checkbox" data-s="ativo" ${c.ativo ? 'checked' : ''}></label>
+    <div class="bloq-valores">${TIPOS_DANO.map((t) => `
+      <label class="bloq-v"><span class="task-ic">${ic(t.icone)}</span><b>${t.nome}</b><span class="bloq-in">R$<input type="number" inputmode="decimal" min="0" step="1" value="${Number(c.valores[t.id]) || 0}" data-k="${t.id}"></span></label>`).join('')}</div>
+    <label class="tg-linha"><span><b>Só acima da meta</b><small>Dentro da meta não bloqueia nada</small></span><input type="checkbox" data-s="acima" ${c.soAcimaMeta ? 'checked' : ''}></label>
+    <div class="row2"><button class="btn ghost" data-fechar>Cancelar</button><button class="btn dark" data-s="ok">Salvar</button></div>`,
+  (el) => el.querySelector('[data-s="ok"]').addEventListener('click', () => {
+    c.ativo = el.querySelector('[data-s="ativo"]').checked;
+    c.soAcimaMeta = el.querySelector('[data-s="acima"]').checked;
+    el.querySelectorAll('[data-k]').forEach((i) => { c.valores[i.dataset.k] = Math.max(0, Number(i.value) || 0); });
+    S.config.bloqueio = c; salvar(); fecharFolha(); render();
+    toast(c.ativo ? 'Caixa bloqueada atualizada' : 'Caixa bloqueada desligada');
+  }));
 }
 
 function renderProgresso() {
@@ -2900,6 +2958,7 @@ const acoes = {
   danos() { abrirDanos(); },
   dano(el) { if (el.dataset.k === 'delivery') abrirFastFood(); else abrirDano(el.dataset.k); },
   editarMetaDano(el) { abrirMetaDano(el.dataset.k); },
+  configBloqueio() { abrirConfigBloqueio(); },
   metaDano(el) { const k = el.dataset.k; S.config.danos = S.config.danos || {}; S.config.danos[k] = Math.max(0, (S.config.danos[k] ?? 0) + Number(el.dataset.d)); salvar(); render(); },
   apagarDano(el) { confirmar('Apagar este registro? O gasto ligado a ele também sai.', 'Apagar', () => { apagarDano(el.dataset.iso, el.dataset.id); render(); }); },
   progAba(el) { UI.progAba = el.dataset.k; render(); window.scrollTo(0, 0); },
@@ -3253,6 +3312,7 @@ function migrar() {
   S.config.migracoes = S.config.migracoes || [];
   if (!S.config.migracoes.includes('logo2')) { S.config.logo = 2; S.config.migracoes.push('logo2'); }
   S.config.migracoes = S.config.migracoes || [];
+  if (!S.config.bloqueio) { S.config.bloqueio = clone(DADOS_INICIAIS.bloqueio); salvarLocal(); }
   // danos: metas, categorias de gasto e o desafio de fast food vira delivery
   if (!S.config.migracoes.includes('danos1')) {
     S.config.danos = S.config.danos || clone(DADOS_INICIAIS.danos);

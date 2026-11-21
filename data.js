@@ -16,6 +16,8 @@ const DADOS_INICIAIS = {
   tema: 'escuro',   // 'escuro' ou 'claro' // galo surfista; a imagem pode ser trocada em Ajustes
   // Danos: metas por semana (seg a dom). Delivery segue os tickets da quinzena.
   danos: { beber: 2, fumar: 4 },
+  // Caixa bloqueada: punição por dano. Sai do livre desta quinzena e só volta na próxima.
+  bloqueio: { ativo: true, soAcimaMeta: false, valores: { fumar: 10, beber: 10, delivery: 0 } },
   // Categorias de gasto (dá para criar novas no registro de gasto e apagar em Ajustes)
   categorias: ['Comida', 'Doce', 'Delivery', 'Bebida', 'Fumo', 'Lazer', 'Transporte', 'Roupa', 'Outro'],
 
