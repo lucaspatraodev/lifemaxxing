@@ -45,7 +45,7 @@ Na Vercel o app começa **valendo hoje**. O modo teste (data simulada, Próximo 
 
 ## Regras
 
-**XP e dinheiro:** regras completas, fórmulas e simulações em [`docs/ECONOMIA.md`](docs/ECONOMIA.md). Resumo: obrigações somam 200 XP por dia (por dificuldade: dentes 10, quarto 40, 1h sem celular 60...), dia bom +50, bônus de 20 a 150. O pote de XP enche na meta (dias × 400 XP); passou dela, o XP só conta para o nível. Um baú por dia, calibrado para pagar em média o pote inteiro. Algumas missões têm **cronômetro** (1h sem celular, estudar, desenvolver): deslize para começar e elas concluem sozinhas.
+**XP e dinheiro:** regras completas, fórmulas e simulações em [`docs/ECONOMIA.md`](docs/ECONOMIA.md). Resumo: obrigações somam 205 XP por dia (por dificuldade: dentes 15 em 3 escovadas, quarto 40, 1h sem celular 60...), dia bom +50, bônus de 20 a 150. O pote de XP enche na meta (dias × 405 XP); passou dela, o XP só conta para o nível. Um baú por dia, calibrado para pagar em média o pote inteiro. Algumas missões têm **cronômetro** (1h sem celular, estudar, desenvolver): deslize para começar e elas concluem sozinhas.
 
 **Níveis:** de Na toca (0) a Surfista (36.000). Depois do 10, a contagem recomeça com uma estrela. Cada nível novo abre um baú (19% a 38% do pote de baús).
 

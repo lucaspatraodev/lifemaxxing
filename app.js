@@ -186,7 +186,7 @@ function parteXp(h, i) {
 
 // Lista de tarefas de um período
 // Ordem das obrigações dentro de cada período: quarto, depois água e fruta, depois o resto
-const ORDEM_TAREFAS = ['quarto', 'agua', 'frutas', 'sair', 'celular', 'skincare', 'dentes', 'dormir'];
+const ORDEM_TAREFAS = ['quarto', 'dentes', 'agua', 'frutas', 'sair', 'celular', 'skincare', 'dormir'];
 function tarefasDoPeriodo(p) {
   const lista = [];
   const pos = (h) => { const k = ORDEM_TAREFAS.indexOf(h.id); return k < 0 ? 99 : k; };
@@ -1851,9 +1851,12 @@ function pendenteSaque(q = S.quinzena) {
   const xpAntes = ult ? (ult.xpQ ?? xpEntre(q.inicio, ult.data)) : 0;
   const nLib = ult ? (ult.nLib ?? q.liberacoes.filter((l) => l.data <= ult.data).length) : 0;
   const novas = q.liberacoes.slice(nLib);
-  const libXpEm = (x) => Math.min(q.potes.xp, Math.floor(x / r.xp) * r.valor);
+  // nesta tela o XP conta de 1 em 1: cada XP vale valor/100 (o saque real ainda libera em blocos de 100)
+  const porXp = r.valor / r.xp;
   const xpNovo = Math.max(0, xpQuinzena(q) - xpAntes);
-  const doXp = Math.max(0, libXpEm(xpQuinzena(q)) - libXpEm(xpAntes));
+  const restaPote = Math.max(0, q.potes.xp - Math.min(q.potes.xp, xpAntes * porXp));
+  const doXp = Math.floor(Math.min(restaPote, xpNovo * porXp) * 100) / 100;
+  const doXpBloco = Math.max(0, liberadoXp(q) - Math.min(q.potes.xp, Math.floor(xpAntes / r.xp) * r.valor));
   const baus = soma(novas.filter((l) => ['bau', 'nivel'].includes(l.tipo)).map((l) => l.valor));
   const cortesFeitos = soma(novas.filter((l) => ['terca', 'sexta'].includes(l.tipo)).map((l) => l.valor));
   // corte de dias bons que ainda vai cair à meia-noite antes do próximo saque
@@ -1861,12 +1864,11 @@ function pendenteSaque(q = S.quinzena) {
   const naQuinzena = entre(alvo, q.inicio, q.fim);
   const corte = naQuinzena && alvo > iso ? calcSemanal(q, alvo) : null;
   const cortes = cortesFeitos + (corte ? corte.valor : 0);
-  const antes = Math.max(0, f.disponivel - doXp - baus - cortesFeitos); // sobra de liberações anteriores
-  const bruto = f.disponivel + (corte ? corte.valor : 0);
+  const antes = Math.max(0, f.disponivel - doXpBloco - baus - cortesFeitos); // sobra de liberações anteriores
+  const bruto = Math.max(0, f.disponivel - doXpBloco + doXp) + (corte ? corte.valor : 0);
   const teto = naQuinzena ? Math.max(0, tetoAcumulado(q, alvo) - q.sacado - f.descontos) : bruto;
   const total = Math.max(0, Math.min(bruto, teto));
-  const noBloco = xpQuinzena(q) % r.xp;
-  return { alvo, naQuinzena, hoje: alvo === iso, total, bruto, teto, xpNovo, doXp, baus, cortes, corte, antes, noBloco, r, cheio: liberadoXp(q) >= q.potes.xp };
+  return { alvo, naQuinzena, hoje: alvo === iso, total, bruto, teto, xpNovo, doXp, porXp, baus, cortes, corte, antes, r, cheio: liberadoXp(q) >= q.potes.xp };
 }
 function cardPendente() {
   const p = pendenteSaque();
@@ -1878,14 +1880,11 @@ function cardPendente() {
     <div class="pend-topo"><b class="pend-valor">${brl(p.total)}</b><span class="pend-xp">${ic('star')} ${num(p.xpNovo)} XP</span></div>
     <div class="pend-lista">
       ${linha('XP', `${num(p.xpNovo)} XP desde o último saque`, p.doXp)}
-      ${!p.cheio && p.noBloco ? `<div class="pend-linha caminho"><span><b>A caminho</b><small>${p.noBloco} XP no bloco · prende ao chegar em ${p.r.xp} XP</small></span><em>${brl(Math.floor(p.noBloco * p.r.valor / p.r.xp * 100) / 100)}</em></div>` : ''}
       ${p.cortes || p.corte ? linha('Dias bons', p.corte ? `${p.corte.bons} de ${p.corte.total} dias · corte ${SEMANA_CURTA[diaSemana(somaDias(p.alvo, -1))]} à meia-noite` : 'corte de hoje', p.cortes) : ''}
       ${p.baus ? linha('Baús', '', p.baus) : ''}
       ${p.antes > 0.009 ? linha('Sobra de antes', 'liberado e ainda não sacado', p.antes) : ''}
     </div>
-    ${p.cheio ? '<small class="pend-nota">Pote de XP da quinzena cheio: XP agora conta só para o nível.</small>' : `
-    <div class="rumo-bar"><i class="essa" style="width:${(p.noBloco / p.r.xp * 100).toFixed(1)}%"></i></div>
-    <small class="pend-nota">${p.noBloco} de ${p.r.xp} XP no bloco atual · faltam ${p.r.xp - p.noBloco} XP para prender mais ${brl(p.r.valor)}</small>`}
+    <small class="pend-nota">${p.cheio ? 'Pote de XP da quinzena cheio: XP agora conta só para o nível.' : `Cada XP soma R$${p.porXp.toFixed(4).replace('.', ',')} · ${num(p.xpNovo)} XP = ${brl(p.doXp)}`}</small>
     ${p.bruto > p.teto + 0.009 ? `<small class="pend-nota">Teto deste saque: ${brl(p.teto)}. O resto fica para o seguinte.</small>` : ''}
   </section>`;
 }
@@ -3056,6 +3055,20 @@ function migrar() {
   S.config.migracoes = S.config.migracoes || [];
   if (!S.config.migracoes.includes('logo2')) { S.config.logo = 2; S.config.migracoes.push('logo2'); }
   S.config.migracoes = S.config.migracoes || [];
+  // dentes 3x ao dia (manhã, tarde, noite). Dias abertos: a escovada da noite (parte 0) vira a parte 2.
+  if (!S.config.migracoes.includes('dentes3')) {
+    const h = habito('dentes'), pad = DADOS_INICIAIS.habitos.find((x) => x.id === 'dentes');
+    if (h && h.partes.length === 1) {
+      h.partes = clone(pad.partes); h.xp = pad.xp;
+      Object.entries(S.dias).forEach(([iso, d]) => {
+        if (d.fechado || !d.feitos['dentes:0']) return;
+        delete d.feitos['dentes:0']; d.feitos['dentes:2'] = true;
+        const e = S.xpLog.find((x) => x.id === `p:${iso}:dentes:0`); if (e) e.id = `p:${iso}:dentes:2`;
+      });
+    }
+    S.config.migracoes.push('dentes3');
+    salvar();
+  }
   if (!S.config.migracoes.includes('quarto')) {
     if (!habito('quarto')) {
       const novo = clone(DADOS_INICIAIS.habitos.find((h) => h.id === 'quarto'));

@@ -64,8 +64,12 @@ const DADOS_INICIAIS = {
   // periodo: 'manha' | 'tarde' | 'noite' | 'todos'
   // especial: 'treino' ou 'surf' (registrados pela aba Treino)
   habitos: [
-    { id: 'dentes', nome: 'Dentes', tipo: 'minimo', xp: 10, icone: 'tooth',
-      partes: [{ periodo: 'noite', rotulo: 'Escovar os dentes' }],
+    { id: 'dentes', nome: 'Dentes', tipo: 'minimo', xp: 15, icone: 'tooth',
+      partes: [
+        { periodo: 'manha', rotulo: 'Escovar os dentes' },
+        { periodo: 'tarde', rotulo: 'Escovar os dentes' },
+        { periodo: 'noite', rotulo: 'Escovar os dentes' }
+      ],
       motivos: ['Sorriso mais branco e bonito', 'Hálito fresco para chegar perto de qualquer um', 'Gengiva rosada, sem sangrar', 'Confiança para sorrir nas fotos', 'Boca limpa e leve antes de dormir'] },
     { id: 'skincare', nome: 'Skincare', tipo: 'minimo', xp: 15, icone: 'sparkle',
       partes: [{ periodo: 'noite', rotulo: 'Skincare' }],

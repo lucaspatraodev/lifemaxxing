@@ -25,11 +25,11 @@ A soma dos potes é exatamente o livre.
 
 ## 2. XP por missão (por dificuldade)
 
-**Obrigações** (somam 200 XP por dia):
+**Obrigações** (somam 205 XP por dia):
 
 | Missão | XP | Por quê |
 | --- | --- | --- |
-| Dentes | 10 | fácil e rápida |
+| Dentes | 15 (3 × 5: manhã, tarde, noite) | fácil e rápida |
 | Skincare | 15 | rápida, exige constância |
 | Sair de casa 15 min | 15 | vencer a inércia |
 | Frutas (2) | 16 (8 cada) | fácil |
@@ -57,7 +57,7 @@ A soma dos potes é exatamente o livre.
 ## 3. XP em dinheiro
 
 ```
-dia ideal      = obrigações (200) + dia bom (50) + bônus-alvo (150) = 400 XP
+dia ideal      = obrigações (205) + dia bom (50) + bônus-alvo (150) = 405 XP
 meta da quinzena = dias úteis × dia ideal          (15 dias → 6.000 XP)
 valor de 100 XP  = pote de XP × 100 ÷ meta         (R$350 → R$5,83)
 liberado por XP  = mín(pote de XP, ⌊XP ÷ 100⌋ × valor de 100 XP)
