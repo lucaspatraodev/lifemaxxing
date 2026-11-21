@@ -359,7 +359,7 @@ const bauBase = (q = S.quinzena) => q.potes.bau / (BAU_ESPERADO * Math.max(1, di
 const bauMax = (q = S.quinzena) => Math.round(bauBase(q) * Math.max(...BAU_CHANCES.map((c) => c.mult)) * 100) / 100;
 function liberadoXp(q, xpExtra = 0) {
   const r = taxaXp(q);
-  return Math.min(q.potes.xp, Math.floor((xpQuinzena(q) + xpExtra) / r.xp) * r.valor);
+  return Math.min(capPote(q, 'xp'), Math.floor((xpQuinzena(q) + xpExtra) / r.xp) * r.valor);
 }
 const treinosEntre = (a, b) => S.treinos.filter((t) => entre(t.data, a, b)).length;
 
@@ -379,7 +379,7 @@ function calcSemanal(q, isoSaque) {
     bonusTreino = treinosEntre(somaDias(isoSaque, -7), somaDias(isoSaque, -1)) >= 3;
     base *= 1 + (bonusSemana ? 0.2 : 0) + (bonusTreino ? 0.2 : 0);
   }
-  const restante = q.potes.semana - somaLib(q, ['terca', 'sexta']);
+  const restante = capPote(q, 'semana') - somaLib(q, ['terca', 'sexta']);
   return { valor: Math.max(0, Math.min(restante, base)), bons: bons.length, total: dias.length, bonusSemana, bonusTreino, cheio };
 }
 
@@ -390,7 +390,8 @@ function tetoAcumulado(q, iso) {
   const peso = (d) => (diaSemana(d) === 2 ? PESO_TERCA : PESO_SEXTA);
   const total = soma(saques.map(peso));
   const ate = soma(saques.filter((d) => d <= iso).map(peso));
-  return total ? (q.livre + q.saldoAnterior) * (ate / total) : q.livre + q.saldoAnterior;
+  const base = q.livre - somaBloqueio(q) + q.saldoAnterior;
+  return total ? base * (ate / total) : base;
 }
 const proximoSaque = (iso) => { for (let d = iso, k = 0; k < 7; k++, d = somaDias(d, 1)) if (diaDeSaque(d)) return d; return iso; };
 // Obrigações da manhã feitas (libera o saque do dia)
@@ -422,8 +423,8 @@ function financas(q = S.quinzena) {
   const pend = 0; // tudo de terça e sexta já é liberado no corte da meia-noite
   const liberado = xp + outros;
   const t = ticketsInfo(q);
-  const bloqueado = somaBloqueio(q);
-  const descontos = soma(q.gastos.filter((g) => g.descontado).map((g) => g.valor)) + bloqueado;
+  const bloqueado = somaBloqueio(q); // sai do montante (parte ainda não liberada), não do disponível
+  const descontos = soma(q.gastos.filter((g) => g.descontado).map((g) => g.valor));
   const gastos = soma(q.gastos.map((g) => g.valor));
   const entra = liberado + q.saldoAnterior;
   const excesso = Math.max(0, q.sacado + descontos - entra);
@@ -431,8 +432,8 @@ function financas(q = S.quinzena) {
     xp, pend, liberado, descontos, bloqueado, gastos, tickets: t,
     sacado: q.sacado,
     disponivel: Math.max(0, entra - q.sacado - descontos),
-    travado: Math.max(0, q.livre - liberado - t.liberados * S.config.delivery.ticket - excesso),
-    montante: Math.max(0, q.livre + q.saldoAnterior - q.sacado - descontos),
+    travado: Math.max(0, q.livre - bloqueado - liberado - t.liberados * S.config.delivery.ticket - excesso),
+    montante: Math.max(0, q.livre + q.saldoAnterior - q.sacado - descontos - bloqueado),
     ...infoSaque(q, Math.max(0, entra - q.sacado - descontos), descontos)
   };
 }
@@ -486,7 +487,7 @@ const diaDeSaque = (iso) => [2, 5].includes(diaSemana(iso));
 // Baú: paga do pote de baús até ele acabar
 function pagarBau(valor, tipo, rotulo, ref) {
   const q = S.quinzena;
-  const resto = q.potes.bau - somaLib(q, ['bau', 'nivel']);
+  const resto = capPote(q, 'bau') - somaLib(q, ['bau', 'nivel']);
   const v = Math.max(0, Math.min(valor, Math.floor(resto * 100) / 100));
   if (v > 0) q.liberacoes.push({ id: uid(), data: S.sim.data, tipo, valor: v, rotulo, ref });
   return v;
@@ -494,7 +495,7 @@ function pagarBau(valor, tipo, rotulo, ref) {
 // Baú do dia: só o primeiro bônus de cada dia abre. Retorna null se já abriu hoje ou o pote acabou.
 function rolarBau(rotulo, ref) {
   const q = S.quinzena, d = dia(S.sim.data);
-  if (d.bauRef || q.potes.bau - somaLib(q, ['bau', 'nivel']) <= 0) return null;
+  if (d.bauRef || capPote(q, 'bau') - somaLib(q, ['bau', 'nivel']) <= 0) return null;
   d.bauRef = ref;
   let r = Math.random(), valor = 0;
   for (const c of BAU_CHANCES) { if (r < c.p) { valor = Math.floor(c.mult * bauBase(q) * 100) / 100; break; } r -= c.p; }
@@ -527,7 +528,7 @@ function checarDesafio() {
   if (q.desafio.concluido) return false;
   if (progressoDesafio(q) >= q.desafio.meta) {
     q.desafio.concluido = true;
-    q.liberacoes.push({ id: uid(), data: S.sim.data, tipo: 'desafio', valor: q.potes.desafio, rotulo: 'Desafio: ' + q.desafio.texto });
+    q.liberacoes.push({ id: uid(), data: S.sim.data, tipo: 'desafio', valor: capPote(q, 'desafio'), rotulo: 'Desafio: ' + q.desafio.texto });
     return true;
   }
   return false;
@@ -602,20 +603,36 @@ function statusDano(id, iso = S.sim.data) {
 // ---------- Caixa bloqueada ----------
 // Cada dano tira um valor do livre desta quinzena e guarda para a próxima (entra no livre dela).
 const somaBloqueio = (q) => soma((q.bloqueios || []).map((b) => b.valor));
+// Teto real de cada pote: o pote menos o que a caixa bloqueada tirou dele (o valor por XP não muda)
+const capPote = (q, k) => Math.max(0, q.potes[k] - soma((q.bloqueios || []).map((b) => (b.partes || {})[k] || 0)));
+// O que cada pote ainda não liberou (é dali que a punição sai)
+function restoPotes(q) {
+  return {
+    xp: Math.max(0, capPote(q, 'xp') - liberadoXp(q)),
+    semana: Math.max(0, capPote(q, 'semana') - somaLib(q, ['terca', 'sexta'])),
+    bau: Math.max(0, capPote(q, 'bau') - somaLib(q, ['bau', 'nivel'])),
+    desafio: q.desafio.concluido ? 0 : capPote(q, 'desafio')
+  };
+}
 const cfgBloqueio = () => S.config.bloqueio || { ativo: false, soAcimaMeta: false, valores: {} };
 // Quanto este dano bloquearia agora (0 se desligado, abaixo da meta com "só acima" ou sem livre sobrando)
 function valorBloqueio(id, nDepois) {
   const c = cfgBloqueio(); if (!c.ativo) return 0;
   const v = Number((c.valores || {})[id]) || 0; if (!(v > 0)) return 0;
   if (c.soAcimaMeta && nDepois <= statusDano(id).meta) return 0;
-  return Math.min(v, Math.floor(financas().montante * 100) / 100);
+  const resto = soma(Object.values(restoPotes(S.quinzena)));
+  return Math.min(v, Math.floor(resto * 100) / 100);
 }
 function bloquear(id, ref) {
   const q = S.quinzena, s = statusDano(id);
   const v = valorBloqueio(id, s.n); // o registro já entrou na contagem
   if (!(v > 0)) return 0;
+  const r = restoPotes(q), tot = soma(Object.values(r));
+  const partes = {}; let usado = 0;
+  const ks = Object.keys(r).filter((k) => r[k] > 0);
+  ks.forEach((k, i) => { const p = i === ks.length - 1 ? Math.round((v - usado) * 100) / 100 : Math.floor((v * r[k] / tot) * 100) / 100; partes[k] = p; usado += p; });
   q.bloqueios = q.bloqueios || [];
-  q.bloqueios.push({ id: uid(), data: S.sim.data, tipo: id, valor: v, ref });
+  q.bloqueios.push({ id: uid(), data: S.sim.data, tipo: id, valor: v, ref, partes });
   return v;
 }
 
@@ -840,7 +857,7 @@ function fecharQuinzena() {
   q.fechada = true;
   const resumo = {
     inicio: q.inicio, fim: q.fim, tipo: q.tipo, livre: q.livre,
-    liberado: f.liberado + sobra, sacado: q.sacado, travadoPassa: Math.round((passaTravado + bloqueado) * 100) / 100, bloqueado, santos: santosFixo(q), gastos: f.gastos, xp: xpQuinzena(q),
+    liberado: f.liberado + sobra, sacado: q.sacado, travadoPassa: passaTravado, bloqueado, santos: santosFixo(q), gastos: f.gastos, xp: xpQuinzena(q),
     porCategoria: gastosPorCategoria(q),
     diasBons: intervalo(q.inicio, q.fim).filter(ehBom).length, dias: intervalo(q.inicio, q.fim).length,
     desafio: q.desafio.texto, desafioOk: q.desafio.concluido,
@@ -1314,11 +1331,11 @@ function celebrarXp(o) {
 // Em vez de "vale R$0,39", mostra o bloco de R$ que você está enchendo e quanto esta missão empurra.
 function rumoHtml(xp) {
   const q = S.quinzena, r = taxaXp(q);
-  const cheio = liberadoXp(q) >= q.potes.xp;
+  const cheio = liberadoXp(q) >= capPote(q, 'xp');
   if (cheio) return `<div class="rumo cheio"><div class="rumo-top"><b class="rumo-xp">+${xp} XP</b><span>Pote de XP da quinzena cheio · conta para o nível</span></div></div>`;
   const ja = xpQuinzena(q) % r.xp, depois = ja + xp;
   const blocos = Math.floor(depois / r.xp);
-  const libera = Math.min(q.potes.xp - liberadoXp(q), blocos * r.valor);
+  const libera = Math.min(capPote(q, 'xp') - liberadoXp(q), blocos * r.valor);
   const pctJa = (ja / r.xp) * 100, pctEssa = Math.min(100, depois / r.xp * 100) - pctJa;
   const falta = r.xp - (depois % r.xp);
   return `<div class="rumo ${blocos ? 'libera' : ''}">
@@ -1423,7 +1440,7 @@ function abrirDano(id) {
       <div class="rumo-bar"><i class="essa" style="width:${pct.toFixed(1)}%"></i></div>
       <small>Meta: até ${s.meta} ${s.meta === 1 ? 'vez' : 'vezes'} por semana (seg a dom). Muda em Progresso › Danos.</small>
     </div>
-    ${(() => { const v = valorBloqueio(id, s.n + 1); return v ? `<div class="bloq-aviso">${ic('lock')}<span><b>Bloqueia ${brl(v)}</b> do seu livre. Só volta na próxima quinzena.</span></div>` : ''; })()}
+    ${(() => { const v = valorBloqueio(id, s.n + 1); return v ? `<div class="bloq-aviso">${ic('lock')}<span><b>Bloqueia ${brl(v)}</b> do montante da quinzena. O disponível para saque não muda; volta no livre da próxima.</span></div>` : ''; })()}
     <span class="eyebrow">Gasto (opcional)</span>
     <div class="chips" data-s="v"><button class="chip on" data-v="0">Sem gasto</button>${[10, 20, 35, 50].map((v) => `<button class="chip" data-v="${v}">${brl(v)}</button>`).join('')}
       <input class="chip-in" type="number" inputmode="decimal" placeholder="Outro" min="1"></div>
@@ -1455,7 +1472,7 @@ function abrirFastFood() {
       <p class="nota">${t.disponiveis ? `Usa 1 ticket de delivery (${brl(ticket)}).${bolso ? ` ${brl(bolso)} saem do dinheiro livre.` : ''}` : `Sem ticket liberado: ${brl(valor)} saem do dinheiro livre.`}
       ${desafioFF ? `<br><b>Zera a contagem do desafio da quinzena “${esc(S.quinzena.desafio.texto)}”.</b>` : ''}</p>
       ${(() => { const s = statusDano('delivery'); return `<p class="nota">${s.n} de ${s.meta} delivery na quinzena${s.n + 1 > s.meta ? ' · <b>este passa da meta</b>' : ''}.</p>`; })()}
-      ${(() => { const v = valorBloqueio('delivery', statusDano('delivery').n + 1); return v ? `<div class="bloq-aviso">${ic('lock')}<span><b>Bloqueia ${brl(v)}</b> do seu livre. Só volta na próxima quinzena.</span></div>` : ''; })()}`;
+      ${(() => { const v = valorBloqueio('delivery', statusDano('delivery').n + 1); return v ? `<div class="bloq-aviso">${ic('lock')}<span><b>Bloqueia ${brl(v)}</b> do montante da quinzena. O disponível para saque não muda; volta no livre da próxima.</span></div>` : ''; })()}`;
   };
   abrirFolha(`
     <div class="sheet-head"><span class="sheet-ic warn">${ic('burger')}</span><div><span class="eyebrow">Custo real · dano</span><h3>Delivery</h3></div></div>
@@ -1559,7 +1576,7 @@ function modalPagamento(resumo, q) {
         <div><b>Dinheiro livre (travado)</b><span>${brl(q.livre)}${q.travadoAnterior ? ` (com ${brl(q.travadoAnterior)} da anterior)` : ''}</span></div>
         <div><b>Caixa de viagem</b><span>+${brl(santosFixo(q))} liberados hoje</span></div>
       </div>
-      <div class="desafio-box">${ic('target')}<div><span class="eyebrow">Desafio sorteado</span><b>${esc(q.desafio.texto)}</b><small>Cumpriu, libera ${brl(q.potes.desafio)}</small></div></div>
+      <div class="desafio-box">${ic('target')}<div><span class="eyebrow">Desafio sorteado</span><b>${esc(q.desafio.texto)}</b><small>Cumpriu, libera ${brl(capPote(q, 'desafio'))}</small></div></div>
       <button class="btn" data-fechar>Registrar custos fixos</button>
     </div>`);
 }
@@ -1864,10 +1881,10 @@ function renderGranaResumo() {
     if (d === iso && diaLer(d).fechado) continue;
     const c = calcSemanal(q, d);
     const teto = Math.max(0, tetoAcumulado(q, d) - f.sacado - f.descontos);
-    prox.push(`<div><b>${w === 2 ? 'Terça' : 'Sexta'} ${dataCurta(d)}${d === iso ? ' · hoje' : ''}</b><span>${d === iso ? `teto ${brl(f.teto)}` : `corte até ${brl(Math.min(c.cheio * (w === 5 ? 1.4 : 1), q.potes.semana - somaLib(q, ['terca', 'sexta'])))} · teto ${brl(teto)}`}</span></div>`);
+    prox.push(`<div><b>${w === 2 ? 'Terça' : 'Sexta'} ${dataCurta(d)}${d === iso ? ' · hoje' : ''}</b><span>${d === iso ? `teto ${brl(f.teto)}` : `corte até ${brl(Math.min(c.cheio * (w === 5 ? 1.4 : 1), capPote(q, 'semana') - somaLib(q, ['terca', 'sexta'])))} · teto ${brl(teto)}`}</span></div>`);
     if (prox.length >= 2) break;
   }
-  if (!q.desafio.concluido) prox.push(`<div><b>Desafio</b><span>${brl(q.potes.desafio)} · ${Math.min(desProg, q.desafio.meta)}/${q.desafio.meta}</span></div>`);
+  if (!q.desafio.concluido) prox.push(`<div><b>Desafio</b><span>${brl(capPote(q, 'desafio'))} · ${Math.min(desProg, q.desafio.meta)}/${q.desafio.meta}</span></div>`);
   if (f.tickets.liberados < f.tickets.max) prox.push(`<div><b>Ticket de delivery</b><span>${f.tickets.run}/${cfg.delivery.diasSeguidos} dias bons seguidos</span></div>`);
 
   const tickets = Array.from({ length: f.tickets.max }, (_, k) => {
@@ -1911,10 +1928,10 @@ function renderGranaResumo() {
 
   <h3 class="sec">Potes · ${brl(f.liberado)} liberados</h3>
   <section class="card list">
-    ${pote('bolt', 'XP', f.xp, q.potes.xp, f.xp >= q.potes.xp ? 'Pote cheio' : `${num(xpQ)} XP na quinzena · faltam ${r.xp - (xpQ % r.xp)} XP para +${brl(r.valor)}`)}
-    ${pote('calendar', 'Terça e sexta', libSem, q.potes.semana, `Corte de terça (sex a seg) e de sexta (ter a qui), à meia-noite`)}
-    ${pote('chest', 'Baú surpresa', libBau, q.potes.bau, `Um baú por dia (primeiro bônus) · até ${brl(bauMax())}`)}
-    ${pote('target', 'Desafio', q.desafio.concluido ? q.potes.desafio : 0, q.potes.desafio, `${esc(q.desafio.texto)} · ${q.desafio.concluido ? 'cumprido' : `${Math.min(desProg, q.desafio.meta)} de ${q.desafio.meta}`}`)}
+    ${pote('bolt', 'XP', f.xp, capPote(q, 'xp'), f.xp >= capPote(q, 'xp') ? 'Pote cheio' : `${num(xpQ)} XP na quinzena · faltam ${r.xp - (xpQ % r.xp)} XP para +${brl(r.valor)}`)}
+    ${pote('calendar', 'Terça e sexta', libSem, capPote(q, 'semana'), `Corte de terça (sex a seg) e de sexta (ter a qui), à meia-noite`)}
+    ${pote('chest', 'Baú surpresa', libBau, capPote(q, 'bau'), `Um baú por dia (primeiro bônus) · até ${brl(bauMax())}`)}
+    ${pote('target', 'Desafio', q.desafio.concluido ? capPote(q, 'desafio') : 0, capPote(q, 'desafio'), `${esc(q.desafio.texto)} · ${q.desafio.concluido ? 'cumprido' : `${Math.min(desProg, q.desafio.meta)} de ${q.desafio.meta}`}`)}
   </section>
 
   <h3 class="sec">Delivery</h3>
@@ -2022,9 +2039,9 @@ function pendenteSaque(q = S.quinzena) {
   // nesta tela o XP conta de 1 em 1: cada XP vale valor/100 (o saque real ainda libera em blocos de 100)
   const porXp = r.valor / r.xp;
   const xpNovo = Math.max(0, xpQuinzena(q) - xpAntes);
-  const restaPote = Math.max(0, q.potes.xp - Math.min(q.potes.xp, xpAntes * porXp));
+  const restaPote = Math.max(0, capPote(q, 'xp') - Math.min(capPote(q, 'xp'), xpAntes * porXp));
   const doXp = Math.floor(Math.min(restaPote, xpNovo * porXp) * 100) / 100;
-  const doXpBloco = Math.max(0, liberadoXp(q) - Math.min(q.potes.xp, Math.floor(xpAntes / r.xp) * r.valor));
+  const doXpBloco = Math.max(0, liberadoXp(q) - Math.min(capPote(q, 'xp'), Math.floor(xpAntes / r.xp) * r.valor));
   const baus = soma(novas.filter((l) => ['bau', 'nivel'].includes(l.tipo)).map((l) => l.valor));
   const cortesFeitos = soma(novas.filter((l) => ['terca', 'sexta'].includes(l.tipo)).map((l) => l.valor));
   // corte de dias bons que ainda vai cair à meia-noite antes do próximo saque
@@ -2036,7 +2053,7 @@ function pendenteSaque(q = S.quinzena) {
   const bruto = Math.max(0, f.disponivel - doXpBloco + doXp) + (corte ? corte.valor : 0);
   const teto = naQuinzena ? Math.max(0, tetoAcumulado(q, alvo) - q.sacado - f.descontos) : bruto;
   const total = Math.max(0, Math.min(bruto, teto));
-  return { alvo, naQuinzena, hoje: alvo === iso, total, bruto, teto, xpNovo, doXp, porXp, baus, cortes, corte, antes, r, cheio: liberadoXp(q) >= q.potes.xp };
+  return { alvo, naQuinzena, hoje: alvo === iso, total, bruto, teto, xpNovo, doXp, porXp, baus, cortes, corte, antes, r, cheio: liberadoXp(q) >= capPote(q, 'xp') };
 }
 function cardPendente() {
   const p = pendenteSaque();
@@ -2095,7 +2112,7 @@ function renderDanos() {
   <section class="card caixa-bloq ${c.ativo ? '' : 'off'}">
     <div class="caixa-topo"><span class="eyebrow">${ic('lock')} Caixa bloqueada</span><button class="editar-meta" data-a="configBloqueio">${ic('sliders')} Configurar</button></div>
     <b class="caixa-valor" data-bloq="${bloq.toFixed(2)}">${brl(bloq)}</b>
-    <small>${c.ativo ? `${nBloq} ${nBloq === 1 ? 'punição' : 'punições'} nesta quinzena · sai do seu livre agora e só entra no livre da próxima quinzena (${dataCurta(somaDias(q.fim, 1))})` : 'Desligada: os danos não bloqueiam dinheiro.'}</small>
+    <small>${c.ativo ? `${nBloq} ${nBloq === 1 ? 'punição' : 'punições'} nesta quinzena · sai do montante desta quinzena (o disponível para saque não muda) e entra no livre da próxima (${dataCurta(somaDias(q.fim, 1))})` : 'Desligada: os danos não bloqueiam dinheiro.'}</small>
     ${c.ativo ? `<div class="caixa-regras">${TIPOS_DANO.map((t) => `<span>${ic(t.icone)} ${brl(Number(c.valores[t.id]) || 0)}</span>`).join('')}<span class="muted">${c.soAcimaMeta ? 'só acima da meta' : 'a cada vez'}</span></div>` : ''}
   </section>`;
   return `
@@ -2111,7 +2128,7 @@ function abrirConfigBloqueio() {
   const c = clone(cfgBloqueio()); c.valores = c.valores || {};
   abrirFolha(`
     <div class="sheet-head"><span class="sheet-ic warn">${ic('lock')}</span><div><span class="eyebrow">Punição por dano</span><h3>Caixa bloqueada</h3></div></div>
-    <p class="nota">Cada dano tira esse valor do seu livre desta quinzena. O dinheiro não some: fica bloqueado e entra no livre da próxima quinzena.</p>
+    <p class="nota">Cada dano tira esse valor do montante desta quinzena (a parte que ainda não foi liberada). O disponível para saque não muda. O dinheiro não some: entra no livre da próxima quinzena.</p>
     <label class="tg-linha"><span><b>Ligada</b><small>Bloquear dinheiro nos danos</small></span><input type="checkbox" data-s="ativo" ${c.ativo ? 'checked' : ''}></label>
     <div class="bloq-valores">${TIPOS_DANO.map((t) => `
       <label class="bloq-v"><span class="task-ic">${ic(t.icone)}</span><b>${t.nome}</b><span class="bloq-in">R$<input type="number" inputmode="decimal" min="0" step="1" value="${Number(c.valores[t.id]) || 0}" data-k="${t.id}"></span></label>`).join('')}</div>
@@ -2641,7 +2658,7 @@ function contextoIA() {
       fixos: q.fixos.map((x) => ({ nome: x.nome, valor: x.valor, pago: !!x.pago })), fixosConfirmados: !!q.fixosOk,
       dinheiroLivre: q.livre, travadoQueVeioDaAnterior: q.travadoAnterior || 0, quinzenaDeAdaptacao: q.fator < 1 ? `começou ${inicioUtil(q)}, vale ${Math.round(q.fator * 100)}% (livre, metas e desafio proporcionais)` : false, liberado: r2(f.liberado), disponivelParaSaque: r2(f.disponivel), jaSacado: r2(f.sacado),
       travado: r2(f.travado), montanteRestante: r2(f.montante), saldoQueVeioDaAnterior: q.saldoAnterior,
-      potes: { xp: [r2(f.xp), r2(q.potes.xp)], tercaESexta: [r2(somaLib(q, ['terca', 'sexta'])), r2(q.potes.semana)], bau: [r2(somaLib(q, ['bau', 'nivel'])), r2(q.potes.bau)], desafio: [q.desafio.concluido ? r2(q.potes.desafio) : 0, r2(q.potes.desafio)] },
+      potes: { xp: [r2(f.xp), r2(capPote(q, 'xp'))], tercaESexta: [r2(somaLib(q, ['terca', 'sexta'])), r2(capPote(q, 'semana'))], bau: [r2(somaLib(q, ['bau', 'nivel'])), r2(capPote(q, 'bau'))], desafio: [q.desafio.concluido ? r2(capPote(q, 'desafio')) : 0, r2(capPote(q, 'desafio'))] }, caixaBloqueada: r2(somaBloqueio(q)),
       saque: { hojeEDiaDeSaque: f.hojeSaque, proximoSaque: f.dataSaque, valorDoSaque: r2(f.valorSaque), tetoDoSaque: r2(f.teto), ficaParaDepois: r2(f.paraDepois), jaSacouHoje: f.sacouHoje, manhaFeita: `${f.manha.feitas}/${f.manha.total}` },
       desafio: { texto: q.desafio.texto, progresso: Math.min(progressoDesafio(q), q.desafio.meta), meta: q.desafio.meta, cumprido: q.desafio.concluido },
       ticketsDelivery: { liberados: f.tickets.liberados, usados: f.tickets.usados, de: f.tickets.max, diasBonsSeguidosAgora: f.tickets.run },
@@ -3313,6 +3330,16 @@ function migrar() {
   if (!S.config.migracoes.includes('logo2')) { S.config.logo = 2; S.config.migracoes.push('logo2'); }
   S.config.migracoes = S.config.migracoes || [];
   if (!S.config.bloqueio) { S.config.bloqueio = clone(DADOS_INICIAIS.bloqueio); salvarLocal(); }
+  // bloqueios antigos (sem partes): tira dos potes agora, na proporção do que falta liberar
+  if (S.quinzena && (S.quinzena.bloqueios || []).some((b) => !b.partes)) {
+    const q = S.quinzena;
+    q.bloqueios.filter((b) => !b.partes).forEach((b) => {
+      const r = restoPotes(q), tot = soma(Object.values(r)) || 1, ks = Object.keys(r).filter((k) => r[k] > 0);
+      b.partes = {}; let usado = 0;
+      ks.forEach((k, i) => { const p = i === ks.length - 1 ? Math.round((b.valor - usado) * 100) / 100 : Math.floor((b.valor * r[k] / tot) * 100) / 100; b.partes[k] = p; usado += p; });
+    });
+    salvarLocal();
+  }
   // danos: metas, categorias de gasto e o desafio de fast food vira delivery
   if (!S.config.migracoes.includes('danos1')) {
     S.config.danos = S.config.danos || clone(DADOS_INICIAIS.danos);

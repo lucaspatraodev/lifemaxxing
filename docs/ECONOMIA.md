@@ -107,7 +107,8 @@ valor esperado por baú = 1,7b  →  15 baús pagam, em média, o pote inteiro
 
 Cada dano registrado (fumar, beber, delivery) pode bloquear um valor fixo, configurável em Progresso › Danos › Configurar (padrão: fumar R$10, beber R$10, delivery R$0; opção "só acima da meta").
 
-- O valor sai do livre desta quinzena na hora: entra como desconto, então reduz o disponível e o montante (nunca passa do montante que resta).
+- O valor sai do montante desta quinzena, da parte que ainda não foi liberada: cada pote (XP, terça/sexta, baú, desafio) perde a sua fatia, na proporção do que ainda falta liberar. O valor por XP não muda; o pote só enche antes.
+- O disponível para saque não muda. Nunca bloqueia mais do que falta liberar.
 - O dinheiro não some. No fechamento da quinzena ele soma ao travado que passa (`travadoPassa`) e entra no livre da próxima quinzena.
 - Apagar o registro do dano devolve o bloqueio dele.
 - O caixa continua fechando em 0: entrada = sacado + descontos + carry + travadoPassa (com o bloqueado dentro).
