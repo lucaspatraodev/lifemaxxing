@@ -91,6 +91,7 @@ const IC = {
   bolt: '<path d="M13 2.5 5 13.5h6.5l-1 8 8-11h-6.5z"/>',
   dot: '<circle cx="12" cy="12" r="5"/>',
   heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
   book: '<path d="M4.5 5.5A2 2 0 0 1 6.5 3.5H19v15H6.5a2 2 0 0 0-2 2z"/><path d="M4.5 20.5v-15M19 18.5v2H6.5"/>'
 };
 const ICONES_HABITO = ['dot', 'tooth', 'sparkle', 'drop', 'apple', 'moon', 'door', 'sun', 'phoneoff', 'tree', 'wave', 'dumbbell', 'heart', 'book', 'bolt', 'run'];
@@ -267,6 +268,7 @@ function abrirQuinzena(iso) {
     sacado: 0, saques: [], gastos: [],
     ticketsUsados: 0, saldoAnterior: 0,
     desafio: { ...DESAFIOS[rand(DESAFIOS.length)], concluido: false },
+    fixosOk: false,   // vira true quando você confirma os custos fixos do dia de pagamento
     fechada: false
   };
   calcularPotes(q);
@@ -285,17 +287,6 @@ function calcularPotes(q) {
   // Cada terça vale 1 parte e cada sexta 2 partes
   const partes = intervalo(q.inicio, q.fim).reduce((s, d) => s + (diaSemana(d) === 2 ? 1 : diaSemana(d) === 5 ? 2 : 0), 0);
   q.parteValor = partes ? q.potes.semana / partes : 0;
-}
-
-// Ajustes do orçamento valem já para a quinzena atual
-function aplicarOrcamento() {
-  const q = S.quinzena;
-  const orc = S.config.orcamento['d' + q.tipo];
-  const antes = santosFixo(q);
-  q.entrada = orc.entrada;
-  q.fixos = orc.fixos.map((f) => ({ ...f, pago: !!(q.fixos.find((x) => x.id === f.id) || {}).pago }));
-  calcularPotes(q);
-  S.santos += santosFixo(q) - antes;
 }
 
 const somaLib = (q, tipos) => soma(q.liberacoes.filter((l) => !tipos || tipos.includes(l.tipo)).map((l) => l.valor));
@@ -346,22 +337,53 @@ function ticketsInfo(q) {
   return { max: maxT, liberados, usados: q.ticketsUsados, disponiveis: Math.max(0, liberados - q.ticketsUsados), run: liberados >= maxT ? N : run };
 }
 
-// Resumo do dinheiro da quinzena
+// Resumo do dinheiro da quinzena.
+// Liberado e não sacado = disponível para saque. Sacar tira o valor do montante.
+// Fast food sem ticket é descontado direto do montante (primeiro do disponível, depois do travado).
+// Os outros gastos são só registro (saem do que você já sacou).
 function financas(q = S.quinzena) {
   const xp = liberadoXp(q);
   const outros = somaLib(q);
   const pend = pendenteHoje(q);
   const liberado = xp + outros + pend;
   const t = ticketsInfo(q);
+  const descontos = soma(q.gastos.filter((g) => g.descontado).map((g) => g.valor));
   const gastos = soma(q.gastos.map((g) => g.valor));
-  const ticketsValor = t.liberados * S.config.delivery.ticket;
+  const entra = liberado + q.saldoAnterior;
+  const excesso = Math.max(0, q.sacado + descontos - entra);
   return {
-    xp, pend, liberado,
-    travado: Math.max(0, q.livre - liberado - ticketsValor),
-    aSacar: Math.max(0, liberado - q.sacado),
-    carteira: q.saldoAnterior + q.sacado - gastos,
-    gastos, tickets: t
+    xp, pend, liberado, descontos, gastos, tickets: t,
+    sacado: q.sacado,
+    disponivel: Math.max(0, entra - q.sacado - descontos),
+    travado: Math.max(0, q.livre - liberado - t.liberados * S.config.delivery.ticket - excesso),
+    montante: Math.max(0, q.livre + q.saldoAnterior - q.sacado - descontos)
   };
+}
+
+function gastosPorCategoria(q) {
+  const m = {};
+  q.gastos.forEach((g) => { m[g.categoria] = (m[g.categoria] || 0) + g.valor; });
+  return m;
+}
+
+// Insights curtos sobre os gastos da quinzena
+function insightsGastos(q) {
+  const dias = intervalo(q.inicio, minIso(S.sim.data, q.fim)).length;
+  const total = soma(q.gastos.map((g) => g.valor));
+  const cats = Object.entries(gastosPorCategoria(q)).sort((a, b) => b[1] - a[1]);
+  const ff = intervalo(q.inicio, minIso(S.sim.data, q.fim)).flatMap((d) => diaLer(d).fastfood);
+  const ffValor = soma(ff.map((x) => x.valor));
+  const ant = S.historico.find((h) => h.inicio < q.inicio);
+  return { dias, total, porDia: dias ? total / dias : 0, cats, ff: ff.length, ffValor, anterior: ant ? ant.gastos : null };
+}
+
+// Recalcula a quinzena depois de mudar entrada ou fixos (e acerta a Caixa de Santos)
+function mudarQuinzena(q, mudar) {
+  const antes = santosFixo(q);
+  mudar();
+  calcularPotes(q);
+  S.santos += santosFixo(q) - antes;
+  salvar();
 }
 
 const diaDeSaque = (iso) => [2, 5].includes(diaSemana(iso));
@@ -464,18 +486,18 @@ function registrarFastFood(valor) {
     doBolso = Math.max(0, valor - S.config.delivery.ticket);
   }
   dia(iso).fastfood.push({ valor, ticket: usouTicket });
-  if (doBolso > 0) q.gastos.push({ id: uid(), data: iso, valor: doBolso, categoria: 'Delivery', nota: usouTicket ? 'Fast food (resto do ticket)' : 'Fast food' });
+  if (doBolso > 0) q.gastos.push({ id: uid(), data: iso, valor: doBolso, categoria: 'Delivery', descontado: true, nota: usouTicket ? 'Fast food (resto do ticket)' : 'Fast food' });
   salvar();
   return { usouTicket, doBolso };
 }
 
 function sacar() {
   const q = S.quinzena, f = financas(q);
-  if (!diaDeSaque(S.sim.data) || f.aSacar <= 0) return 0;
-  q.sacado += f.aSacar;
-  q.saques.push({ data: S.sim.data, valor: f.aSacar });
+  if (!diaDeSaque(S.sim.data) || f.disponivel <= 0) return 0;
+  q.sacado += f.disponivel;
+  q.saques.push({ id: uid(), data: S.sim.data, valor: f.disponivel });
   salvar();
-  return f.aSacar;
+  return f.disponivel;
 }
 
 /* ---------------------------------------------------------
@@ -625,19 +647,19 @@ function fecharDia() {
 function fecharQuinzena() {
   const q = S.quinzena;
   const t = ticketsInfo(q);
-  const sobra = Math.max(0, t.liberados - q.ticketsUsados);
-  if (sobra) q.liberacoes.push({ id: uid(), data: q.fim, tipo: 'ticket', valor: sobra * S.config.delivery.ticket, rotulo: 'Tickets que sobraram' });
+  // ticket liberado e não usado vira dinheiro livre (passa para a próxima como disponível)
+  const sobra = Math.max(0, t.liberados - q.ticketsUsados) * S.config.delivery.ticket;
   const f = financas(q);
-  const usados = Math.min(q.ticketsUsados, t.liberados) * S.config.delivery.ticket;
-  const paraSantos = Math.max(0, q.livre - f.liberado - usados);
+  const paraSantos = f.travado;
   S.santos += paraSantos;
   q.fechada = true;
   const resumo = {
     inicio: q.inicio, fim: q.fim, tipo: q.tipo, livre: q.livre,
-    liberado: f.liberado, santos: paraSantos, gastos: f.gastos, xp: xpQuinzena(q),
+    liberado: f.liberado + sobra, sacado: q.sacado, santos: paraSantos, gastos: f.gastos, xp: xpQuinzena(q),
+    porCategoria: gastosPorCategoria(q),
     diasBons: intervalo(q.inicio, q.fim).filter(ehBom).length, dias: intervalo(q.inicio, q.fim).length,
     desafio: q.desafio.texto, desafioOk: q.desafio.concluido,
-    carry: Math.round((f.carteira + f.aSacar) * 100) / 100
+    carry: Math.round((f.disponivel + sobra) * 100) / 100
   };
   S.historico.unshift(resumo);
   return resumo;
@@ -845,25 +867,30 @@ function renderHoje() {
       <div><p>“${esc(fr.texto)}”</p><span>${esc(fr.autor)}</span></div>
     </div>` : '';
 
-  const tarefas = tarefasDoPeriodo(p).map(({ h, i, pt }) => {
+  // Obrigações (mínimos) seguem o período; bônus aparecem o dia todo
+  const linha = ({ h, i, pt }) => {
     const feito = parteFeita(iso, h, i);
     const multi = h.partes.length > 1;
-    let xp = h.especial ? (h.especial === 'treino' ? `${h.xp}+` : `${h.xp}+`) : parteXp(h, i);
+    const xp = h.especial ? `${h.xp}+` : parteXp(h, i);
     const sub = h.especial ? (h.especial === 'treino' ? 'Abre o treino ou registra rápido' : 'Sessão de surf')
       : h.id === 'dormir' ? `Até ${S.config.horaDormir}`
-      : multi ? `${h.nome} · ${i + 1} de ${h.partes.length}` : (h.tipo === 'extra' ? 'Extra · chance de baú' : (h.motivos[0] || ''));
+      : multi ? `${h.nome} · ${i + 1} de ${h.partes.length}` : (h.tipo === 'extra' ? (h.motivos[0] ? `${h.motivos[0]} · chance de baú` : 'Chance de baú') : (h.motivos[0] || ''));
     return `
       <button class="task ${feito ? 'done' : ''} ${h.tipo}" data-a="tarefa" data-h="${h.id}" data-i="${i}">
         <span class="task-ic">${ic(h.icone)}</span>
         <span class="task-tx"><b>${esc(pt.rotulo || h.nome)}</b><small>${esc(sub)}</small></span>
         ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">+${xp} XP</span>`}
       </button>`;
-  }).join('');
+  };
+  const obrigacoes = tarefasDoPeriodo(p).filter((t) => t.h.tipo === 'minimo');
+  const feitasP = obrigacoes.filter((t) => parteFeita(iso, t.h, t.i)).length;
+  const bonus = extras().flatMap((h) => h.partes.map((pt, i) => ({ h, i, pt })));
+  const bonusFeitos = bonus.filter((t) => parteFeita(iso, t.h, t.i)).length;
 
   const saque = diaDeSaque(iso) ? `
     <button class="card banner" data-a="ir" data-aba="grana">
       <span class="banner-ic">${ic('wallet')}</span>
-      <span><span class="eyebrow">Dia de saque</span><b>${f.aSacar > 0 ? `${brl(f.aSacar)} para sacar` : 'Feche o dia bom para liberar'}</b></span>
+      <span><span class="eyebrow">Dia de saque</span><b>${f.disponivel > 0 ? `${brl(f.disponivel)} disponível para saque` : 'Feche o dia bom para liberar'}</b></span>
       ${ic('next')}
     </button>` : '';
 
@@ -888,16 +915,29 @@ function renderHoje() {
       <div><span class="eyebrow">Dia bom</span><h2>${cont} <small>de ${tot}</small></h2></div>
       <span class="pill ${bom ? 'blue' : ''}">${bom ? `+${S.config.xpDiaBom} XP ganhos` : `+${S.config.xpDiaBom} XP com ${tot} de ${tot}`}</span>
     </div>
-    <div class="dots">${minimos().map((h) => {
+    <div class="dots" style="grid-template-columns:repeat(${minimos().length + (habito('treino') ? 1 : 0)},1fr)">${minimos().map((h) => {
       const feito = habitoFeito(iso, h), parc = partesFeitas(iso, h) / h.partes.length;
       return `<div class="dotw"><span class="dot ${feito ? 'on' : ''}" style="--p:${(parc * 100).toFixed(0)}">${ic(h.icone)}</span><small>${esc(h.nome)}</small></div>`;
-    }).join('')}</div>
+    }).join('')}${habito('treino') ? `<button class="dotw treino" data-a="tarefa" data-h="treino" data-i="0" aria-label="Treino">
+      <span class="dot extra ${habitoFeitoId(iso, 'treino') ? 'on' : ''}" style="--p:0">${ic('dumbbell')}</span><small>Treino</small></button>` : ''}</div>
   </section>
 
+  ${S.quinzena.fixosOk ? '' : `
+    <button class="card banner dark" data-a="abrirFixos">
+      <span class="banner-ic">${ic('calendar')}</span>
+      <span><span class="eyebrow">Dia de pagamento · dia ${S.quinzena.tipo}</span><b>Registrar custos fixos</b></span>
+      ${ic('next')}
+    </button>`}
   ${saque}
 
+  <div class="sec-row"><h3 class="sec">Obrigações</h3><span class="sec-n">${feitasP} de ${obrigacoes.length} ${PERIODOS[p].toLowerCase() === 'manhã' ? 'de manhã' : 'à ' + PERIODOS[p].toLowerCase()}</span></div>
   <div class="tabs">${Object.keys(PERIODOS).map((k) => `<button class="${k === p ? 'on' : ''}" data-a="abaPeriodo" data-p="${k}">${PERIODOS[k]}</button>`).join('')}</div>
-  <section class="tasks">${tarefas || '<p class="vazio">Nada neste período.</p>'}</section>
+  <section class="tasks">${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</section>
+
+  <div class="sec-row"><h3 class="sec">Bônus <span class="sec-n">· opcionais, valem mais</span></h3><span class="sec-n">${bonusFeitos} hoje</span></div>
+  <section class="tasks bonus">${bonus.map(linha).join('')}
+    <button class="task add-bonus" data-a="novoBonus"><span class="task-ic">${ic('plus')}</span><span class="task-tx"><b>Adicionar bônus</b><small>Hobbies e coisas boas que não são obrigação</small></span></button>
+  </section>
 
   <button class="card ff" data-a="fastfood">
     <span class="task-ic">${ic('burger')}</span>
@@ -954,6 +994,18 @@ function confirmarTarefa(h, i) {
   animarXp(antes, r.ganho);
 }
 
+// Quanto um ganho de XP vale e libera em reais (usado no treino)
+function blocoDinheiro(xp) {
+  const q = S.quinzena, r = S.config.xpParaReal;
+  const cheio = liberadoXp(q) >= q.potes.xp;
+  const agora = liberadoXp(q, xp) - liberadoXp(q);
+  return `<div class="money-box">
+      <div><span class="eyebrow">Vale</span><b>${brl((xp * r.valor) / r.xp)}</b></div>
+      <div><span class="eyebrow">Libera agora</span><b>${cheio ? '—' : brl(agora)}</b></div>
+      <small>${cheio ? 'Pote de XP da quinzena cheio.' : `${brl(r.valor)} a cada ${r.xp} XP.`} Pode abrir um baú surpresa de até R$40.</small>
+    </div>`;
+}
+
 // Treino e surf no Hoje
 function abrirEspecial(h) {
   const iso = S.sim.data, feito = habitoFeito(iso, h);
@@ -966,7 +1018,8 @@ function abrirEspecial(h) {
     ${deHoje.length ? `<div class="lista-mini">${deHoje.map((t) => `<div><b>${esc(t.nome)}</b><span>${t.duracao} min · +${t.xp} XP</span></div>`).join('')}</div>` : ''}
     <p class="nota">${h.xp} XP base. +${b.intensidade} com intensidade 8+, +${b.duracao} acima de 45 min${surf ? '' : `, +${b.recorde} por recorde (até ${b.maxRecordes})`}.</p>
     <button class="btn" data-s="abrir">${ic(surf ? 'wave' : 'dumbbell')} ${surf ? 'Abrir sessão no Treino' : 'Abrir treino completo'}</button>
-    ${feito ? `<button class="btn ghost danger-tx" data-s="desfazer">Desfazer ${surf ? 'surf' : 'treino'} de hoje</button>` : `<p class="eyebrow center">ou registro rápido (${surf ? 60 : 50} min, intensidade 7)</p>${slideHtml(surf ? 'Deslize: surf rápido' : 'Deslize: treino rápido')}`}`,
+    ${feito ? '' : blocoDinheiro(h.xp + b.duracao)}
+    ${feito ? `<button class="btn ghost danger-tx" data-s="desfazer">Desfazer ${surf ? 'surf' : 'treino'} de hoje</button>` : `<p class="eyebrow center">ou registro rápido (${surf ? 60 : 50} min, intensidade 7 · +${h.xp + b.duracao} XP)</p>${slideHtml(surf ? 'Deslize: surf rápido' : 'Deslize: treino rápido')}`}`,
   (el) => {
     el.querySelector('[data-s="abrir"]').addEventListener('click', () => {
       fecharFolha(); UI.aba = 'treino';
@@ -1052,7 +1105,7 @@ function modalNivel(subidas) {
         <span class="chest-anim">${ic('chest')}</span>
         <span class="lv-chest-tx"><span class="eyebrow light">Baú de nível${subidas.length > 1 ? ` ×${subidas.length}` : ''}</span><b>Toque para abrir</b></span>
       </button>
-      <div class="lv-saldo" hidden><span class="eyebrow light">Saldo para sacar</span><b>${brl(financas().aSacar)}</b><small>Disponível na carteira: ${brl(financas().carteira)}</small></div>
+      <div class="lv-saldo" hidden><span class="eyebrow light">Disponível para saque</span><b>${brl(financas().disponivel)}</b><small>Saque às terças e sextas</small></div>
       <button class="btn light" data-fechar>Continuar</button>
     </div>`, 'full', (ov) => {
     ov.querySelector('[data-s="abrirBau"]').addEventListener('click', (e) => {
@@ -1102,7 +1155,7 @@ function modalPagamento(resumo, q) {
         <div><b>Dinheiro livre (travado)</b><span>${brl(q.livre)}</span></div>
       </div>
       <div class="desafio-box">${ic('target')}<div><span class="eyebrow">Desafio sorteado</span><b>${esc(q.desafio.texto)}</b><small>Cumpriu, libera ${brl(q.potes.desafio)}</small></div></div>
-      <button class="btn" data-fechar>Bora</button>
+      <button class="btn" data-fechar>Registrar custos fixos</button>
     </div>`);
 }
 
@@ -1286,6 +1339,7 @@ function abrirFinalizar() {
         <div><span class="eyebrow">Volume</span><b>${num(c.volume)} kg</b></div>
         <div><span class="eyebrow">XP</span><b>+${c.total}</b></div>
       </div>
+      ${blocoDinheiro(c.total)}
       <ul class="xp-break">
         <li><span>Treino</span><b>${c.base}</b></li>
         ${c.nPrs ? `<li><span>${c.nPrs} recorde${c.nPrs > 1 ? 's' : ''}${c.nPrs > S.config.xpBonus.maxRecordes ? ` (contam ${S.config.xpBonus.maxRecordes})` : ''}</span><b>+${c.prs}</b></li>` : ''}
@@ -1314,8 +1368,10 @@ function abrirFinalizar() {
       const treino = S.treinoAtivo;
       S.treinoAtivo = null;
       UI.descanso = null;
+      const lib0 = liberadoXp(S.quinzena);
       const r = finalizarTreino(treino);
-      fila.push(() => modalTreinoFeito(treino, r.c));
+      const liberou = liberadoXp(S.quinzena) - lib0 + (r.bau || 0);
+      fila.push(() => modalTreinoFeito(treino, r.c, liberou));
       if (r.bau !== null) fila.push(() => modalBau(r.bau));
       const sub = checarNivel(); if (sub.length) fila.push(() => modalNivel(sub));
       if (r.desafio) toast('Desafio da quinzena cumprido!');
@@ -1324,7 +1380,7 @@ function abrirFinalizar() {
   });
 }
 
-function modalTreinoFeito(t, c) {
+function modalTreinoFeito(t, c, liberou = 0) {
   abrirModal(`
     <div class="modal-card">
       <span class="eyebrow">Treino concluído</span>
@@ -1335,6 +1391,7 @@ function modalTreinoFeito(t, c) {
         <div><span class="eyebrow">Intensidade</span><b>${t.intensidade}/10</b></div>
       </div>
       <div class="xp-total">+${c.total} XP</div>
+      <p class="muted center">${liberou > 0 ? `Liberou <b>${brl(liberou)}</b> na quinzena (incluindo baú)` : `Vale ${brl((c.total * S.config.xpParaReal.valor) / S.config.xpParaReal.xp)} rumo à próxima liberação`}</p>
       ${c.nPrs ? `<p class="muted center">${ic('trophy')} ${c.nPrs} recorde${c.nPrs > 1 ? 's' : ''} pessoal${c.nPrs > 1 ? 'is' : ''}</p>` : ''}
       <button class="btn" data-fechar>Fechar</button>
     </div>`);
@@ -1342,9 +1399,46 @@ function modalTreinoFeito(t, c) {
 
 // --- Grana ---
 function renderGrana() {
+  const q = S.quinzena;
+  const abas = `<div class="seg grana-abas">${[['resumo', 'Resumo'], ['fixos', 'Fixos']].map(([k, n]) => `<button class="${(UI.granaAba || 'resumo') === k ? 'on' : ''}" data-a="granaAba" data-k="${k}">${n}${k === 'fixos' && !q.fixosOk ? ' <i class="dot-alerta"></i>' : ''}</button>`).join('')}</div>`;
+  return `
+  <div class="page-head"><span class="eyebrow">Quinzena ${dataCurta(q.inicio)} a ${dataCurta(q.fim)}</span><h1>Grana</h1></div>
+  ${abas}
+  ${(UI.granaAba || 'resumo') === 'fixos' ? renderGranaFixos() : renderGranaResumo()}`;
+}
+
+function renderGranaResumo() {
   const q = S.quinzena, f = financas(q), iso = S.sim.data, cfg = S.config;
-  const podeSacar = diaDeSaque(iso) && f.aSacar > 0;
-  const pctLib = q.livre ? Math.min(100, ((f.liberado + f.tickets.liberados * cfg.delivery.ticket) / q.livre) * 100) : 0;
+  const podeSacar = diaDeSaque(iso) && f.disponivel > 0;
+  const total = q.livre + q.saldoAnterior || 1;
+  const pSac = Math.min(100, ((f.sacado + f.descontos) / total) * 100);
+  const pDisp = Math.min(100 - pSac, (f.disponivel / total) * 100);
+
+  // insights dos gastos
+  const ins = insightsGastos(q);
+  const top = ins.cats[0];
+  const fds = cfg.fimDeSemanaSantos;
+  const dif = ins.anterior === null ? null : ins.total - ins.anterior;
+  const insights = `
+    <div class="ins">
+      <div><span class="eyebrow">Na quinzena</span><b>${brl(ins.total)}</b><small>${brl(ins.porDia)} por dia</small></div>
+      <div><span class="eyebrow">Mais gasto em</span><b>${top ? esc(top[0]) : '—'}</b><small>${top ? `${Math.round((top[1] / ins.total) * 100)}% do total` : 'sem gastos ainda'}</small></div>
+      <div><span class="eyebrow">Fast food</span><b>${ins.ff}×</b><small>${ins.ff ? `${brl(ins.ffValor)} = ${fds ? Math.round((ins.ffValor / fds) * 100) : 0}% de Santos` : 'nenhum na quinzena'}</small></div>
+      <div><span class="eyebrow">Vs. anterior</span><b class="${dif > 0 ? 'neg' : ''}">${dif === null ? '—' : (dif > 0 ? '+' : dif < 0 ? '−' : '') + brl(Math.abs(dif))}</b><small>${dif === null ? 'primeira quinzena' : dif > 0 ? 'gastou mais' : dif < 0 ? 'gastou menos' : 'igual'}</small></div>
+    </div>
+    ${ins.cats.length > 1 ? `<div class="cat-bar">${ins.cats.map(([c, v], k) => `<i style="flex:${v};opacity:${Math.max(0.3, 1 - k * 0.18)}" title="${esc(c)}"></i>`).join('')}</div>
+      <div class="cat-leg">${ins.cats.slice(0, 4).map(([c, v], k) => `<span><i style="opacity:${Math.max(0.3, 1 - k * 0.18)}"></i>${esc(c)} ${brl(v)}</span>`).join('')}</div>` : ''}`;
+
+  // histórico: gastos e saques juntos
+  const itens = [
+    ...q.gastos.map((g) => ({ ...g, k: 'gasto' })),
+    ...q.saques.map((s) => ({ ...s, k: 'saque' }))
+  ].sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
+  const mostrar = UI.histTudo ? itens : itens.slice(0, 5);
+  const hist = mostrar.map((g) => g.k === 'saque'
+    ? `<div class="hist"><span class="hist-ic saque">${ic('wallet')}</span><span class="task-tx"><b>Saque</b><small>${dataCurta(g.data)} · saiu do montante</small></span><span class="pos">${brl(g.valor)}</span></div>`
+    : `<div class="hist"><span class="hist-ic">${ic(g.categoria === 'Delivery' ? 'burger' : 'wallet')}</span><span class="task-tx"><b>${esc(g.categoria)}</b><small>${dataCurta(g.data)}${g.nota ? ' · ' + esc(g.nota) : ''}${g.descontado ? ' · descontado' : ''}</small></span><span class="neg">−${brl(g.valor)}</span>
+       <button class="icon-sm" data-a="apagarGasto" data-id="${g.id}" aria-label="Apagar gasto">${ic('x')}</button></div>`).join('');
 
   // potes
   const libSem = somaLib(q, ['terca', 'sexta']) + f.pend;
@@ -1374,27 +1468,33 @@ function renderGrana() {
     return `<div class="ticket ${st}">${ic(st === 'travado' ? 'lock' : 'ticket')}<span>${brl(cfg.delivery.ticket)}</span><small>${st === 'usado' ? 'usado' : st === 'livre' ? 'liberado' : `${cfg.delivery.diasSeguidos} dias bons`}</small></div>`;
   }).join('');
 
-  const gastos = [...q.gastos].reverse().map((g) => `
-    <div class="hist"><span class="task-tx"><b>${esc(g.categoria)}</b><small>${dataCurta(g.data)}${g.nota ? ' · ' + esc(g.nota) : ''}</small></span><span class="neg">−${brl(g.valor)}</span>
-    <button class="icon-sm" data-a="apagarGasto" data-id="${g.id}" aria-label="Apagar gasto">${ic('x')}</button></div>`).join('');
-
   return `
-  <div class="page-head"><span class="eyebrow">Quinzena ${dataCurta(q.inicio)} a ${dataCurta(q.fim)}</span><h1>Grana</h1></div>
   <section class="hero money">
-    <span class="eyebrow light">Disponível na carteira</span>
-    <div class="money-big ${f.carteira < 0 ? 'neg' : ''}">${brl(f.carteira)}</div>
+    <span class="eyebrow light">Disponível para saque</span>
+    <div class="money-big">${brl(f.disponivel)}</div>
     <div class="money-row">
-      <div><span class="eyebrow light">Liberado</span><b>${brl(f.liberado)}</b></div>
-      <div><span class="eyebrow light">Para sacar</span><b>${brl(f.aSacar)}</b></div>
+      <div><span class="eyebrow light">Já sacado</span><b>${brl(f.sacado)}</b></div>
       <div><span class="eyebrow light">Travado</span><b>${brl(f.travado)}</b></div>
+      <div><span class="eyebrow light">Montante</span><b>${brl(f.montante)}</b></div>
     </div>
-    <div class="bar"><i style="width:${pctLib.toFixed(1)}%"></i></div>
-    <button class="btn ${podeSacar ? 'light' : 'off'}" data-a="sacar" ${podeSacar ? '' : 'disabled'}>${podeSacar ? `Sacar ${brl(f.aSacar)}` : diaDeSaque(iso) ? 'Nada para sacar agora' : 'Saque só às terças e sextas'}</button>
+    <div class="bar duo"><i class="sac" style="width:${pSac.toFixed(1)}%"></i><i style="width:${pDisp.toFixed(1)}%"></i></div>
+    <div class="bar-leg"><span><i class="sac"></i>Sacado</span><span><i></i>Disponível</span><span><i class="trav"></i>Travado</span></div>
+    <button class="btn ${podeSacar ? 'light' : 'off'}" data-a="sacar" ${podeSacar ? '' : 'disabled'}>${podeSacar ? `Sacar ${brl(f.disponivel)}` : diaDeSaque(iso) ? 'Nada para sacar agora' : 'Saque só às terças e sextas'}</button>
   </section>
 
   <button class="btn dark add" data-a="gasto">${ic('plus')} Gasto</button>
 
-  <h3 class="sec">Potes da quinzena</h3>
+  <h3 class="sec">Gastos</h3>
+  <section class="card">${insights}</section>
+
+  <h3 class="sec">Histórico</h3>
+  <section class="card list">${hist || '<p class="vazio">Nenhum gasto ou saque nesta quinzena.</p>'}
+    ${itens.length > 5 ? `<button class="link" data-a="histTudo">${UI.histTudo ? 'Mostrar menos' : `Ver tudo (${itens.length})`}</button>` : ''}</section>
+
+  <h3 class="sec">Próximas liberações</h3>
+  <section class="card lista-mini">${prox.join('') || '<p class="vazio">Fim da quinzena chegando.</p>'}</section>
+
+  <h3 class="sec">Potes · ${brl(f.liberado)} liberados</h3>
   <section class="card list">
     ${pote('bolt', 'XP', f.xp, q.potes.xp, f.xp >= q.potes.xp ? 'Pote cheio' : `${num(xpQ)} XP na quinzena · faltam ${r.xp - (xpQ % r.xp)} XP para +${brl(r.valor)}`)}
     ${pote('calendar', 'Terça e sexta', libSem, q.potes.semana, `Parte vale ${brl(q.parteValor)} · terça 1 parte, sexta 2`)}
@@ -1404,21 +1504,7 @@ function renderGrana() {
 
   <h3 class="sec">Delivery</h3>
   <section class="card"><div class="tickets">${tickets}</div>
-    <p class="nota">Cada ticket abre com ${cfg.delivery.diasSeguidos} dias bons seguidos. O que sobrar vira dinheiro livre no fim.</p></section>
-
-  <h3 class="sec">Próximas liberações</h3>
-  <section class="card lista-mini">${prox.join('') || '<p class="vazio">Fim da quinzena chegando.</p>'}</section>
-
-  <h3 class="sec">Fixos · entrada ${brl(q.entrada)}</h3>
-  <section class="card list">${q.fixos.map((fx, k) => `
-    <button class="fixo ${fx.pago ? 'pago' : ''}" data-a="pagarFixo" data-k="${k}">
-      <span class="check-box">${ic('check')}</span><span class="task-tx"><b>${esc(fx.nome)}</b></span><span>${brl(fx.valor)}</span>
-    </button>`).join('')}
-    <div class="fixo total"><span class="task-tx"><b>Dinheiro livre</b></span><b>${brl(q.livre)}</b></div>
-  </section>
-
-  <h3 class="sec">Gastos · ${brl(f.gastos)}</h3>
-  <section class="card list">${gastos || '<p class="vazio">Nenhum gasto nesta quinzena.</p>'}</section>
+    <p class="nota">Cada ticket abre com ${cfg.delivery.diasSeguidos} dias bons seguidos. O que sobrar vira disponível para saque no fim.</p></section>
 
   <section class="card santos">
     <span class="task-ic">${ic('wave')}</span>
@@ -1426,10 +1512,51 @@ function renderGrana() {
   </section>`;
 }
 
+// Editor dos fixos da quinzena atual (usado na aba Fixos e na folha do dia de pagamento)
+function fixosEditorHtml() {
+  const q = S.quinzena;
+  return `
+    <label class="inline">Entrada<input type="number" inputmode="decimal" value="${q.entrada}" data-qf="entrada" id="qf-entrada"></label>
+    ${q.fixos.map((fx, i) => `
+      <div class="fixo-ed q">
+        <button class="check-box ${fx.pago ? 'on' : ''}" data-a="pagarFixo" data-k="${i}" aria-label="Pago">${ic('check')}</button>
+        <input type="text" value="${esc(fx.nome)}" data-qf="${i}|nome" id="qf-${i}-n" aria-label="Nome">
+        <input type="number" inputmode="decimal" value="${fx.valor}" data-qf="${i}|valor" id="qf-${i}-v" aria-label="Valor">
+        <button class="icon-sm" data-a="qRemFixo" data-i="${i}" aria-label="Remover">${ic('x')}</button>
+      </div>`).join('')}
+    <button class="link" data-a="qAddFixo">${ic('plus')} Fixo</button>
+    <div class="fixo total"><span class="task-tx"><b>Dinheiro livre</b><small>entrada menos fixos</small></span><b data-livre>${brl(q.livre)}</b></div>`;
+}
+
+function renderGranaFixos() {
+  const q = S.quinzena;
+  const pagos = q.fixos.filter((f) => f.pago).length;
+  return `
+  ${q.fixosOk ? '' : `<section class="card aviso">${ic('calendar')}<div><b>Dia de pagamento</b><small>Confira quanto foi cada fixo nesta quinzena e confirme.</small></div></section>`}
+  <section class="card form" data-fixos>${fixosEditorHtml()}</section>
+  <p class="nota">Vale só para esta quinzena (${dataCurta(q.inicio)} a ${dataCurta(q.fim)}). Marque cada fixo quando pagar: ${pagos} de ${q.fixos.length} pagos.</p>
+  ${q.fixosOk ? '' : `<button class="btn" data-a="confirmarFixos">Confirmar fixos</button>`}
+  <button class="btn ghost" data-a="fixosPadrao">Usar como padrão nas quinzenas do dia ${q.tipo}</button>`;
+}
+
+function abrirFixosFolha() {
+  const q = S.quinzena;
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic">${ic('calendar')}</span><div><span class="eyebrow">Dia de pagamento · dia ${q.tipo}</span><h3>Custos fixos</h3></div></div>
+    <p class="nota">Confira quanto foi cada fixo nestes 15 dias. O dinheiro livre da quinzena sai daqui e entra travado.</p>
+    <div class="form" data-fixos>${fixosEditorHtml()}</div>
+    <button class="btn" data-a="confirmarFixos">Confirmar fixos</button>`);
+}
+// Redesenha o editor de fixos onde ele estiver aberto
+function atualizarFixos() {
+  document.querySelectorAll('#folha [data-fixos]').forEach((el) => { el.innerHTML = fixosEditorHtml(); });
+}
+
 function abrirGasto() {
   let valor = null;
   abrirFolha(`
     <div class="sheet-head"><span class="sheet-ic">${ic('wallet')}</span><div><span class="eyebrow">Dois toques</span><h3>Novo gasto</h3></div></div>
+    <p class="nota">Registro do que você gastou com o dinheiro já sacado. Entra no histórico e nos insights.</p>
     <span class="eyebrow">1. Valor</span>
     <div class="chips" data-s="v">${[10, 20, 35, 50, 100].map((v) => `<button class="chip" data-v="${v}">${brl(v)}</button>`).join('')}
       <input class="chip-in" type="number" inputmode="decimal" placeholder="Outro" min="1"></div>
@@ -1553,7 +1680,7 @@ function renderAjustes() {
   <section class="card list">${hab}<button class="link" data-a="editarHabito" data-h="">${ic('plus')} Novo hábito</button></section>
 
   <h3 class="sec">Orçamento</h3>
-  <p class="nota">Mudanças valem já para a quinzena atual.</p>
+  <p class="nota">Padrão usado quando cada quinzena abre. Para mudar só a quinzena atual, use Grana › Fixos.</p>
   ${orc('d15', 'Quinzena do dia 15')}
   ${orc('d30', 'Quinzena do dia 30')}
   <section class="card form">
@@ -1680,6 +1807,333 @@ function reduzirImagem(file, lado) {
 }
 
 /* ---------------------------------------------------------
+   12b. Novo bônus (hábito opcional criado por você)
+   --------------------------------------------------------- */
+function abrirNovoBonus() {
+  let xp = 20, icone = 'book';
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic" data-s="ic">${ic(icone)}</span><div><span class="eyebrow">Bônus · opcional</span><h3>Novo bônus</h3></div></div>
+    <div class="form">
+      <label>O que é<input type="text" id="nb-nome" placeholder="Ler um livro" maxlength="40"></label>
+      <span class="eyebrow">XP</span>
+      <div class="chips" data-s="xp">${[10, 20, 30, 40, 60].map((v) => `<button class="chip ${v === xp ? 'on' : ''}" data-v="${v}">${v} XP</button>`).join('')}</div>
+      <span class="eyebrow">Ícone</span>
+      <div class="chips icons" data-s="icones">${ICONES_HABITO.map((n) => `<button type="button" class="chip ${n === icone ? 'on' : ''}" data-ic="${n}">${ic(n)}</button>`).join('')}</div>
+      <label>Por que é bom (opcional, um por linha)<textarea rows="2" id="nb-motivos" placeholder="Desliga a cabeça do celular"></textarea></label>
+    </div>
+    <p class="nota">Bônus não conta para o dia bom. Dá XP, libera dinheiro e pode abrir um baú surpresa.</p>
+    <button class="btn" data-s="salvar">Adicionar bônus</button>`,
+  (el) => {
+    el.querySelector('[data-s="xp"]').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      xp = Number(b.dataset.v);
+      el.querySelectorAll('[data-s="xp"] .chip').forEach((c) => c.classList.toggle('on', c === b));
+    });
+    el.querySelector('[data-s="icones"]').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-ic]'); if (!b) return;
+      icone = b.dataset.ic;
+      el.querySelectorAll('[data-s="icones"] .chip').forEach((c) => c.classList.toggle('on', c === b));
+      el.querySelector('[data-s="ic"]').innerHTML = ic(icone);
+    });
+    el.querySelector('[data-s="salvar"]').addEventListener('click', () => {
+      const nome = el.querySelector('#nb-nome').value.trim();
+      if (!nome) { el.querySelector('#nb-nome').focus(); return toast('Dê um nome ao bônus'); }
+      S.config.habitos.push({
+        id: 'c_' + uid(), nome, tipo: 'extra', xp, icone,
+        partes: [{ periodo: 'todos', rotulo: nome }],
+        motivos: el.querySelector('#nb-motivos').value.split('\n').map((s) => s.trim()).filter(Boolean)
+      });
+      salvar(); fecharFolha(); render();
+      toast(`Bônus “${nome}” adicionado`);
+    });
+  });
+}
+
+/* ---------------------------------------------------------
+   12c. Chat de IA (coach)
+   A IA recebe um resumo compacto de TODOS os dados a cada pergunta
+   (sem queries). Na versão publicada no claude.ai usa o Claude da
+   própria conta; fora de lá mostra como ligar (docs/chat-ia.md).
+   --------------------------------------------------------- */
+const CHAT = { turnos: [], enviando: null, sample: undefined, dictation: undefined, base: '' };
+const r2 = (v) => Math.round(v * 100) / 100;
+
+async function iniciarIA() {
+  CHAT.turnos = Array.isArray(S.chat) ? S.chat : [];
+  if (!window.claude || !window.claude.use) { CHAT.sample = null; CHAT.dictation = null; return; }
+  try { CHAT.sample = await window.claude.use('sample'); } catch (e) { CHAT.sample = null; }
+  try { CHAT.dictation = await window.claude.use('dictation'); } catch (e) { CHAT.dictation = null; }
+  const d = CHAT.dictation;
+  if (d) {
+    d.onPartial(({ text }) => { const t = $('#chat-in'); if (t) { t.value = (CHAT.base + ' ' + text).trim(); autoAltura(t); } });
+    d.onFinal(({ text }) => { CHAT.base = (CHAT.base + ' ' + text).trim(); const t = $('#chat-in'); if (t) { t.value = CHAT.base; autoAltura(t); } });
+    d.onState(({ state }) => { const b = $('#chat-mic'); if (b) b.classList.toggle('ouvindo', state === 'listening'); });
+  }
+  if ($('#chat')) renderChatBarra();
+}
+
+// Tudo o que a IA sabe: um retrato compacto do app
+function contextoIA() {
+  const iso = S.sim.data, q = S.quinzena, f = financas(q), n = nivelInfo(xpTotal());
+  const hab = habitos();
+  const ini = somaDias(iso, -59) > S.inicioApp ? somaDias(iso, -59) : S.inicioApp;
+  const dias = intervalo(ini, iso).map((d) => {
+    const dd = diaLer(d);
+    const feitos = hab.filter((h) => habitoFeito(d, h)).map((h) => h.id);
+    const parc = hab.filter((h) => !habitoFeito(d, h) && partesFeitas(d, h) > 0).map((h) => `${h.id}(${partesFeitas(d, h)}/${h.partes.length})`);
+    return `${d} ${SEMANA_CURTA[diaSemana(d)]} | ${ehBom(d) ? 'DIA BOM' : 'não'} | ${xpDoDia(d)} XP | feitos: ${feitos.join(',') || 'nada'}`
+      + (parc.length ? ` | parcial: ${parc.join(',')}` : '')
+      + (dd.fastfood.length ? ` | fast food: ${dd.fastfood.map((x) => brl(x.valor) + (x.ticket ? ' (ticket)' : '')).join(', ')}` : '')
+      + (d === iso ? ' | HOJE (em andamento)' : '');
+  });
+  const dados = {
+    hoje: `${dataLonga(iso)} (${iso}), período ${PERIODOS[S.sim.periodo]}`,
+    nivel: `${n.nivel} ${n.nome}${n.estrelas ? ` (${n.estrelas} estrela)` : ''}, ${n.atual}/${n.falta} XP no nível, ${xpTotal()} XP no total`,
+    sequenciaDiasBons: sequencia(iso), melhorSequencia: maiorSequencia(),
+    habitos: hab.map((h) => ({ id: h.id, nome: h.nome, tipo: h.tipo === 'minimo' ? 'obrigação' : 'bônus', xp: h.xp, partes: h.partes.length })),
+    quinzena: {
+      periodo: `${q.inicio} a ${q.fim} (pagamento do dia ${q.tipo})`, entrada: q.entrada,
+      fixos: q.fixos.map((x) => ({ nome: x.nome, valor: x.valor, pago: !!x.pago })), fixosConfirmados: !!q.fixosOk,
+      dinheiroLivre: q.livre, liberado: r2(f.liberado), disponivelParaSaque: r2(f.disponivel), jaSacado: r2(f.sacado),
+      travado: r2(f.travado), montanteRestante: r2(f.montante), saldoQueVeioDaAnterior: q.saldoAnterior,
+      potes: { xp: [r2(f.xp), r2(q.potes.xp)], tercaESexta: [r2(somaLib(q, ['terca', 'sexta']) + f.pend), r2(q.potes.semana)], bau: [r2(somaLib(q, ['bau', 'nivel'])), r2(q.potes.bau)], desafio: [q.desafio.concluido ? r2(q.potes.desafio) : 0, r2(q.potes.desafio)] },
+      valorDaParteSemanal: r2(q.parteValor),
+      desafio: { texto: q.desafio.texto, progresso: Math.min(progressoDesafio(q), q.desafio.meta), meta: q.desafio.meta, cumprido: q.desafio.concluido },
+      ticketsDelivery: { liberados: f.tickets.liberados, usados: f.tickets.usados, de: f.tickets.max, diasBonsSeguidosAgora: f.tickets.run },
+      gastos: q.gastos.map((g) => ({ data: g.data, valor: g.valor, categoria: g.categoria, nota: g.nota || undefined, descontadoDoMontante: !!g.descontado })),
+      saques: q.saques.map((s) => ({ data: s.data, valor: r2(s.valor) })),
+      liberacoes: q.liberacoes.map((l) => ({ data: l.data, tipo: l.tipo, valor: r2(l.valor) }))
+    },
+    quinzenasFechadas: S.historico,
+    caixaDeSantos: r2(S.santos),
+    treinos: S.treinos.slice(-30).map((t) => ({
+      data: t.data, nome: t.nome, minutos: t.duracao, intensidade: t.intensidade, volumeKg: t.volume, recordes: t.prs, xp: t.xp,
+      series: (t.exercicios || []).map((e) => `${e.nome}: ${e.series.filter((s) => s.feito).map((s) => `${s.kg}kg×${s.reps}`).join(' ')}`)
+    }))
+  };
+  return { dados, dias };
+}
+
+function promptIA() {
+  const c = S.config, { dados, dias } = contextoIA();
+  return `Você é o coach do Lifemaxxing, o app pessoal de hábitos de ${c.nome}. Responda em português do Brasil, curto e direto (2 a 6 frases, ou uma lista curta), como um amigo que treina junto. Sem emoji. Use só os dados abaixo; se faltar um dado, diga que não tem. Dinheiro em R$. Você não altera nada no app: se pedirem para registrar algo, diga onde tocar.
+
+Como o app funciona: dia bom = todas as obrigações feitas (+${c.xpDiaBom} XP). Bônus são opcionais e valem mais. Cada ${c.xpParaReal.xp} XP da quinzena libera ${brl(c.xpParaReal.valor)} até o teto do pote de XP. Terça libera 1 parte (dias bons de sáb a ter) e sexta 2 partes (dias bons de qua a sex, +20% com a semana toda boa e +20% com 3 treinos). Cada bônus pode abrir um baú (vazio, R$5, R$15 ou R$40). Subir de nível dá um baú de R$25 a R$50. Desafio cumprido libera o pote inteiro. ${c.delivery.diasSeguidos} dias bons seguidos liberam um ticket de delivery de ${brl(c.delivery.ticket)}. Saque só às terças e sextas; sacar tira o valor do montante. No fim da quinzena o travado vai para a Caixa de Santos.
+
+DADOS (JSON):
+${JSON.stringify(dados)}
+
+DIAS (mais antigo primeiro):
+${dias.join('\n')}`;
+}
+
+function erroIA(code) {
+  if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(code)) return 'Esta página não tem permissão para usar o Claude. Libere em Permissões, no menu do artifact.';
+  if (code === 'rate_limited') return 'Muitas perguntas seguidas. Espere um pouco e tente de novo.';
+  if (code === 'session_expired') return 'Sua sessão expirou. Entre de novo no claude.ai.';
+  if (code === 'refused') return 'O Claude não respondeu isso. Tente perguntar de outro jeito.';
+  if (code === 'prompt_too_large') return 'Contexto grande demais. Limpe a conversa e tente de novo.';
+  return 'A conexão falhou. Envie de novo.';
+}
+
+// Markdown leve: **negrito**, listas com "-" e quebras de linha
+function mdLeve(t) {
+  const out = [];
+  let lista = null;
+  String(t).split('\n').forEach((l) => {
+    const m = l.match(/^\s*(?:[-•*]|\d+[.)])\s+(.*)$/);
+    const fmt = (x) => esc(x).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    if (m) { if (!lista) { lista = []; out.push(lista); } lista.push(`<li>${fmt(m[1])}</li>`); }
+    else { lista = null; if (l.trim()) out.push(`<p>${fmt(l)}</p>`); }
+  });
+  return out.map((x) => (Array.isArray(x) ? `<ul>${x.join('')}</ul>` : x)).join('');
+}
+
+const SUGESTOES = ['Como está minha quinzena?', 'Quanto posso liberar na sexta?', 'Onde estou gastando mais?', 'O que falta hoje para o dia bom?', 'Como evoluiu meu supino?'];
+
+function chatHtml() {
+  return `
+    <div class="chat-back" data-chat="fechar"></div>
+    <section class="chat" role="dialog" aria-label="Coach">
+      <header class="chat-head" data-chat="arrasto">
+        <div class="grab"></div>
+        <div class="chat-head-row">
+          <span class="chat-av">${ic('sparkle')}</span>
+          <div class="chat-tt"><b>Coach</b><small>Vê seus hábitos, treinos e grana</small></div>
+          <button class="icon-sm" data-chat="limpar" aria-label="Limpar conversa">${ic('trash')}</button>
+          <button class="icon-sm" data-chat="fechar" aria-label="Fechar">${ic('x')}</button>
+        </div>
+      </header>
+      <div class="chat-msgs" id="chat-msgs"></div>
+      <div class="chat-bar" id="chat-bar"></div>
+    </section>`;
+}
+
+function renderChatMsgs() {
+  const box = $('#chat-msgs'); if (!box) return;
+  if (!CHAT.turnos.length) {
+    box.innerHTML = `<div class="chat-vazio">
+      <span class="chat-av lg">${ic('sparkle')}</span>
+      <b>Pergunte sobre você</b>
+      <p>O coach lê seus últimos 60 dias, treinos, gastos e a quinzena inteira.</p>
+      <div class="chips sug">${SUGESTOES.map((s) => `<button class="chip" data-chat="sug">${esc(s)}</button>`).join('')}</div>
+    </div>`;
+    return;
+  }
+  box.innerHTML = CHAT.turnos.map((t, k) => `<div class="msg ${t.role === 'user' ? 'eu' : 'ia'} ${t.erro ? 'erro' : ''}" data-k="${k}">${t.pensando ? '<span class="pensando"><i></i><i></i><i></i></span>' : t.role === 'user' ? esc(t.content) : mdLeve(t.content)}</div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+function atualizarUltima() {
+  const box = $('#chat-msgs'); if (!box) return;
+  const k = CHAT.turnos.length - 1, el = box.querySelector(`[data-k="${k}"]`);
+  if (!el) return renderChatMsgs();
+  el.innerHTML = mdLeve(CHAT.turnos[k].content);
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderChatBarra() {
+  const bar = $('#chat-bar'); if (!bar) return;
+  const valor = $('#chat-in') ? $('#chat-in').value : '';
+  const semIA = CHAT.sample === null;
+  bar.innerHTML = `
+    ${semIA ? '<p class="chat-aviso">O chat responde na versão publicada no claude.ai. Para a Vercel, veja docs/chat-ia.md.</p>' : ''}
+    <div class="chat-input">
+      ${CHAT.dictation ? `<button class="chat-btn" id="chat-mic" data-chat="mic" aria-label="Falar">${ic('mic')}</button>` : ''}
+      <textarea id="chat-in" rows="1" placeholder="Pergunte qualquer coisa" enterkeyhint="send">${esc(valor)}</textarea>
+      <button class="chat-btn envia ${CHAT.enviando ? 'parar' : ''}" data-chat="${CHAT.enviando ? 'parar' : 'enviar'}" aria-label="${CHAT.enviando ? 'Parar' : 'Enviar'}">${CHAT.enviando ? '<i class="sq"></i>' : ic('arrow')}</button>
+    </div>`;
+  const t = $('#chat-in');
+  t.addEventListener('input', () => autoAltura(t));
+  t.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarChat(t.value); } });
+}
+function autoAltura(t) { t.style.height = 'auto'; t.style.height = Math.min(120, t.scrollHeight) + 'px'; }
+
+async function enviarChat(texto) {
+  texto = String(texto || '').trim();
+  if (!texto || CHAT.enviando) return;
+  if (CHAT.dictation) { try { CHAT.dictation.stop(); } catch (e) { /* ignora */ } }
+  CHAT.base = '';
+  CHAT.turnos.push({ role: 'user', content: texto });
+  const resp = { role: 'assistant', content: '', pensando: true };
+  CHAT.turnos.push(resp);
+  const ctl = new AbortController();
+  CHAT.enviando = ctl;
+  if ($('#chat-in')) $('#chat-in').value = '';
+  renderChatMsgs(); renderChatBarra();
+
+  if (!CHAT.sample) {
+    resp.pensando = false; resp.erro = true;
+    resp.content = CHAT.sample === undefined ? 'Conectando ao Claude. Tente de novo em alguns segundos.' : 'Aqui ainda não tem IA ligada. O chat responde na versão publicada no claude.ai; para a Vercel, o plano está em docs/chat-ia.md.';
+  } else {
+    // conversa curta: instruções + dados sempre na frente, e as últimas trocas
+    const hist = CHAT.turnos.filter((t) => t !== resp && !t.erro && !t.pensando).slice(-12);
+    try {
+      const { text } = await CHAT.sample([{ role: 'user', content: promptIA() }, ...hist], {
+        cache: false, modelTier: 'quick', signal: ctl.signal,
+        onText: ({ text: tx }) => { resp.pensando = false; resp.content = tx; atualizarUltima(); }
+      });
+      resp.content = text;
+    } catch (e) {
+      resp.pensando = false;
+      if (e && e.code === 'cancelled') resp.content = (e.text || '') || 'Parado.';
+      else { resp.erro = true; resp.content = (e && e.text ? e.text + '\n\n' : '') + erroIA(e && e.code); }
+    }
+  }
+  resp.pensando = false;
+  CHAT.enviando = null;
+  S.chat = CHAT.turnos.filter((t) => !t.pensando).slice(-40);
+  salvar();
+  renderChatMsgs(); renderChatBarra();
+}
+
+// Abre/fecha com animação. Arrastar o botão central para cima abre seguindo o dedo.
+function montarChat() {
+  if ($('#chat')) return $('#chat');
+  const ov = document.createElement('div');
+  ov.id = 'chat';
+  ov.className = 'chat-ov';
+  ov.innerHTML = chatHtml();
+  document.body.appendChild(ov);
+  renderChatMsgs(); renderChatBarra();
+  ov.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-chat]'); if (!a) return;
+    const k = a.dataset.chat;
+    if (k === 'fechar') fecharChat();
+    else if (k === 'enviar') enviarChat($('#chat-in').value);
+    else if (k === 'parar') { if (CHAT.enviando) CHAT.enviando.abort(); }
+    else if (k === 'sug') enviarChat(a.textContent);
+    else if (k === 'limpar') { if (CHAT.enviando) CHAT.enviando.abort(); CHAT.turnos = []; S.chat = []; salvar(); renderChatMsgs(); }
+    else if (k === 'mic') {
+      const d = CHAT.dictation; if (!d) return;
+      if (a.classList.contains('ouvindo')) { d.stop().catch(() => {}); return; }
+      CHAT.base = $('#chat-in').value.trim();
+      d.start().catch((err) => { if (err && err.code === 'not_granted') { CHAT.dictation = null; renderChatBarra(); } });
+    }
+  });
+  // arrastar o cabeçalho para baixo fecha
+  const head = ov.querySelector('[data-chat="arrasto"]');
+  let y0 = null;
+  head.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) return; y0 = e.clientY; ov.classList.add('arrastando'); head.setPointerCapture(e.pointerId); });
+  head.addEventListener('pointermove', (e) => { if (y0 === null) return; posChat(Math.max(0, e.clientY - y0) / ov.querySelector('.chat').offsetHeight); });
+  const solta = (e) => {
+    if (y0 === null) return;
+    const dy = e.clientY - y0; y0 = null; ov.classList.remove('arrastando');
+    if (dy > 90) fecharChat(); else posChat(0);
+  };
+  head.addEventListener('pointerup', solta); head.addEventListener('pointercancel', solta);
+  return ov;
+}
+// p = 0 aberto, 1 fechado
+function posChat(p) {
+  const ov = $('#chat'); if (!ov) return;
+  ov.querySelector('.chat').style.transform = `translateY(${(p * 100).toFixed(2)}%)`;
+  ov.querySelector('.chat-back').style.opacity = String(1 - p);
+}
+function abrirChat() {
+  const ov = montarChat();
+  ov.classList.add('on');
+  document.body.classList.add('chat-aberto');
+  requestAnimationFrame(() => { posChat(0); });
+  if (navigator.vibrate) navigator.vibrate(12);
+}
+function fecharChat() {
+  const ov = $('#chat'); if (!ov) return;
+  if (document.activeElement) document.activeElement.blur();
+  posChat(1);
+  document.body.classList.remove('chat-aberto');
+  setTimeout(() => { if (!document.body.classList.contains('chat-aberto')) ov.classList.remove('on'); }, 280);
+}
+
+function montarBotaoIA() {
+  const b = $('#nav-ia'); if (!b) return;
+  let y0 = null, p = 1;
+  b.addEventListener('pointerdown', (e) => {
+    y0 = e.clientY; p = 1;
+    b.setPointerCapture(e.pointerId);
+    const ov = montarChat();
+    ov.classList.add('on', 'arrastando');
+    posChat(1);
+  });
+  b.addEventListener('pointermove', (e) => {
+    if (y0 === null) return;
+    const dy = y0 - e.clientY;
+    p = 1 - Math.max(0, Math.min(1, dy / 260));
+    posChat(p);
+  });
+  const solta = (e) => {
+    if (y0 === null) return;
+    const dy = y0 - e.clientY; y0 = null;
+    $('#chat').classList.remove('arrastando');
+    if (Math.abs(dy) < 8 || p < 0.75) abrirChat(); // toque simples ou arrasto para cima
+    else fecharChat();
+  };
+  b.addEventListener('pointerup', solta);
+  b.addEventListener('pointercancel', solta);
+  b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirChat(); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('chat-aberto')) fecharChat(); });
+}
+
+/* ---------------------------------------------------------
    13. Ações (cliques com data-a)
    --------------------------------------------------------- */
 const acoes = {
@@ -1688,12 +2142,13 @@ const acoes = {
   abaPeriodo(el) { UI.periodoAba = el.dataset.p; render(); },
   tarefa(el) { abrirTarefa(el.dataset.h, Number(el.dataset.i)); },
   fastfood() { abrirFastFood(); },
+  novoBonus() { abrirNovoBonus(); },
 
   proximoDia() {
     if (S.treinoAtivo) return toast('Finalize ou cancele o treino antes');
     const r = fecharDia();
     fila.push(() => modalResumoDia(r));
-    if (r.quinzena) fila.push(() => modalPagamento(r.quinzena, r.novaQuinzena));
+    if (r.quinzena) { fila.push(() => modalPagamento(r.quinzena, r.novaQuinzena)); fila.push(() => abrirFixosFolha()); }
     if (r.subidas.length) fila.push(() => modalNivel(r.subidas));
     render(); rodarFila();
   },
@@ -1715,7 +2170,7 @@ const acoes = {
     r.xp = xpTotal() - xp0;
     r.treinos = S.treinos.length - t0;
     fila.push(() => modalPulo(r));
-    if (ultimaQ) fila.push(() => modalPagamento(ultimaQ.quinzena, ultimaQ.novaQuinzena));
+    if (ultimaQ) { fila.push(() => modalPagamento(ultimaQ.quinzena, ultimaQ.novaQuinzena)); fila.push(() => abrirFixosFolha()); }
     if (subidas.length) fila.push(() => modalNivel(subidas));
     render(); rodarFila();
   },
@@ -1756,16 +2211,27 @@ const acoes = {
   exercicio(el) { UI.exercicio = el.dataset.n; render(); },
 
   // grana
-  sacar() { const v = sacar(); if (v) { render(); toast(`${brl(v)} sacados para a carteira`); } },
+  sacar() { const v = sacar(); if (v) { render(); toast(`${brl(v)} sacados. Saíram do montante.`); } },
   gasto() { abrirGasto(); },
   apagarGasto(el) { S.quinzena.gastos = S.quinzena.gastos.filter((g) => g.id !== el.dataset.id); salvar(); render(); },
-  pagarFixo(el) { const f = S.quinzena.fixos[el.dataset.k]; f.pago = !f.pago; salvar(); render(); },
+  pagarFixo(el) { const f = S.quinzena.fixos[el.dataset.k]; f.pago = !f.pago; salvar(); render(); atualizarFixos(); },
+  granaAba(el) { UI.granaAba = el.dataset.k; render(); },
+  histTudo() { UI.histTudo = !UI.histTudo; render(); },
+  abrirFixos() { UI.aba = 'grana'; UI.granaAba = 'fixos'; render(); abrirFixosFolha(); },
+  confirmarFixos() { S.quinzena.fixosOk = true; salvar(); fecharFolha(); render(); toast('Fixos da quinzena registrados'); },
+  qAddFixo() { const q = S.quinzena; mudarQuinzena(q, () => q.fixos.push({ id: 'f_' + uid(), nome: 'Novo fixo', valor: 0, pago: false })); render(); atualizarFixos(); },
+  qRemFixo(el) { const q = S.quinzena; mudarQuinzena(q, () => q.fixos.splice(Number(el.dataset.i), 1)); render(); atualizarFixos(); },
+  fixosPadrao() {
+    const q = S.quinzena;
+    S.config.orcamento['d' + q.tipo] = { entrada: q.entrada, fixos: q.fixos.map(({ pago, ...f }) => ({ ...f })) };
+    salvar(); toast(`Padrão das quinzenas do dia ${q.tipo} atualizado`);
+  },
 
   // ajustes
   editarHabito(el) { abrirEditarHabito(el.dataset.h); },
   editarFrase(el) { abrirEditarFrase(Number(el.dataset.i)); },
-  addFixo(el) { S.config.orcamento[el.dataset.k].fixos.push({ id: 'f_' + uid(), nome: 'Novo fixo', valor: 0 }); aplicarOrcamento(); salvar(); render(); },
-  removerFixo(el) { S.config.orcamento[el.dataset.k].fixos.splice(Number(el.dataset.i), 1); aplicarOrcamento(); salvar(); render(); }
+  addFixo(el) { S.config.orcamento[el.dataset.k].fixos.push({ id: 'f_' + uid(), nome: 'Novo fixo', valor: 0 }); salvar(); render(); },
+  removerFixo(el) { S.config.orcamento[el.dataset.k].fixos.splice(Number(el.dataset.i), 1); salvar(); render(); }
 };
 
 document.addEventListener('click', (e) => {
@@ -1797,7 +2263,15 @@ document.addEventListener('change', (e) => {
     const o = S.config.orcamento[k];
     if (a === 'entrada') o.entrada = Math.max(0, Number(el.value) || 0);
     else o.fixos[a][b] = b === 'valor' ? Math.max(0, Number(el.value) || 0) : el.value;
-    aplicarOrcamento(); salvar(); render();
+    salvar(); render();
+  } else if (el.dataset.qf) {
+    // fixos da quinzena atual (Grana › Fixos): salva sem redesenhar para não perder o foco
+    const q = S.quinzena, [a, b] = el.dataset.qf.split('|');
+    mudarQuinzena(q, () => {
+      if (a === 'entrada') q.entrada = Math.max(0, Number(el.value) || 0);
+      else q.fixos[a][b] = b === 'valor' ? Math.max(0, Number(el.value) || 0) : el.value;
+    });
+    document.querySelectorAll('[data-livre]').forEach((x) => { x.textContent = brl(q.livre); });
   }
 });
 
@@ -1823,6 +2297,8 @@ setInterval(() => {
    --------------------------------------------------------- */
 carregar();
 render();
+montarBotaoIA();
+iniciarIA();
 
 // Service worker só funciona em http(s) (na Vercel). Abrindo o arquivo direto, é ignorado.
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {

@@ -59,6 +59,15 @@ Roteiro rápido de 30 minutos:
 6. Na terça ou sexta, vá em Grana e saque.
 7. Veja Progresso e mexa em Ajustes (valores, hábitos, frases com imagem).
 
+## Telas e funções
+
+- **Hoje:** card Dia bom com as 6 obrigações e o Treino (que não conta para o dia bom). Abaixo, **Obrigações** separadas por período e **Bônus** (opcionais, valem mais), com botão **Adicionar bônus** para criar hobbies como ler um livro.
+- **Treino:** ao finalizar mostra o XP, **quanto vale em reais** e quanto libera na hora.
+- **Grana › Resumo:** disponível para saque, já sacado, travado e montante. **Sacar tira o valor do montante.** Gastos com insights (total, média por dia, categoria que mais pesa, fast food, comparação com a quinzena anterior) e histórico de gastos e saques.
+- **Grana › Fixos:** os fixos da quinzena atual, editáveis, com "pago". Em todo dia de pagamento (15 e 30) abre a folha para registrar os custos fixos.
+- **Coach (botão central do menu):** toque ou arraste para cima para abrir o chat de IA. Abordagem em [`docs/chat-ia.md`](docs/chat-ia.md).
+- **Pacote de design:** todas as telas em [`design/`](design/README.md).
+
 ## Regras implementadas
 
 **XP:** cada hábito mínimo vale 10 (dividido entre as partes, ex.: garrafas 3 + 3 + 4). Dia bom +40. Sol 20, menos tela 25, natureza 40, treino 100, surf 150. Treino: +25 por recorde (até 2), +20 com intensidade 8+, +20 acima de 45 min. 3 treinos na semana (sáb a sex) +150 ao fechar a sexta. 7 dias bons seguidos +100.
@@ -72,8 +81,8 @@ Roteiro rápido de 30 minutos:
 - **Baú surpresa 15%:** cada extra rola um baú (vazio 40%, R$5 30%, R$15 20%, R$40 10%). O baú de nível também sai daqui.
 - **Desafio 15%:** missão sorteada no pagamento; cumpriu, libera tudo na hora.
 - **Delivery:** 2 tickets de R$30; cada um abre com 4 dias bons seguidos. Ticket liberado e não usado vira dinheiro livre no fim.
-- **Saque:** só terças e sextas. O liberado vai para a carteira.
-- **Fim da quinzena:** o que ficou travado vai para a Caixa de Santos. A carteira passa para a próxima quinzena.
+- **Saque:** só terças e sextas. Sacar tira o valor do montante da quinzena. Fast food sem ticket é descontado do montante; os outros gastos são só registro do que você gastou com o que já sacou.
+- **Fim da quinzena:** o que ficou travado vai para a Caixa de Santos. O disponível não sacado (e os tickets que sobraram) passa para a próxima quinzena.
 
 ## Em aberto (do documento)
 
