@@ -66,6 +66,7 @@ const IC = {
   home: '<path d="M3.5 10.5 12 4l8.5 6.5V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/>',
   wallet: '<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10.5h18M16 15h1.5"/><path d="M6 6l9-2.5 1.5 2.5"/>',
   chart: '<path d="M4 20V11M10 20V5M16 20v-6M21.5 20h-19"/>',
+  minus: '<path d="M5 12h14"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',
@@ -1353,6 +1354,36 @@ function abrirDanos() {
     if (id === 'delivery') abrirFastFood(); else abrirDano(id);
   }));
 }
+// Editar a meta semanal de beber/fumar
+function abrirMetaDano(id) {
+  const t = tipoDano(id);
+  let meta = (S.config.danos || {})[id] ?? 0;
+  const desenha = (el) => {
+    el.querySelector('[data-s="n"]').textContent = meta;
+    el.querySelector('[data-s="tx"]').textContent = meta === 0 ? 'Nenhuma vez por semana' : `Até ${meta} ${meta === 1 ? 'vez' : 'vezes'} por semana`;
+    el.querySelectorAll('[data-s="rap"] .chip').forEach((c) => c.classList.toggle('on', Number(c.dataset.v) === meta));
+  };
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic warn">${ic(t.icone)}</span><div><span class="eyebrow">Meta semanal · seg a dom</span><h3>${t.nome}</h3></div></div>
+    <div class="meta-edit">
+      <button class="meta-btn" data-s="menos" aria-label="Diminuir">${ic('minus')}</button>
+      <div class="meta-val"><b data-s="n">${meta}</b><small data-s="tx"></small></div>
+      <button class="meta-btn" data-s="mais" aria-label="Aumentar">${ic('plus')}</button>
+    </div>
+    <div class="chips" data-s="rap">${[0, 1, 2, 3, 4, 5, 7].map((v) => `<button class="chip" data-v="${v}">${v}</button>`).join('')}</div>
+    <div class="row2"><button class="btn ghost" data-fechar>Cancelar</button><button class="btn dark" data-s="ok">Salvar meta</button></div>`,
+  (el) => {
+    desenha(el);
+    el.querySelector('[data-s="menos"]').addEventListener('click', () => { meta = Math.max(0, meta - 1); desenha(el); });
+    el.querySelector('[data-s="mais"]').addEventListener('click', () => { meta = Math.min(50, meta + 1); desenha(el); });
+    el.querySelector('[data-s="rap"]').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (b) { meta = Number(b.dataset.v); desenha(el); } });
+    el.querySelector('[data-s="ok"]').addEventListener('click', () => {
+      S.config.danos = S.config.danos || {}; S.config.danos[id] = meta; salvar(); fecharFolha(); render();
+      toast(`Meta de ${t.nome.toLowerCase()}: ${meta === 0 ? 'zero' : `até ${meta}`} por semana`);
+    });
+  });
+}
+
 // Beber / fumar: registra 1 vez, com gasto opcional
 function abrirDano(id) {
   const t = tipoDano(id), s = statusDano(id);
@@ -2021,7 +2052,7 @@ function renderDanos() {
       <div class="rumo-bar"><i class="essa" style="width:${pct.toFixed(1)}%"></i></div>
       <div class="dano-pe">
         <span>${s.rotulo}${estado === 'passou' ? ' · passou da meta' : estado === 'limite' ? ' · no limite' : ` · ${Math.max(0, s.meta - s.n)} de folga`}${gasto ? ` · ${brl(gasto)} gastos na quinzena` : ''}</span>
-        ${t.periodo === 'semana' ? `<span class="stepper"><button data-a="metaDano" data-k="${t.id}" data-d="-1" aria-label="Diminuir meta">−</button><button data-a="metaDano" data-k="${t.id}" data-d="1" aria-label="Aumentar meta">+</button></span>`
+        ${t.periodo === 'semana' ? `<button class="editar-meta" data-a="editarMetaDano" data-k="${t.id}">${ic('sliders')} Editar meta</button>`
           : `<span class="dano-tk">${s.ti.liberados} ticket${s.ti.liberados === 1 ? '' : 's'} liberado${s.ti.liberados === 1 ? '' : 's'}</span>`}
       </div>
       ${semanas ? `<div class="dsemanas">${semanas}</div>` : ''}
@@ -2868,6 +2899,7 @@ const acoes = {
   fastfood() { abrirFastFood(); },
   danos() { abrirDanos(); },
   dano(el) { if (el.dataset.k === 'delivery') abrirFastFood(); else abrirDano(el.dataset.k); },
+  editarMetaDano(el) { abrirMetaDano(el.dataset.k); },
   metaDano(el) { const k = el.dataset.k; S.config.danos = S.config.danos || {}; S.config.danos[k] = Math.max(0, (S.config.danos[k] ?? 0) + Number(el.dataset.d)); salvar(); render(); },
   apagarDano(el) { confirmar('Apagar este registro? O gasto ligado a ele também sai.', 'Apagar', () => { apagarDano(el.dataset.iso, el.dataset.id); render(); }); },
   progAba(el) { UI.progAba = el.dataset.k; render(); window.scrollTo(0, 0); },

@@ -1570,3 +1570,15 @@ body.claro .dsem i { background: #DADADF; }
 .danos-hist .hist:last-child { border-bottom: 0; }
 .danos-hist .task-tx { flex: 1; display: flex; flex-direction: column; gap: 2px; text-align: left; }
 .danos-hist .task-tx small { font-size: 12px; color: var(--muted); }
+
+.editar-meta { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 8px; background: var(--s2); color: var(--ink); font-size: 12.5px; font-weight: 600; flex: none; }
+.editar-meta .ic { width: 14px; height: 14px; }
+.meta-edit { display: grid; grid-template-columns: 52px 1fr 52px; align-items: center; gap: 12px; padding: 8px 0; }
+.meta-btn { width: 52px; height: 52px; border-radius: 10px; background: var(--s2); color: var(--ink); display: grid; place-items: center; }
+.meta-btn .ic { width: 22px; height: 22px; }
+.meta-val { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.meta-val b { font-size: 44px; font-weight: 700; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.meta-val small { font-size: 13px; color: var(--muted); }
+.meta-edit + .chips { justify-content: center; }
+.dsem i { min-height: 3px; }
+body.claro .editar-meta, body.claro .meta-btn { background: var(--card); }
