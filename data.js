@@ -66,64 +66,64 @@ const DADOS_INICIAIS = {
   habitos: [
     { id: 'dentes', nome: 'Dentes', tipo: 'minimo', xp: 10, icone: 'tooth',
       partes: [{ periodo: 'noite', rotulo: 'Escovar os dentes' }],
-      motivos: ['Dentes mais brancos: a escova tira a placa que mancha', 'Hálito fresco o dia todo', 'Gengiva firme, sem sangramento', 'Menos cárie e menos dentista', 'Boca saudável, menos inflamação no corpo'] },
+      motivos: ['Sorriso mais branco e bonito', 'Hálito fresco para chegar perto de qualquer um', 'Gengiva rosada, sem sangrar', 'Confiança para sorrir nas fotos', 'Boca limpa e leve antes de dormir'] },
     { id: 'skincare', nome: 'Skincare', tipo: 'minimo', xp: 15, icone: 'sparkle',
       partes: [{ periodo: 'noite', rotulo: 'Skincare' }],
-      motivos: ['Pele limpa: menos cravos e espinhas', 'Hidratação deixa a pele lisa e firme', 'Barreira da pele forte, menos irritação', 'Menos manchas e linhas com o tempo', 'Rosto com cara de descansado'] },
+      motivos: ['Pele lisa, sem cravos e espinhas', 'Rosto com cara de descansado', 'Viço e brilho saudável', 'Menos manchas e linhas com o tempo', 'Sensação de se cuidar antes de dormir'] },
     { id: 'agua', nome: 'Água', tipo: 'minimo', xp: 24, icone: 'drop',
       partes: [
         { periodo: 'manha', rotulo: 'Garrafa 1' },
         { periodo: 'tarde', rotulo: 'Garrafa 2' },
         { periodo: 'noite', rotulo: 'Garrafa 3' }
       ],
-      motivos: ['Pele com mais viço, lábios menos secos', 'Mais energia: desidratação leve já cansa', 'Menos dor de cabeça', 'Rins e intestino funcionando melhor', 'Treino rende mais, menos cãibra'] },
+      motivos: ['Pele com viço e lábios macios', 'Mais disposição: sede leve já dá cansaço', 'Rosto menos inchado, olhar mais vivo', 'Cabeça leve, sem dor de cabeça', 'Treino com mais força e pump'] },
     { id: 'frutas', nome: 'Frutas', tipo: 'minimo', xp: 16, icone: 'apple',
       partes: [
         { periodo: 'tarde', rotulo: 'Fruta 1' },
         { periodo: 'tarde', rotulo: 'Fruta 2' }
       ],
-      motivos: ['Vitamina C ajuda a formar colágeno', 'Fibras: intestino em dia, barriga desinchada', 'Antioxidantes protegem a pele', 'Doce natural que tira a vontade de besteira', 'Coração e pressão mais saudáveis'] },
+      motivos: ['Pele mais bonita: vitamina C forma colágeno', 'Barriga desinchada e corpo leve', 'Energia limpa, sem pico e queda', 'Menos vontade de besteira', 'Cabelo e unhas mais fortes'] },
     { id: 'dormir', nome: 'Dormir', tipo: 'minimo', xp: 20, icone: 'moon',
       partes: [{ periodo: 'noite', rotulo: 'Dormir no horário' }],
-      motivos: ['Pele se recupera à noite: menos olheiras', 'Músculo se reconstrói enquanto você dorme', 'Menos fome e vontade de doce no dia seguinte', 'Foco, memória e humor melhores', 'Imunidade mais forte'] },
+      motivos: ['Acordar sem olheiras e com o rosto desinchado', 'Músculo cresce enquanto você dorme', 'Disposição de sobra amanhã', 'Humor leve, menos irritação', 'Menos fome de doce no dia seguinte'] },
     { id: 'sair', nome: 'Sair', tipo: 'minimo', xp: 15, icone: 'door',
       partes: [{ periodo: 'manha', rotulo: 'Sair de casa 15 min' }],
-      motivos: ['Luz da manhã acerta o relógio do sono', 'Caminhar ativa a circulação e a disposição', 'Humor melhor, menos ansiedade', 'Sol na medida ajuda a vitamina D', 'Quebra o ciclo da toca'] },
+      motivos: ['Luz da manhã dá disposição na hora', 'Pegar no sono mais fácil à noite', 'Humor lá em cima', 'Pele com cor de quem vive lá fora', 'Sair da toca já é uma vitória'] },
     { id: 'quarto', nome: 'Quarto', tipo: 'minimo', xp: 40, icone: 'bed',
       partes: [
         { periodo: 'manha', rotulo: 'Arrumar o quarto' },
         { periodo: 'tarde', rotulo: 'Arrumar o quarto' }
       ],
-      motivos: ['Menos poeira e ácaro: pele e respiração agradecem', 'Quarto em ordem, sono melhor', 'Menos bagunça, mente mais calma', 'Começa o dia com uma vitória', 'Disciplina pequena puxa as grandes'] },
+      motivos: ['Acordar num lugar que dá orgulho', 'Mente leve, sem bagunça em volta', 'Sono melhor num quarto em ordem', 'Menos poeira: pele e respiração agradecem', 'Primeira vitória do dia'] },
 
     { id: 'celular', nome: 'Sem celular', tipo: 'minimo', xp: 60, icone: 'phoneoff',
       partes: [
         { periodo: 'manha', rotulo: '1h sem celular', duracaoMin: 60 },
         { periodo: 'tarde', rotulo: '1h sem celular', duracaoMin: 60 }
       ],
-      motivos: ['Foco profundo volta em poucos minutos sem notificação', 'Menos cortisol e ansiedade', 'Olhos descansam, menos olheiras', 'Postura do pescoço agradece', 'Dopamina de volta para o que importa'] },
+      motivos: ['Cabeça leve e foco de volta', 'Olhar descansado, menos olheiras', 'Postura melhor, sem pescoço para frente', 'Menos ansiedade e comparação', 'Sensação de estar no controle do dia'] },
 
     { id: 'treino', nome: 'Treino', tipo: 'extra', xp: 100, icone: 'dumbbell', especial: 'treino',
       partes: [{ periodo: 'todos', rotulo: 'Treino' }],
-      motivos: ['Corpo mais definido e postura melhor', 'Mais músculo, metabolismo mais rápido', 'Circulação dá viço à pele', 'Menos ansiedade, sono mais profundo', 'Ossos e articulações mais fortes'] },
+      motivos: ['Corpo mais definido e ombros largos', 'Postura de quem se cuida', 'Pele corada pela circulação', 'Sono profundo e cabeça leve', 'Confiança que aparece no espelho'] },
     { id: 'sol', nome: 'Sol', tipo: 'extra', xp: 20, icone: 'sun',
       partes: [{ periodo: 'manha', rotulo: 'Sol 15 min' }],
-      motivos: ['Vitamina D para ossos e imunidade', 'Cor saudável na pele, sem queimar', 'Luz natural ajuda a dormir melhor', 'Mais disposição e bom humor', 'Relógio biológico no lugar'] },
+      motivos: ['Pele com cor saudável, sem queimar', 'Disposição e bom humor na hora', 'Sono melhor à noite', 'Mais vitamina D: ossos e defesa fortes', 'Cara de verão o ano todo'] },
     { id: 'tela', nome: 'Menos tela', tipo: 'extra', xp: 30, icone: 'phoneoff',
       partes: [{ periodo: 'noite', rotulo: 'Menos tela (meta do dia)' }],
-      motivos: ['Sono mais profundo sem luz de tela à noite', 'Olhos menos cansados, menos olheiras', 'Pescoço e postura agradecem', 'Mais foco, menos ansiedade', 'Tempo de volta para o que importa'] },
+      motivos: ['Dormir rápido e acordar descansado', 'Olhos menos cansados e vermelhos', 'Menos olheiras de manhã', 'Cabeça calma antes de deitar', 'Pescoço relaxado, postura melhor'] },
     { id: 'natureza', nome: 'Natureza', tipo: 'extra', xp: 40, icone: 'tree',
       partes: [{ periodo: 'todos', rotulo: 'Natureza' }],
-      motivos: ['Cortisol mais baixo, menos estresse', 'Pressão e batimentos mais calmos', 'Humor melhor por dias', 'Cabeça descansada, mais criatividade', 'Movimento sem perceber'] },
+      motivos: ['Estresse lá embaixo, cabeça leve', 'Rosto mais relaxado', 'Humor bom por dias', 'Ideias novas e criatividade', 'Sensação de liberdade'] },
     { id: 'estudar', nome: 'Estudar', tipo: 'extra', xp: 60, icone: 'book',
       partes: [{ periodo: 'todos', rotulo: 'Estudar 1h', duracaoMin: 60 }],
-      motivos: ['Cérebro ativo envelhece melhor', 'Conhecimento vira renda', 'Foco treinado como músculo', 'Autoestima de quem evolui', 'Menos tempo no automático'] },
+      motivos: ['Orgulho de evoluir todo dia', 'Mente afiada e rápida', 'Confiança para falar de qualquer assunto', 'Foco que vira hábito', 'Fim de dia leve, sem culpa'] },
     { id: 'desenvolver', nome: 'Desenvolver', tipo: 'extra', xp: 60, icone: 'terminal',
       partes: [{ periodo: 'todos', rotulo: 'Desenvolver 1h', duracaoMin: 60 }],
-      motivos: ['Projeto andando todo dia', 'Habilidade que paga as contas', 'Estado de fluxo reduz a ansiedade', 'Portfólio crescendo', 'Orgulho de construir algo seu'] },
+      motivos: ['Orgulho de construir algo seu', 'Cabeça no fluxo, ansiedade some', 'Habilidade que vira renda', 'Projeto andando todo dia', 'Sensação de dia bem aproveitado'] },
     { id: 'surf', nome: 'Surf', tipo: 'extra', xp: 150, icone: 'wave', especial: 'surf',
       partes: [{ periodo: 'todos', rotulo: 'Sessão de surf' }],
-      motivos: ['Remada define ombros e costas', 'Equilíbrio trabalha o corpo inteiro', 'Sol e mar levantam o humor', 'Gasta muita energia sem parecer treino', 'Foco total no presente'] }
+      motivos: ['Ombros e costas definidos pela remada', 'Pele bronzeada de mar', 'Cabeça zerada depois do mar', 'Corpo inteiro trabalhando sem perceber', 'Felicidade pura na onda'] }
   ],
 
   // Frases de exemplo (editáveis). imagem: dataURL opcional enviada em Ajustes.

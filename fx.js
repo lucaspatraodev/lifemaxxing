@@ -180,7 +180,7 @@ const FX = (() => {
 
   // Ficha "+N XP" voando da tarefa até a barra de nível
   function voarXp(origem, ganho) {
-    const bar = document.getElementById('xpbar');
+    const bar = document.getElementById('xpbar') || document.getElementById('xphoje');
     const L = layer();
     const chip = document.createElement('div');
     chip.className = 'fx-xp';
@@ -235,7 +235,13 @@ const FX = (() => {
       anim(row.querySelectorAll('.task-seg i.on'), { scaleY: [1, 2, 1] }, { duration: 0.4, delay: M.stagger(0.05) });
     }
     segurar(1200);
-    if (ganho > 0) voarXp(origem, ganho).then(() => encherBarra(antes, depois, formatoXp));
+    const xh = document.getElementById('xphoje');
+    const hojeAgora = xh ? Number(xh.textContent.replace(/\D/g, '')) : 0;
+    if (xh && ganho > 0) xh.textContent = String(Math.max(0, hojeAgora - ganho));
+    if (ganho > 0) voarXp(origem, ganho).then(() => {
+      encherBarra(antes, depois, formatoXp);
+      if (xh) { contar(xh, Math.max(0, hojeAgora - ganho), hojeAgora, (v) => num(v), 0.6); anim(xh.closest('.tile'), { scale: [1, 1.06, 1] }, MOLA_PULO); }
+    });
     if (habitoCompletou) bolinha(h);
     if (virouDiaBom) setTimeout(diaBom, 350);
     vibrar(12);

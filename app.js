@@ -185,9 +185,12 @@ function parteXp(h, i) {
 }
 
 // Lista de tarefas de um período
+// Ordem das obrigações dentro de cada período: quarto, depois água e fruta, depois o resto
+const ORDEM_TAREFAS = ['quarto', 'agua', 'frutas', 'sair', 'celular', 'skincare', 'dentes', 'dormir'];
 function tarefasDoPeriodo(p) {
   const lista = [];
-  const ordem = [...minimos(), ...extras()];
+  const pos = (h) => { const k = ORDEM_TAREFAS.indexOf(h.id); return k < 0 ? 99 : k; };
+  const ordem = [...minimos().slice().sort((x, y) => pos(x) - pos(y)), ...extras()];
   ordem.forEach((h) => h.partes.forEach((pt, i) => {
     if (pt.periodo === p || pt.periodo === 'todos') lista.push({ h, i, pt });
   }));
@@ -1042,9 +1045,10 @@ function renderHoje() {
     </button>
   </header>
 
-  <div class="tiles">
+  <div class="tiles tres">
     <div class="tile"><b>${cont}<small>/${tot}</small></b><span>Missões</span></div>
-    <div class="tile escuro"><b>${ic('star')} ${num(xpDoDia(iso))}</b><span>XP hoje</span></div>
+    <div class="tile escuro"><b>${ic('star')} <span id="xphoje">${num(xpDoDia(iso))}</span></b><span>XP hoje</span></div>
+    <div class="tile"><b>${seq}<small> ${seq === 1 ? 'dia' : 'dias'}</small></b><span>Recorde ${maiorSequencia()}</span></div>
   </div>
 
 
@@ -1055,15 +1059,6 @@ function renderHoje() {
   }).join('')}</div>
   <div class="tasks obrigacoes lista">${tarefaFixos}${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</div>
 
-  <section class="stat-card">
-    <div class="stat-row">
-      <div><b>${seq}</b><span>Dias seguidos</span></div>
-      <div><b>${maiorSequencia()}</b><span>Recorde</span></div>
-      <div><b class="laranja">${brl(saqueValor)}</b><span>${saqueRot}</span></div>
-    </div>
-    <div class="bar"><i id="xpbar" style="width:${n.pct.toFixed(1)}%"></i></div>
-    <div class="stat-pe"><span>Nível ${n.nivel} · ${esc(n.nome)}</span><span id="xpnum">${num(n.atual)} / ${num(n.falta)} XP</span></div>
-  </section>
 
   <h3 class="sec">Bônus ${bonusFeitos ? `<span class="sec-n">· ${bonusFeitos} hoje</span>` : ''}</h3>
   <div class="tasks bonus lista">${bonus.map(linha).join('')}
@@ -1106,9 +1101,9 @@ function abrirTarefaTempo(h, i) {
     return abrirFolha(`
       <div class="sheet-head"><span class="sheet-ic">${ic(h.icone)}</span><div><span class="eyebrow">Missão com tempo · ${min} min</span><h3>${esc(pt.rotulo || h.nome)}</h3></div></div>
       <ul class="motivos">${h.motivos.map((m) => `<li>${ic('check')}<span>${esc(m)}</span></li>`).join('')}</ul>
-      <div class="stats3">
+      ${rumoHtml(xp)}
+      <div class="stats3 dois">
         <div><span class="eyebrow">Duração</span><b>${min} min</b></div>
-        <div><span class="eyebrow">Ganha</span><b>+${xp} XP</b></div>
         <div><span class="eyebrow">Termina</span><b>${horaMin(Date.now() + min * 60000)}</b></div>
       </div>
       <p class="nota">O app marca a hora de início e conclui sozinho quando o tempo acabar, mesmo fechado.</p>
@@ -1149,11 +1144,7 @@ function abrirTarefa(hid, i) {
       <div class="row2"><button class="btn ghost" data-fechar>Manter</button><button class="btn danger" data-s="desfazer">Desfazer</button></div>`,
     (el) => el.querySelector('[data-s="desfazer"]').addEventListener('click', () => { desfazerParte(h, i); fecharFolha(); render(); }));
   }
-  const q = S.quinzena, xp = parteXp(h, i), r = taxaXp(q);
-  const vale = (xp * r.valor) / r.xp;
-  const agora = liberadoXp(q, xp) - liberadoXp(q);
-  const faltam = r.xp - (xpQuinzena(q) % r.xp);
-  const tetoXp = liberadoXp(q) >= q.potes.xp;
+  const xp = parteXp(h, i);
   const viraBom = h.tipo === 'minimo' && !diaBom(iso) && minimos().every((m) => m === h ? partesFeitas(iso, m) === h.partes.length - 1 : habitoFeito(iso, m));
   const multi = h.partes.length > 1 ? `<span class="pill">${h.partes.length > 1 ? `${partesFeitas(iso, h) + 1} de ${h.partes.length}` : ''}</span>` : '';
 
@@ -1161,13 +1152,8 @@ function abrirTarefa(hid, i) {
     <div class="sheet-head"><span class="sheet-ic">${ic(h.icone)}</span>
       <div><span class="eyebrow">${h.tipo === 'minimo' ? 'Mínimo do dia bom' : 'Extra'}</span><h3>${esc(pt.rotulo || h.nome)}</h3></div>${multi}</div>
     <ul class="motivos">${h.motivos.map((m) => `<li>${ic('check')}<span>${esc(m)}</span></li>`).join('')}</ul>
-    <div class="stats3">
-      <div><span class="eyebrow">Ganha</span><b>+${xp} XP</b></div>
-      <div><span class="eyebrow">Vale</span><b>${brl(vale)}</b></div>
-      <div><span class="eyebrow">Libera agora</span><b>${tetoXp ? '—' : brl(agora)}</b></div>
-    </div>
-    <p class="nota">${tetoXp ? 'O pote de XP desta quinzena já está cheio.' : agora > 0 ? `Fecha mais 100 XP: libera ${brl(r.valor)} na hora.` : `${brl(r.valor)} a cada ${r.xp} XP. Faltam ${faltam} XP para o próximo.`}
-      ${viraBom ? `<br><b>Esse fecha o dia bom: +${S.config.xpDiaBom} XP.</b>` : ''}${h.tipo === 'extra' && !dia(iso).bauRef ? '<br>Primeiro bônus do dia: abre o baú do dia.' : ''}</p>
+    ${rumoHtml(xp)}
+    ${viraBom || (h.tipo === 'extra' && !dia(iso).bauRef) ? `<p class="nota">${viraBom ? `<b>Esse fecha o dia bom: +${S.config.xpDiaBom} XP.</b>` : ''}${h.tipo === 'extra' && !dia(iso).bauRef ? `${viraBom ? '<br>' : ''}Primeiro bônus do dia: abre o baú do dia.` : ''}</p>` : ''}
     ${slideHtml()}`,
   (el) => montarSlide(el, () => confirmarTarefa(h, i)));
 }
@@ -1194,17 +1180,24 @@ function celebrarXp(o) {
   if (!ok) animarXp(o.antes, o.ganho);
 }
 
-// Quanto um ganho de XP vale e libera em reais (usado no treino)
-function blocoDinheiro(xp) {
+// XP da missão e a barra até o próximo dinheiro liberado.
+// Em vez de "vale R$0,39", mostra o bloco de R$ que você está enchendo e quanto esta missão empurra.
+function rumoHtml(xp) {
   const q = S.quinzena, r = taxaXp(q);
   const cheio = liberadoXp(q) >= q.potes.xp;
-  const agora = liberadoXp(q, xp) - liberadoXp(q);
-  return `<div class="money-box">
-      <div><span class="eyebrow">Vale</span><b>${brl((xp * r.valor) / r.xp)}</b></div>
-      <div><span class="eyebrow">Libera agora</span><b>${cheio ? '—' : brl(agora)}</b></div>
-      <small>${cheio ? 'Pote de XP da quinzena cheio.' : `${brl(r.valor)} a cada ${r.xp} XP nesta quinzena.`} ${dia(S.sim.data).bauRef ? 'Baú do dia já aberto.' : `O primeiro bônus do dia abre um baú de até ${brl(bauMax())}.`}</small>
+  if (cheio) return `<div class="rumo cheio"><div class="rumo-top"><b class="rumo-xp">+${xp} XP</b><span>Pote de XP da quinzena cheio · conta para o nível</span></div></div>`;
+  const ja = xpQuinzena(q) % r.xp, depois = ja + xp;
+  const blocos = Math.floor(depois / r.xp);
+  const libera = Math.min(q.potes.xp - liberadoXp(q), blocos * r.valor);
+  const pctJa = (ja / r.xp) * 100, pctEssa = Math.min(100, depois / r.xp * 100) - pctJa;
+  const falta = r.xp - (depois % r.xp);
+  return `<div class="rumo ${blocos ? 'libera' : ''}">
+      <div class="rumo-top"><b class="rumo-xp">+${xp} XP</b><span class="rumo-alvo">${blocos ? `Libera ${brl(libera)}` : `Rumo a ${brl(r.valor)}`}</span></div>
+      <div class="rumo-bar"><i class="ja" style="width:${pctJa.toFixed(1)}%"></i><i class="essa" style="left:${pctJa.toFixed(1)}%;width:${pctEssa.toFixed(1)}%"></i></div>
+      <small>${blocos ? `Esta missão completa o bloco e libera na hora.${depois % r.xp ? ` Sobram ${depois % r.xp} XP para o próximo.` : ''}` : `Faltam ${falta} XP depois desta · cada ${r.xp} XP libera ${brl(r.valor)}`}</small>
     </div>`;
 }
+const blocoDinheiro = (xp) => rumoHtml(xp);
 
 // Treino e surf no Hoje
 function abrirEspecial(h) {
@@ -3022,10 +3015,10 @@ function migrar() {
     S.config.migracoes.push('economia2');
     salvar();
   }
-  // motivos novos (5 por hábito, beleza e saúde) para os hábitos padrão
-  if (!S.config.migracoes.includes('motivos5')) {
+  // motivos novos (5 por hábito: aparência e como você se sente) para os hábitos padrão
+  if (!S.config.migracoes.includes('motivos6')) {
     S.config.habitos.forEach((h) => { const pad = DADOS_INICIAIS.habitos.find((x) => x.id === h.id); if (pad) h.motivos = clone(pad.motivos); });
-    S.config.migracoes.push('motivos5');
+    S.config.migracoes.push('motivos6');
     salvar();
   }
   const q = S.quinzena;
