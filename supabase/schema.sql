@@ -36,5 +36,13 @@ drop trigger if exists estado_backup_trg on public.estado;
 create trigger estado_backup_trg before update on public.estado
   for each row execute function public.guardar_backup();
 
+-- Permissões explícitas: só a chave secreta (service_role) usa as tabelas.
+-- Funciona mesmo com "Grant API access to new tables automatically" desligado.
+grant usage on schema public to service_role;
+grant select, insert, update, delete on public.estado to service_role;
+grant select, insert, update, delete on public.estado_backup to service_role;
+grant usage, select on all sequences in schema public to service_role;
+revoke all on public.estado, public.estado_backup from anon, authenticated;
+
 -- Para voltar a uma cópia (troque o número):
 -- update public.estado set dados = (select dados from public.estado_backup where id = 123), versao = versao + 1 where id = 'principal';
