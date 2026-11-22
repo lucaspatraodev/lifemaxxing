@@ -67,6 +67,8 @@ const IC = {
   wallet: '<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10.5h18M16 15h1.5"/><path d="M6 6l9-2.5 1.5 2.5"/>',
   chart: '<path d="M4 20V11M10 20V5M16 20v-6M21.5 20h-19"/>',
   minus: '<path d="M5 12h14"/>',
+  up: '<path d="M6 15l6-6 6 6"/>',
+  down: '<path d="M6 9l6 6 6-6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',
@@ -736,15 +738,53 @@ function calcXpTreino(t) {
   return { base, prs, nPrs, intens, dur, total: base + prs + intens + dur, volume };
 }
 
+// ---------- Fichas e biblioteca de exercícios ----------
+const IMG_EX_BASE = 'https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/';
+const imgEx = (id, k = 0) => `${IMG_EX_BASE}${encodeURIComponent(id)}/${k}.jpg`;
+const nomeGrupo = (g) => (GRUPOS_EX.find((x) => x[0] === g) || [g, g === 'alongamento' ? 'Alongamento' : g])[1];
+// Um exercício pelo id: primeiro a biblioteca em português, depois o catálogo completo (se já carregou)
+function exInfo(id) {
+  const e = EXERCICIOS.find((x) => x[0] === id);
+  if (e) return { id, nome: e[1], grupo: e[2], equip: e[3], dicas: e[4], erro: e[5], pt: true };
+  const c = (window.CATALOGO_EX || []).find((x) => x[0] === id);
+  if (c) return { id, nome: c[1], grupo: c[2], equip: c[3], passos: c[4], nivel: c[5], pt: false };
+  return null;
+}
+const exDoNome = (nome) => ALIAS_EX[String(nome || '').toLowerCase()] || null;
+// Animação do movimento: as duas fotos (início e fim) alternando
+function demoEx(id, cls = '') {
+  if (!id) return `<div class="demo sem ${cls}">${ic('dumbbell')}</div>`;
+  return `<div class="demo ${cls}"><img src="${imgEx(id, 0)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('sem')"><img class="b" src="${imgEx(id, 1)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('sem')"><span class="demo-ic">${ic('dumbbell')}</span></div>`;
+}
+function carregarCatalogo(cb) {
+  if (window.CATALOGO_EX) return cb();
+  const s = document.createElement('script');
+  s.src = 'vendor/exercicios-catalogo.js';
+  s.onload = cb; s.onerror = () => toast('Não deu para carregar o catálogo agora');
+  document.head.appendChild(s);
+}
+const fichasIds = () => Object.keys(S.config.fichas || {});
+// Tipo de treino: uma ficha sua (musculação) ou cardio
+function tipoTreino(id) {
+  const f = (S.config.fichas || {})[id];
+  if (f) return { id, nome: f.titulo || 'Treino ' + id, sub: f.nome || '', icone: 'dumbbell', cardio: false, ficha: f };
+  return TIPOS_TREINO.find((x) => x.id === id) || { id, nome: id, cardio: true, icone: 'run' };
+}
+function novoIdFicha() {
+  const usados = new Set(fichasIds());
+  for (const l of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') if (!usados.has(l)) return l;
+  return 'F' + Date.now().toString(36);
+}
+
 function iniciarTreino(tipo) {
-  const tt = TIPOS_TREINO.find((x) => x.id === tipo);
+  const tt = tipoTreino(tipo);
   const ficha = S.config.fichas[tipo];
   const exercicios = ficha ? ficha.exercicios.map((e) => {
     const ult = ultimaSessaoEx(e.nome);
     const series = ult
       ? ult.series.map((s) => ({ kg: s.kg, reps: s.reps, feito: false }))
       : Array.from({ length: e.series }, () => ({ kg: e.carga, reps: e.reps, feito: false }));
-    return { nome: e.nome, series };
+    return { nome: e.nome, ex: e.ex || exDoNome(e.nome), descanso: e.descanso || 90, series };
   }) : [];
   S.treinoAtivo = { id: uid(), tipo, nome: tt.nome, sub: ficha ? ficha.nome : '', inicio: Date.now(), exercicios, distancia: '', notas: '' };
   salvar();
@@ -775,16 +815,16 @@ function treinoRapido(tipo) {
 
 // Treino aleatório (só para o simulador)
 function treinoAleatorio() {
-  const ultimo = [...S.treinos].reverse().find((t) => ['A', 'B', 'C'].includes(t.tipo));
-  const tipo = !ultimo ? 'A' : { A: 'B', B: 'C', C: 'A' }[ultimo.tipo];
+  const tipo = proximaFicha();
   const ficha = S.config.fichas[tipo];
+  if (!ficha) return treinoRapido('rapido');
   const exercicios = ficha.exercicios.map((e) => {
     const m = melhorAnterior(e.nome);
     let kg = m ? m.kg : e.carga;
     if (m && Math.random() < 0.25) kg += kg >= 20 ? 2.5 : 1;
     return { nome: e.nome, series: Array.from({ length: e.series }, (_, k) => ({ kg, reps: e.reps - (k === e.series - 1 && Math.random() < 0.5 ? 2 : 0), feito: true })) };
   });
-  return finalizarTreino({ id: uid(), tipo, nome: 'Musculação ' + tipo, sub: ficha.nome, exercicios, duracao: 35 + rand(35), intensidade: 5 + rand(5) });
+  return finalizarTreino({ id: uid(), tipo, nome: tipoTreino(tipo).nome, sub: ficha.nome, exercicios, duracao: 35 + rand(35), intensidade: 5 + rand(5) });
 }
 
 /* ---------------------------------------------------------
@@ -1378,9 +1418,11 @@ function abrirEspecial(h) {
     });
   });
 }
+// Próxima ficha na ordem (depois da última feita)
 function proximaFicha() {
-  const ultimo = [...S.treinos].reverse().find((t) => ['A', 'B', 'C'].includes(t.tipo));
-  return !ultimo ? 'A' : { A: 'B', B: 'C', C: 'A' }[ultimo.tipo];
+  const ids = fichasIds(); if (!ids.length) return 'corrida';
+  const ultimo = [...S.treinos].reverse().find((t) => ids.includes(t.tipo));
+  return !ultimo ? ids[0] : ids[(ids.indexOf(ultimo.tipo) + 1) % ids.length];
 }
 
 // Danos: escolher o que registrar
@@ -1598,7 +1640,147 @@ function modalPulo(r) {
 
 // --- Treino ---
 function renderTreino() {
+  const tela = UI.treinoTela || '';
+  if (tela === 'biblioteca') return renderBiblioteca();
+  if (tela.startsWith('ficha:') && S.config.fichas[tela.slice(6)]) return renderFichaEditor(tela.slice(6));
   return S.treinoAtivo ? renderTreinoAtivo() : renderTreinoInicio();
+}
+
+// ---------- Biblioteca de exercícios ----------
+function listaBiblioteca() {
+  const busca = (UI.bibBusca || '').trim().toLowerCase();
+  const g = UI.bibGrupo || '';
+  const tira = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const b = tira(busca);
+  let itens = EXERCICIOS.map((e) => ({ id: e[0], nome: e[1], grupo: e[2], equip: e[3], pt: true, apelidos: (e[6] || []).join(' ') }));
+  if (UI.bibCatalogo && window.CATALOGO_EX) {
+    const ja = new Set(itens.map((x) => x.id));
+    itens = itens.concat(window.CATALOGO_EX.filter((c) => !ja.has(c[0])).map((c) => ({ id: c[0], nome: c[1], grupo: c[2], equip: c[3], pt: false, apelidos: '' })));
+  }
+  return itens.filter((x) => (!g || x.grupo === g) && (!b || tira((x.nome + ' ' + x.apelidos + ' ' + x.equip + ' ' + nomeGrupo(x.grupo)).toLowerCase()).includes(b)));
+}
+function htmlListaBib() {
+  const itens = listaBiblioteca();
+  const max = 80;
+  const sel = UI.bibAlvo;
+  return itens.slice(0, max).map((x) => `
+    <button class="ex-linha" data-a="verEx" data-id="${esc(x.id)}">
+      <span class="ex-thumb"><img src="${imgEx(x.id, 0)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('sem')">${ic('dumbbell')}</span>
+      <span class="task-tx"><b>${esc(x.nome)}</b><small>${nomeGrupo(x.grupo)} · ${esc(x.equip)}${x.pt ? '' : ' · catálogo'}</small></span>
+      ${sel ? `<span class="ex-add">${ic('plus')}</span>` : ic('next')}
+    </button>`).join('') + (itens.length > max ? `<p class="nota center">Mostrando ${max} de ${itens.length}. Busque pelo nome para achar mais.</p>` : '') + (itens.length ? '' : '<p class="vazio">Nada encontrado.</p>');
+}
+function renderBiblioteca() {
+  const alvo = UI.bibAlvo;
+  const alvoNome = alvo === 'ativo' ? 'o treino de agora' : alvo ? tipoTreino(alvo).nome : '';
+  const grupos = [['', 'Todos'], ...GRUPOS_EX, ...(UI.bibCatalogo ? [['alongamento', 'Alongamento']] : [])];
+  return `
+  <div class="page-head with-back"><button class="icon-btn" data-a="voltarTreino" aria-label="Voltar">${ic('back')}</button><div><span class="eyebrow">${alvo ? `Adicionar em ${esc(alvoNome)}` : `${EXERCICIOS.length} com dicas em português`}</span><h1>Exercícios</h1></div></div>
+  <div class="busca"><input type="search" id="bib-busca" placeholder="Buscar: supino, agachamento, polia..." value="${esc(UI.bibBusca || '')}" autocomplete="off"></div>
+  <div class="chips scroll bib-grupos">${grupos.map(([k, n]) => `<button class="chip ${(UI.bibGrupo || '') === k ? 'on' : ''}" data-a="bibGrupo" data-k="${k}">${n}</button>`).join('')}</div>
+  <section class="card list bib-lista" id="bib-lista">${htmlListaBib()}</section>
+  <button class="btn ghost" data-a="bibCatalogo">${UI.bibCatalogo ? 'Esconder o catálogo completo' : `Ver catálogo completo (876 exercícios, nomes em inglês)`}</button>
+  <p class="nota center">Fotos do movimento: Free Exercise DB, domínio público.</p>`;
+}
+// Detalhe do exercício: animação, dicas, erro comum e onde adicionar
+function abrirExercicio(id) {
+  const x = exInfo(id); if (!x) return;
+  const alvo = UI.bibAlvo;
+  const fichas = fichasIds().map((fid) => tipoTreino(fid));
+  abrirFolha(`
+    ${demoEx(id, 'grande')}
+    <div class="ex-tt"><span class="eyebrow">${nomeGrupo(x.grupo)} · ${esc(x.equip)}${x.nivel ? ` · ${['', 'iniciante', 'intermediário', 'avançado'][x.nivel]}` : ''}</span><h3>${esc(x.nome)}</h3></div>
+    ${x.pt ? `
+    <span class="eyebrow">Como fazer</span>
+    <ul class="motivos dicas">${x.dicas.map((d) => `<li>${ic('check')}<span>${esc(d)}</span></li>`).join('')}</ul>
+    <div class="erro-comum">${ic('x')}<span><b>Erro comum:</b> ${esc(x.erro)}</span></div>`
+    : `<span class="eyebrow">Passo a passo (em inglês)</span><p class="passos">${esc(x.passos)}</p>`}
+    ${alvo ? `<button class="btn dark" data-s="add">${ic('plus')} Adicionar em ${esc(alvo === 'ativo' ? 'treino de agora' : tipoTreino(alvo).nome)}</button>`
+      : fichas.length ? `<span class="eyebrow">Adicionar a uma ficha</span><div class="chips" data-s="fichas">${fichas.map((f) => `<button class="chip" data-f="${esc(f.id)}">${esc(f.nome)}</button>`).join('')}</div>` : ''}`,
+  (el) => {
+    const add = (fid) => { addExercicio(fid, id); fecharFolha(); };
+    const b = el.querySelector('[data-s="add"]');
+    if (b) b.addEventListener('click', () => add(alvo));
+    const fs = el.querySelector('[data-s="fichas"]');
+    if (fs) fs.addEventListener('click', (e) => { const c = e.target.closest('[data-f]'); if (c) add(c.dataset.f); });
+  });
+}
+// Coloca um exercício numa ficha ou no treino em andamento
+function addExercicio(alvo, id) {
+  const x = exInfo(id); if (!x) return;
+  if (alvo === 'ativo' && S.treinoAtivo) {
+    const ult = ultimaSessaoEx(x.nome);
+    S.treinoAtivo.exercicios.push({ nome: x.nome, ex: id, descanso: 90, series: ult ? ult.series.map((s) => ({ kg: s.kg, reps: s.reps, feito: false })) : Array.from({ length: 3 }, () => ({ kg: 0, reps: 10, feito: false })) });
+    salvar(); UI.treinoTela = ''; UI.bibAlvo = null; render(); window.scrollTo(0, document.body.scrollHeight);
+    toast(`${x.nome} no treino`);
+    return;
+  }
+  const f = S.config.fichas[alvo]; if (!f) return;
+  const ult = melhorAnterior(x.nome);
+  f.exercicios.push({ nome: x.nome, ex: id, series: 3, reps: x.grupo === 'abdomen' ? 15 : 10, carga: ult ? ult.kg : 0, descanso: x.grupo === 'cardio' ? 0 : 90 });
+  salvar();
+  if (UI.bibAlvo) { UI.treinoTela = 'ficha:' + alvo; UI.bibAlvo = null; render(); window.scrollTo(0, document.body.scrollHeight); }
+  else render();
+  toast(`${x.nome} em ${tipoTreino(alvo).nome}`);
+}
+
+// ---------- Editor de ficha ----------
+function renderFichaEditor(fid) {
+  const f = S.config.fichas[fid], tt = tipoTreino(fid);
+  const linhas = f.exercicios.map((e, k) => {
+    const id = e.ex || exDoNome(e.nome);
+    return `
+    <section class="card fx-ex">
+      <div class="fx-topo">
+        <button class="ex-thumb" data-a="verEx" data-id="${esc(id || '')}" aria-label="Como fazer">${id ? `<img src="${imgEx(id, 0)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('sem')">` : ''}${ic('dumbbell')}</button>
+        <div class="task-tx"><b>${esc(e.nome)}</b><small>${id ? `${nomeGrupo((exInfo(id) || {}).grupo || '')}` : 'sem demonstração'}</small></div>
+        <div class="fx-acoes">
+          <button class="icon-sm" data-a="fichaMover" data-f="${fid}" data-k="${k}" data-d="-1" aria-label="Subir" ${k === 0 ? 'disabled' : ''}>${ic('up')}</button>
+          <button class="icon-sm" data-a="fichaMover" data-f="${fid}" data-k="${k}" data-d="1" aria-label="Descer" ${k === f.exercicios.length - 1 ? 'disabled' : ''}>${ic('down')}</button>
+          <button class="icon-sm" data-a="fichaTirar" data-f="${fid}" data-k="${k}" aria-label="Tirar">${ic('trash')}</button>
+        </div>
+      </div>
+      <div class="fx-campos">
+        <label>Séries<input type="number" inputmode="numeric" min="1" value="${e.series}" data-fx="${fid}|${k}|series"></label>
+        <label>Reps<input type="number" inputmode="numeric" min="1" value="${e.reps}" data-fx="${fid}|${k}|reps"></label>
+        <label>Carga (kg)<input type="number" inputmode="decimal" step="0.5" min="0" value="${e.carga}" data-fx="${fid}|${k}|carga"></label>
+        <label>Descanso (s)<input type="number" inputmode="numeric" step="15" min="0" value="${e.descanso ?? 90}" data-fx="${fid}|${k}|descanso"></label>
+      </div>
+    </section>`;
+  }).join('');
+  return `
+  <div class="page-head with-back"><button class="icon-btn" data-a="voltarTreino" aria-label="Voltar">${ic('back')}</button><div><span class="eyebrow">Ficha ${esc(fid)} · ${f.exercicios.length} exercício${f.exercicios.length === 1 ? '' : 's'}</span><h1>${esc(tt.nome)}</h1></div></div>
+  <section class="card form">
+    <label>Nome<input type="text" maxlength="30" value="${esc(f.titulo || '')}" data-fxn="${fid}|titulo" placeholder="Ex.: Treino A, Push, Superior"></label>
+    <label>Foco<input type="text" maxlength="40" value="${esc(f.nome || '')}" data-fxn="${fid}|nome" placeholder="Ex.: Peito e tríceps"></label>
+  </section>
+  <h3 class="sec">Exercícios</h3>
+  ${linhas || '<p class="vazio">Nenhum exercício ainda.</p>'}
+  <button class="btn dark" data-a="abrirBib" data-alvo="${fid}">${ic('plus')} Adicionar exercício</button>
+  ${S.treinoAtivo ? '' : `<button class="btn" data-a="iniciarTreino" data-t="${fid}">${ic('play')} Começar este treino</button>`}
+  <button class="btn ghost danger-tx" data-a="excluirFicha" data-f="${fid}">Excluir ficha</button>`;
+}
+
+function renderTreinoInicioCards() {
+  const fichas = fichasIds().map((fid) => {
+    const t = tipoTreino(fid), f = t.ficha;
+    const thumbs = f.exercicios.slice(0, 4).map((e) => { const id = e.ex || exDoNome(e.nome); return `<span class="ex-mini">${id ? `<img src="${imgEx(id, 0)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('sem')">` : ''}</span>`; }).join('');
+    return `
+    <div class="ficha-card">
+      <button class="ficha-ir" data-a="iniciarTreino" data-t="${esc(fid)}">
+        <span class="ficha-tt"><b>${esc(t.nome)}</b><small>${esc(f.nome || '')}${f.nome ? ' · ' : ''}${f.exercicios.length} exercício${f.exercicios.length === 1 ? '' : 's'}</small></span>
+        <span class="ficha-thumbs">${thumbs}</span>
+      </button>
+      <button class="ficha-edit" data-a="editarFicha" data-f="${esc(fid)}" aria-label="Editar ${esc(t.nome)}">${ic('sliders')}</button>
+    </div>`;
+  }).join('');
+  const cardio = TIPOS_TREINO.filter((t) => t.cardio).map((t) => `<button class="type" data-a="iniciarTreino" data-t="${t.id}">${ic(t.icone)}<b>${esc(t.nome)}</b><small>${t.id === 'surf' ? '150 XP' : 'Cardio'}</small></button>`).join('');
+  return `
+  <h3 class="sec">Suas fichas</h3>
+  <div class="fichas">${fichas}<button class="ficha-nova" data-a="novaFicha">${ic('plus')} Nova ficha</button></div>
+  <button class="bib-entrada" data-a="abrirBib">${demoEx('Barbell_Bench_Press_-_Medium_Grip', 'mini')}<span class="task-tx"><b>Biblioteca de exercícios</b><small>${EXERCICIOS.length} com movimento e dicas · 876 no catálogo</small></span>${ic('next')}</button>
+  <h3 class="sec">Cardio</h3>
+  <div class="types">${cardio}</div>`;
 }
 
 // Semana do treino: sexta a quinta (o bônus conta no corte de sexta)
@@ -1610,10 +1792,6 @@ function semanaTreino(iso) {
 
 function renderTreinoInicio() {
   const iso = S.sim.data, sem = semanaTreino(iso), n = treinosEntre(sem.ini, sem.fim);
-  const tipos = TIPOS_TREINO.map((t) => {
-    const ficha = S.config.fichas[t.id];
-    return `<button class="type" data-a="iniciarTreino" data-t="${t.id}">${ic(t.icone)}<b>${esc(t.nome)}</b><small>${ficha ? esc(ficha.nome) : t.id === 'surf' ? '150 XP' : 'Cardio'}</small></button>`;
-  }).join('');
 
   // calendário do mês simulado
   const d = paraData(iso), y = d.getFullYear(), m = d.getMonth() + 1;
@@ -1636,8 +1814,7 @@ function renderTreinoInicio() {
     <div class="card-head"><div><span class="eyebrow">Meta da semana · sex a qui</span><h2>${n} <small>de 3 treinos</small></h2></div><span class="pill ${n >= 3 ? 'blue' : ''}">${n >= 3 ? 'Bônus garantido' : `+${S.config.xpBonus.semana3} XP no corte de sexta`}</span></div>
     <div class="segs">${[0, 1, 2].map((k) => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</div>
   </section>
-  <h3 class="sec">Começar</h3>
-  <div class="types">${tipos}</div>
+  ${renderTreinoInicioCards()}
   <h3 class="sec">${MESES[m - 1]}</h3>
   <section class="card"><div class="cal">${cal}</div></section>
   ${renderGraficoCarga()}
@@ -1647,7 +1824,8 @@ function renderTreinoInicio() {
 
 // Carga por exercício (melhor série de cada sessão)
 function renderGraficoCarga() {
-  const nomes = Object.values(S.config.fichas).flatMap((f) => f.exercicios.map((e) => e.nome));
+  const nomes = [...new Set([...Object.values(S.config.fichas).flatMap((f) => f.exercicios.map((e) => e.nome)), ...S.treinos.flatMap((t) => (t.exercicios || []).map((e) => e.nome))])];
+  if (!nomes.length) return '';
   if (!UI.exercicio || !nomes.includes(UI.exercicio)) UI.exercicio = nomes[0];
   const pts = [];
   S.treinos.forEach((t) => (t.exercicios || []).forEach((e) => {
@@ -1687,13 +1865,14 @@ function fmtTempo(ms) {
 
 function renderTreinoAtivo() {
   const t = S.treinoAtivo;
-  const tt = TIPOS_TREINO.find((x) => x.id === t.tipo) || {};
+  const tt = tipoTreino(t.tipo);
   const exs = t.exercicios.map((e, ei) => {
     const ult = ultimaSessaoEx(e.nome);
     const pr = serieRecorde(e, t.id);
+    const id = e.ex || exDoNome(e.nome);
     return `
     <section class="card ex">
-      <div class="ex-head"><b>${esc(e.nome)}</b>${pr >= 0 ? `<span class="pill blue">${ic('trophy')} Recorde</span>` : ''}</div>
+      <div class="ex-head">${id ? `<button class="ex-thumb" data-a="verEx" data-id="${esc(id)}" aria-label="Como fazer"><img src="${imgEx(id, 0)}" alt="" loading="lazy" onerror="this.parentNode.classList.add('sem')">${ic('dumbbell')}</button>` : ''}<b>${esc(e.nome)}</b>${pr >= 0 ? `<span class="pill blue">${ic('trophy')} Recorde</span>` : ''}${id ? `<button class="como" data-a="verEx" data-id="${esc(id)}">Como fazer</button>` : ''}</div>
       <small class="muted">${ult ? `Última (${dataCurta(ult.data)}): ${ult.series.map((s) => `${String(s.kg).replace('.', ',')}×${s.reps}`).join(' · ')}` : 'Primeira vez: sem histórico'}</small>
       <div class="sets">
         <div class="set head"><span>#</span><span>kg</span><span>reps</span><span></span></div>
@@ -1725,6 +1904,7 @@ function renderTreinoAtivo() {
     </div>
   </section>
   ${exs}${cardio}
+  ${tt.cardio ? '' : `<button class="btn ghost" data-a="abrirBib" data-alvo="ativo">${ic('plus')} Adicionar exercício</button>`}
   <p class="nota center">Marque cada série feita: o timer de descanso começa sozinho.</p>`;
 }
 
@@ -3034,11 +3214,11 @@ const acoes = {
   iaProvedor(el) { S.config.iaProvedor = el.dataset.id || null; salvar(); render(); },
 
   // treino
-  iniciarTreino(el) { iniciarTreino(el.dataset.t); render(); window.scrollTo(0, 0); },
+  iniciarTreino(el) { if (S.treinoAtivo) { UI.treinoTela = ''; render(); return toast('Já tem um treino em andamento'); } iniciarTreino(el.dataset.t); UI.treinoTela = ''; UI.bibAlvo = null; render(); window.scrollTo(0, 0); },
   cancelarTreino() { confirmar('Cancelar este treino? Nada será salvo.', 'Cancelar treino', () => { S.treinoAtivo = null; UI.descanso = null; salvar(); render(); }); },
   finalizarTreino() {
     const t = S.treinoAtivo;
-    const tt = TIPOS_TREINO.find((x) => x.id === t.tipo) || {};
+    const tt = tipoTreino(t.tipo);
     if (!tt.cardio && !t.exercicios.some((e) => e.series.some((s) => s.feito))) return toast('Marque pelo menos uma série feita');
     abrirFinalizar();
   },
@@ -3049,7 +3229,7 @@ const acoes = {
     if (s.feito) {
       const ex = S.treinoAtivo.exercicios[el.dataset.e];
       FX.serie($(`.set-ok[data-e="${el.dataset.e}"][data-s="${el.dataset.s}"]`), serieRecorde(ex, S.treinoAtivo.id) === Number(el.dataset.s));
-      iniciarDescanso(UI.ultimoDescanso || 90);
+      iniciarDescanso(ex.descanso || UI.ultimoDescanso || 90);
     }
   },
   addSerie(el) {
@@ -3062,6 +3242,27 @@ const acoes = {
   maisDescanso() { if (UI.descanso) { UI.descanso.fim += 15000; UI.descanso.total += 15; renderDescanso(); } },
   pularDescanso() { UI.descanso = null; renderDescanso(); },
   exercicio(el) { UI.exercicio = el.dataset.n; render(); },
+  abrirBib(el) { UI.treinoTela = 'biblioteca'; UI.bibAlvo = (el && el.dataset.alvo) || null; render(); window.scrollTo(0, 0); },
+  voltarTreino() { const volta = UI.bibAlvo && UI.bibAlvo !== 'ativo' ? 'ficha:' + UI.bibAlvo : ''; UI.treinoTela = UI.treinoTela === 'biblioteca' ? volta : ''; UI.bibAlvo = null; render(); window.scrollTo(0, 0); },
+  bibGrupo(el) { UI.bibGrupo = el.dataset.k; const l = $('#bib-lista'); if (l) { l.innerHTML = htmlListaBib(); document.querySelectorAll('.bib-grupos .chip').forEach((c) => c.classList.toggle('on', c === el)); } else render(); },
+  bibCatalogo() { if (UI.bibCatalogo) { UI.bibCatalogo = false; render(); return; } carregarCatalogo(() => { UI.bibCatalogo = true; render(); }); },
+  verEx(el) { if (!el.dataset.id) return toast('Este exercício não tem demonstração'); const go = () => abrirExercicio(el.dataset.id); if (exInfo(el.dataset.id)) go(); else carregarCatalogo(go); },
+  novaFicha() {
+    const id = novoIdFicha();
+    S.config.fichas[id] = { titulo: 'Treino ' + id, nome: '', exercicios: [] };
+    salvar(); UI.treinoTela = 'ficha:' + id; render(); window.scrollTo(0, 0);
+  },
+  editarFicha(el) { UI.treinoTela = 'ficha:' + el.dataset.f; render(); window.scrollTo(0, 0); },
+  fichaMover(el) {
+    const f = S.config.fichas[el.dataset.f], k = Number(el.dataset.k), j = k + Number(el.dataset.d);
+    if (!f || j < 0 || j >= f.exercicios.length) return;
+    [f.exercicios[k], f.exercicios[j]] = [f.exercicios[j], f.exercicios[k]]; salvar(); render();
+  },
+  fichaTirar(el) { const f = S.config.fichas[el.dataset.f]; if (!f) return; f.exercicios.splice(Number(el.dataset.k), 1); salvar(); render(); },
+  excluirFicha(el) {
+    const fid = el.dataset.f;
+    confirmar(`Excluir ${tipoTreino(fid).nome}? O histórico dos treinos continua salvo.`, 'Excluir', () => { delete S.config.fichas[fid]; salvar(); UI.treinoTela = ''; render(); window.scrollTo(0, 0); });
+  },
 
   // grana
   sacar() { abrirSacar(); },
@@ -3095,6 +3296,13 @@ document.addEventListener('click', (e) => {
   if (fn) fn(el, e);
 });
 
+// Busca da biblioteca: redesenha só a lista para não perder o foco
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'bib-busca') return;
+  UI.bibBusca = e.target.value;
+  const l = $('#bib-lista'); if (l) l.innerHTML = htmlListaBib();
+});
+
 // Inputs: séries do treino, campos de cardio, ajustes e orçamento (salvam sem redesenhar)
 document.addEventListener('change', (e) => {
   const el = e.target;
@@ -3106,6 +3314,13 @@ document.addEventListener('change', (e) => {
     const [ei, si, k] = el.dataset.serie.split('|');
     S.treinoAtivo.exercicios[ei].series[si][k] = Math.max(0, Number(String(el.value).replace(',', '.')) || 0);
     salvar(); // sem render: mantém o foco no próximo campo
+  } else if (el.dataset.fx) {
+    const [fid, k, campo] = el.dataset.fx.split('|');
+    const e = (S.config.fichas[fid] || { exercicios: [] }).exercicios[k];
+    if (e) { e[campo] = Math.max(campo === 'series' || campo === 'reps' ? 1 : 0, Number(String(el.value).replace(',', '.')) || 0); salvar(); }
+  } else if (el.dataset.fxn) {
+    const [fid, campo] = el.dataset.fxn.split('|');
+    if (S.config.fichas[fid]) { S.config.fichas[fid][campo] = el.value.trim(); salvar(); }
   } else if (el.dataset.campo && S.treinoAtivo) {
     S.treinoAtivo[el.dataset.campo] = el.value; salvar();
   } else if (el.dataset.cfg) {
@@ -3338,6 +3553,15 @@ function migrar() {
       b.partes = {}; let usado = 0;
       ks.forEach((k, i) => { const p = i === ks.length - 1 ? Math.round((b.valor - usado) * 100) / 100 : Math.floor((b.valor * r[k] / tot) * 100) / 100; b.partes[k] = p; usado += p; });
     });
+    salvarLocal();
+  }
+  // fichas 2: nome próprio, descanso e ligação com a biblioteca (foto e dicas)
+  if (!S.config.migracoes.includes('fichas2')) {
+    Object.entries(S.config.fichas || {}).forEach(([id, f]) => {
+      if (!f.titulo) f.titulo = 'Musculação ' + id;
+      f.exercicios.forEach((e) => { if (!e.ex) e.ex = exDoNome(e.nome); if (e.descanso === undefined) e.descanso = 90; });
+    });
+    S.config.migracoes.push('fichas2');
     salvarLocal();
   }
   // danos: metas, categorias de gasto e o desafio de fast food vira delivery

@@ -152,19 +152,19 @@ const DADOS_INICIAIS = {
 
   // Fichas de musculação (cargas iniciais em kg)
   fichas: {
-    A: { nome: 'Peito e tríceps', exercicios: [
+    A: { titulo: 'Musculação A', nome: 'Peito e tríceps', exercicios: [
       { nome: 'Supino reto', series: 4, reps: 10, carga: 40 },
       { nome: 'Supino inclinado com halter', series: 3, reps: 10, carga: 16 },
       { nome: 'Crucifixo', series: 3, reps: 12, carga: 12 },
       { nome: 'Tríceps corda', series: 3, reps: 12, carga: 20 }
     ] },
-    B: { nome: 'Costas e bíceps', exercicios: [
+    B: { titulo: 'Musculação B', nome: 'Costas e bíceps', exercicios: [
       { nome: 'Puxada frontal', series: 4, reps: 10, carga: 45 },
       { nome: 'Remada curvada', series: 3, reps: 10, carga: 40 },
       { nome: 'Remada baixa', series: 3, reps: 12, carga: 40 },
       { nome: 'Rosca direta', series: 3, reps: 10, carga: 20 }
     ] },
-    C: { nome: 'Pernas e ombros', exercicios: [
+    C: { titulo: 'Musculação C', nome: 'Pernas e ombros', exercicios: [
       { nome: 'Agachamento', series: 4, reps: 10, carga: 50 },
       { nome: 'Leg press', series: 3, reps: 12, carga: 120 },
       { nome: 'Desenvolvimento com halter', series: 3, reps: 10, carga: 14 },

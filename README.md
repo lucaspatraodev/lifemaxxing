@@ -36,7 +36,7 @@ Na Vercel o app começa **valendo hoje**. O modo teste (data simulada, Próximo 
 
 - **Hoje:** card Dia bom com as 7 obrigações (dentes, skincare, água, frutas, dormir, sair de casa e arrumar o quarto) e o Treino (que não conta para o dia bom). Abaixo, **Obrigações** por período (manhã, tarde, noite) e **Bônus** (opcionais, valem mais), com **Adicionar bônus** para criar hobbies como ler um livro.
 - **Registrar:** folha com motivos, XP, quanto vale e quanto libera em reais, e deslizar para confirmar.
-- **Treino:** fichas A, B e C, corrida, surf e skate, séries com carga e reps, última vez, recordes, timer de descanso. Ao finalizar mostra XP e quanto vale e libera em reais.
+- **Treino:** fichas personalizáveis (criar, renomear, ordenar exercícios, séries/reps/carga/descanso), corrida, surf e skate, séries com carga e reps, última vez, recordes, timer de descanso por exercício. **Biblioteca** com 120 exercícios em português (movimento animado, 4 dicas e o erro comum de cada um) e o catálogo completo do Free Exercise DB (876, domínio público) para buscar qualquer outro. Ao finalizar mostra XP e quanto vale e libera em reais.
 - **Grana › Resumo:** disponível para saque, já sacado, travado e montante. Sacar tira o valor do montante. Insights e histórico de gastos e saques, potes, tickets de delivery, Caixa de viagem.
 - **Grana › Fixos:** fixos da quinzena editáveis, com "pago". Em todo dia 15 e 30 abre a folha para registrar.
 - **Progresso:** sequência, médias de 30 dias, mapa de 14 dias, caminho até Surfista, quinzenas fechadas.
