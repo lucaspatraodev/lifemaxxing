@@ -35,6 +35,7 @@ const diaSemana = (iso) => paraData(iso).getDay(); // 0 dom ... 6 sáb
 const diasNoMes = (y, m) => new Date(y, m, 0).getDate(); // m de 1 a 12
 const entre = (iso, a, b) => iso >= a && iso <= b;
 function intervalo(a, b) { const r = []; for (let d = a; d <= b; d = somaDias(d, 1)) r.push(d); return r; }
+const maxIso = (x, y) => (x > y ? x : y);
 const minIso = (a, b) => (a < b ? a : b);
 
 const SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -1171,14 +1172,115 @@ function renderSimBar() {
 
 // --- Hoje ---
 // Dieta: aba reservada, ainda em desenvolvimento
+// ---------- Dieta: frutas da quinzena ----------
+// q.frutas = { estoque: [{ id, nome, qtd }], plano: { 'AAAA-MM-DD': ['maca', 'banana'] } }
+function frutasQ(q = S.quinzena) { q.frutas = q.frutas || { estoque: [], plano: {} }; return q.frutas; }
+function frutaInfo(id) {
+  const f = FRUTAS.find((x) => x.id === id);
+  if (f) return { id, nome: f.nome, ben: f.ben };
+  const p = frutasQ().estoque.find((x) => x.id === id);
+  const h = habito('frutas');
+  return p ? { id, nome: p.nome, ben: (h && h.motivos) || [] } : null;
+}
+const slotsFruta = () => { const h = habito('frutas'); return h ? h.partes.length : 2; };
+// Fruta planejada para a parte i do dia (ou null)
+function frutaDoDia(iso, i) { const pl = (S.quinzena.frutas || {}).plano || {}; const id = (pl[iso] || [])[i]; return id ? frutaInfo(id) : null; }
+// Quantas de cada fruta já estão no plano
+function usoFrutas(q = S.quinzena) { const u = {}; Object.values(frutasQ(q).plano).forEach((l) => l.forEach((id) => { if (id) u[id] = (u[id] || 0) + 1; })); return u; }
+function comidasFrutas(q = S.quinzena) {
+  const h = habito('frutas'), u = {}; if (!h) return u;
+  Object.entries(frutasQ(q).plano).forEach(([iso, l]) => l.forEach((id, i) => { if (id && parteFeita(iso, h, i)) u[id] = (u[id] || 0) + 1; }));
+  return u;
+}
+// Distribui o que sobrou no estoque pelos dias que faltam, variando (duas frutas diferentes no mesmo dia quando der)
+function distribuirFrutas() {
+  const q = S.quinzena, fr = frutasQ(q), h = habito('frutas'), n = slotsFruta();
+  const ini = maxIso(S.sim.data, inicioUtil(q));
+  const dias = intervalo(ini, q.fim);
+  // limpa o plano futuro ainda não comido
+  dias.forEach((d) => { const l = fr.plano[d] || []; fr.plano[d] = Array.from({ length: n }, (_, i) => (h && parteFeita(d, h, i) ? l[i] : null)); });
+  const uso = usoFrutas(q);
+  const resto = fr.estoque.map((e) => ({ id: e.id, sobra: Math.max(0, e.qtd - (uso[e.id] || 0)) })).filter((e) => e.sobra > 0);
+  let colocadas = 0;
+  dias.forEach((d) => {
+    const ontem = fr.plano[somaDias(d, -1)] || [];
+    for (let i = 0; i < n; i++) {
+      if (fr.plano[d][i]) continue;
+      const opc = resto.filter((e) => e.sobra > 0).sort((x, y) => y.sobra - x.sobra);
+      if (!opc.length) return;
+      // prefere uma fruta que não está hoje nem ontem; depois, só não repetir no mesmo dia
+      const escolha = opc.find((e) => !fr.plano[d].includes(e.id) && !ontem.includes(e.id)) || opc.find((e) => !fr.plano[d].includes(e.id)) || opc[0];
+      fr.plano[d][i] = escolha.id; escolha.sobra--; colocadas++;
+    }
+  });
+  salvar();
+  return colocadas;
+}
+function abrirEscolherFruta(iso, i) {
+  const fr = frutasQ(), uso = usoFrutas(), atual = (fr.plano[iso] || [])[i];
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic">${ic('apple')}</span><div><span class="eyebrow">${dataLonga(iso)} · fruta ${i + 1}</span><h3>Qual fruta?</h3></div></div>
+    <div class="fr-escolha">${fr.estoque.map((e) => {
+      const sobra = e.qtd - (uso[e.id] || 0) + (atual === e.id ? 1 : 0);
+      return `<button class="chip ${atual === e.id ? 'on' : ''}" data-f="${esc(e.id)}" ${sobra <= 0 && atual !== e.id ? 'disabled' : ''}>${esc(e.nome)} <small>${Math.max(0, sobra)}</small></button>`;
+    }).join('')}</div>
+    ${fr.estoque.length ? '' : '<p class="nota">Cadastre as frutas da quinzena primeiro.</p>'}
+    ${atual ? '<button class="btn ghost" data-f="">Deixar sem fruta definida</button>' : ''}`,
+  (el) => el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-f]'); if (!b || b.disabled) return;
+    fr.plano[iso] = fr.plano[iso] || Array(slotsFruta()).fill(null);
+    fr.plano[iso][i] = b.dataset.f || null; salvar(); fecharFolha(); render();
+  }));
+}
+function abrirAddFruta() {
+  const fr = frutasQ(), tem = new Set(fr.estoque.map((e) => e.id));
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic">${ic('apple')}</span><div><span class="eyebrow">Frutas da quinzena</span><h3>Adicionar fruta</h3></div></div>
+    <div class="fr-escolha">${FRUTAS.filter((f) => !tem.has(f.id)).map((f) => `<button class="chip" data-f="${f.id}">${esc(f.nome)}</button>`).join('')}</div>
+    <div class="nova-cat"><input type="text" maxlength="24" placeholder="Outra fruta" data-s="nome"><button class="btn dark" data-s="criar">Adicionar</button></div>`,
+  (el) => {
+    const add = (id, nome) => { fr.estoque.push({ id, nome, qtd: 4 }); salvar(); fecharFolha(); render(); toast(`${nome} na quinzena`); };
+    el.querySelector('.fr-escolha').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) add(b.dataset.f, frutaInfo(b.dataset.f).nome); });
+    el.querySelector('[data-s="criar"]').addEventListener('click', () => {
+      const nome = el.querySelector('[data-s="nome"]').value.trim(); if (!nome) return toast('Escreva o nome da fruta');
+      const conhecida = FRUTAS.find((f) => f.nome.toLowerCase() === nome.toLowerCase());
+      add(conhecida ? conhecida.id : 'x-' + uid(), conhecida ? conhecida.nome : nome);
+    });
+  });
+}
+
 function renderDieta() {
+  const q = S.quinzena, fr = frutasQ(q), iso = S.sim.data, n = slotsFruta(), h = habito('frutas');
+  const uso = usoFrutas(q), comidas = comidasFrutas(q);
+  const total = soma(fr.estoque.map((e) => e.qtd)), planejadas = soma(Object.values(uso));
+  const dias = intervalo(maxIso(inicioUtil(q), q.inicio), q.fim);
+  const precisa = dias.filter((d) => d >= iso).length * n - soma(dias.filter((d) => d >= iso).map((d) => (fr.plano[d] || []).filter((x, i) => x && h && parteFeita(d, h, i)).length));
+  const estoque = fr.estoque.map((e) => `
+    <div class="fr-item">
+      <span class="task-tx"><b>${esc(e.nome)}</b><small>${uso[e.id] || 0} no plano · ${comidas[e.id] || 0} comida${(comidas[e.id] || 0) === 1 ? '' : 's'}</small></span>
+      <span class="stepper"><button data-a="frQtd" data-f="${esc(e.id)}" data-d="-1" aria-label="Menos">${ic('minus')}</button><b class="fr-qtd">${e.qtd}</b><button data-a="frQtd" data-f="${esc(e.id)}" data-d="1" aria-label="Mais">${ic('plus')}</button></span>
+    </div>`).join('');
+  const plano = dias.map((d) => {
+    const l = fr.plano[d] || [];
+    return `<div class="fr-dia ${d === iso ? 'hoje' : ''} ${d < iso ? 'passou' : ''}">
+      <span class="fr-data"><b>${d === iso ? 'Hoje' : SEMANA_CURTA[diaSemana(d)]}</b><small>${dataCurta(d)}</small></span>
+      ${Array.from({ length: n }, (_, i) => { const f = l[i] ? frutaInfo(l[i]) : null, feita = h && parteFeita(d, h, i); return `<button class="fr-slot ${f ? 'tem' : ''} ${feita ? 'feita' : ''}" data-a="frSlot" data-d="${d}" data-i="${i}" ${d < iso ? 'disabled' : ''}>${feita ? ic('check') : ''}${f ? esc(f.nome) : 'Escolher'}</button>`; }).join('')}
+    </div>`;
+  }).join('');
   return `
-  <header class="page-head"><span class="eyebrow">${dataLonga(S.sim.data)}</span><h1>Dieta</h1></header>
-  <section class="card dev">
-    <span class="dev-ic">${ic('apple')}</span>
-    <b>Em desenvolvimento</b>
-    <p>Em breve: refeições, frutas e marmitas da quinzena aqui.</p>
-  </section>`;
+  <header class="page-head"><span class="eyebrow">${dataLonga(iso)}</span><h1>Dieta</h1></header>
+  <section class="card fr-resumo">
+    <div class="fr-num"><b>${total}</b><small>frutas na quinzena</small></div>
+    <div class="fr-num"><b>${planejadas}</b><small>no plano</small></div>
+    <div class="fr-num"><b>${Math.max(0, precisa)}</b><small>vagas até ${dataCurta(q.fim)}</small></div>
+  </section>
+  <h3 class="sec">Frutas da quinzena</h3>
+  <section class="card list fr-lista">${estoque || '<p class="vazio">Cadastre o que você comprou para a quinzena.</p>'}
+    <button class="link" data-a="frAdd">${ic('plus')} Adicionar fruta</button></section>
+  ${fr.estoque.length ? `<button class="btn dark" data-a="frDistribuir">${ic('calendar')} Distribuir pelos dias</button>` : ''}
+  <h3 class="sec">Plano · ${n} por dia</h3>
+  <p class="nota">Toque num dia para escolher a fruta. No Hoje, a missão mostra o nome dela e os benefícios.</p>
+  <section class="card fr-plano">${plano}</section>`;
 }
 
 function renderHoje() {
@@ -1200,7 +1302,7 @@ function renderHoje() {
     return `
       <button class="task mis ${feito ? 'done' : ''} ${h.tipo}" data-a="tarefa" data-h="${h.id}" data-i="${i}">
         <span class="task-ic">${ic(h.icone)}</span>
-        <span class="task-tx">${rotulo ? `<small class="mis-rot">${esc(rotulo)}</small>` : ''}<b>${esc(pt.rotulo || h.nome)}</b></span>
+        <span class="task-tx">${rotulo ? `<small class="mis-rot">${esc(rotulo)}</small>` : ''}<b>${esc((h.id === 'frutas' && frutaDoDia(iso, i) || {}).nome || pt.rotulo || h.nome)}</b></span>
         ${feito ? `<span class="task-ok">${ic('check')}</span>`
           : timerDe(iso, h, i) ? `<span class="task-timer" data-timer="${chaveParte(h, i)}">${fmtTempo(Math.max(0, restanteMs(iso, h, i)))}</span>`
           : `<span class="task-xp">${duracaoParte(h, i) ? `<i class="dur">${duracaoParte(h, i) >= 60 ? duracaoParte(h, i) / 60 + 'h' : duracaoParte(h, i) + 'min'}</i>` : ''}+${xp}${h.especial ? '+' : ''} XP</span>`}
@@ -1332,13 +1434,15 @@ function abrirTarefa(hid, i) {
     (el) => el.querySelector('[data-s="desfazer"]').addEventListener('click', () => { desfazerParte(h, i); fecharFolha(); render(); }));
   }
   const xp = parteXp(h, i);
+  const fruta = h.id === 'frutas' ? frutaDoDia(iso, i) : null;
+  const motivos = fruta ? fruta.ben : h.motivos;
   const viraBom = h.tipo === 'minimo' && !diaBom(iso) && minimos().every((m) => m === h ? partesFeitas(iso, m) === h.partes.length - 1 : habitoFeito(iso, m));
   const multi = h.partes.length > 1 ? `<span class="pill">${h.partes.length > 1 ? `${partesFeitas(iso, h) + 1} de ${h.partes.length}` : ''}</span>` : '';
 
   abrirFolha(`
     <div class="sheet-head"><span class="sheet-ic">${ic(h.icone)}</span>
-      <div><span class="eyebrow">${h.tipo === 'minimo' ? 'Mínimo do dia bom' : 'Extra'}</span><h3>${esc(pt.rotulo || h.nome)}</h3></div>${multi}</div>
-    <ul class="motivos">${h.motivos.map((m) => `<li>${ic('check')}<span>${esc(m)}</span></li>`).join('')}</ul>
+      <div><span class="eyebrow">${h.tipo === 'minimo' ? 'Mínimo do dia bom' : 'Extra'}</span><h3>${esc(fruta ? fruta.nome : pt.rotulo || h.nome)}</h3></div>${multi}</div>
+    <ul class="motivos">${motivos.map((m) => `<li>${ic('check')}<span>${esc(m)}</span></li>`).join('')}</ul>
     ${rumoHtml(xp)}
     ${viraBom || (h.tipo === 'extra' && !dia(iso).bauRef) ? `<p class="nota">${viraBom ? `<b>Esse fecha o dia bom: +${S.config.xpDiaBom} XP.</b>` : ''}${h.tipo === 'extra' && !dia(iso).bauRef ? `${viraBom ? '<br>' : ''}Primeiro bônus do dia: abre o baú do dia.` : ''}</p>` : ''}
     ${slideHtml()}`,
@@ -3155,6 +3259,15 @@ const acoes = {
   danos() { abrirDanos(); },
   dano(el) { if (el.dataset.k === 'delivery') abrirFastFood(); else abrirDano(el.dataset.k); },
   editarMetaDano(el) { abrirMetaDano(el.dataset.k); },
+  frAdd() { abrirAddFruta(); },
+  frQtd(el) {
+    const e = frutasQ().estoque.find((x) => x.id === el.dataset.f); if (!e) return;
+    e.qtd = Math.max(0, e.qtd + Number(el.dataset.d));
+    if (e.qtd === 0 && !(usoFrutas()[e.id])) frutasQ().estoque = frutasQ().estoque.filter((x) => x !== e);
+    salvar(); render();
+  },
+  frSlot(el) { abrirEscolherFruta(el.dataset.d, Number(el.dataset.i)); },
+  frDistribuir() { const n = distribuirFrutas(); render(); toast(n ? `${n} frutas distribuídas` : 'Nada para distribuir: aumente o estoque'); },
   configBloqueio() { abrirConfigBloqueio(); },
   metaDano(el) { const k = el.dataset.k; S.config.danos = S.config.danos || {}; S.config.danos[k] = Math.max(0, (S.config.danos[k] ?? 0) + Number(el.dataset.d)); salvar(); render(); },
   apagarDano(el) { confirmar('Apagar este registro? O gasto ligado a ele também sai.', 'Apagar', () => { apagarDano(el.dataset.iso, el.dataset.id); render(); }); },

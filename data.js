@@ -231,3 +231,28 @@ const TIPOS_DANO = [
   { id: 'beber', nome: 'Beber', icone: 'glass', categoria: 'Bebida', periodo: 'semana' },
   { id: 'fumar', nome: 'Fumar', icone: 'leaf', categoria: 'Fumo', periodo: 'semana' }
 ];
+
+// Frutas para o plano da quinzena (Dieta). Benefícios: aparência e como você se sente.
+const FRUTAS = [
+  { id: 'maca', nome: 'Maçã', ben: ['Fibras que desincham a barriga', 'Saciedade: segura a fome até a próxima refeição', 'Pele mais limpa com antioxidantes', 'Energia estável, sem pico de açúcar', 'Hálito fresco e dentes mais limpos ao mastigar'] },
+  { id: 'banana', nome: 'Banana', ben: ['Energia rápida antes do treino', 'Potássio: menos cãibra e mais disposição', 'Humor melhor (ajuda a formar serotonina)', 'Sono mais tranquilo à noite', 'Doce natural que tira a vontade de besteira'] },
+  { id: 'laranja', nome: 'Laranja', ben: ['Vitamina C forma colágeno: pele firme', 'Imunidade em dia', 'Hidrata junto com a água', 'Ajuda a absorver ferro: menos cansaço', 'Pele com viço'] },
+  { id: 'mexerica', nome: 'Mexerica', ben: ['Vitamina C para a pele', 'Fácil de levar e comer em qualquer lugar', 'Hidratação e frescor', 'Imunidade forte', 'Doce leve, poucas calorias'] },
+  { id: 'mamao', nome: 'Mamão', ben: ['Barriga desinchada e intestino leve', 'Pele com brilho (betacaroteno)', 'Digestão mais leve depois das refeições', 'Vitamina C e A para a pele', 'Poucas calorias, muita saciedade'] },
+  { id: 'abacaxi', nome: 'Abacaxi', ben: ['Bromelina ajuda a digerir e desinchar', 'Vitamina C para a pele', 'Hidrata e refresca', 'Recuperação melhor depois do treino', 'Doce natural'] },
+  { id: 'melancia', nome: 'Melancia', ben: ['Muita água: hidrata a pele', 'Rosto menos inchado', 'Refresca no calor', 'Licopeno protege a pele do sol', 'Quase sem calorias'] },
+  { id: 'melao', nome: 'Melão', ben: ['Hidratação e pele macia', 'Leve, não pesa', 'Potássio para a disposição', 'Betacaroteno para a pele', 'Doce com poucas calorias'] },
+  { id: 'morango', nome: 'Morango', ben: ['Muito vitamina C: pele firme', 'Antioxidantes contra o envelhecimento', 'Dentes mais brancos (ácido málico)', 'Poucas calorias', 'Bom humor e cara de sobremesa'] },
+  { id: 'uva', nome: 'Uva', ben: ['Antioxidantes para a pele', 'Circulação melhor', 'Lanche prático', 'Energia rápida', 'Coração protegido'] },
+  { id: 'manga', nome: 'Manga', ben: ['Pele com brilho (vitamina A)', 'Vitamina C e colágeno', 'Energia para o dia', 'Intestino em dia', 'Doce que mata a vontade de sobremesa'] },
+  { id: 'pera', nome: 'Pera', ben: ['Muita fibra: barriga leve', 'Saciedade longa', 'Hidratação', 'Energia estável', 'Fácil de digerir'] },
+  { id: 'kiwi', nome: 'Kiwi', ben: ['Mais vitamina C que a laranja', 'Pele firme e com viço', 'Sono melhor (comer à noite)', 'Digestão leve', 'Imunidade forte'] },
+  { id: 'goiaba', nome: 'Goiaba', ben: ['Campeã de vitamina C: colágeno e pele firme', 'Muita fibra e saciedade', 'Imunidade', 'Licopeno protege a pele', 'Poucas calorias'] },
+  { id: 'abacate', nome: 'Abacate', ben: ['Gordura boa: pele e cabelo hidratados', 'Saciedade de horas', 'Ajuda a absorver vitaminas', 'Potássio e disposição', 'Hormônios em dia'] },
+  { id: 'maracuja', nome: 'Maracujá', ben: ['Ajuda a relaxar e dormir', 'Vitamina C e A', 'Fibras para o intestino', 'Menos ansiedade', 'Refresca'] },
+  { id: 'pessego', nome: 'Pêssego', ben: ['Pele bonita (betacaroteno)', 'Hidrata', 'Leve e doce', 'Fibras', 'Antioxidantes'] },
+  { id: 'ameixa', nome: 'Ameixa', ben: ['Intestino funcionando', 'Barriga desinchada', 'Antioxidantes', 'Ossos fortes', 'Doce natural'] },
+  { id: 'mirtilo', nome: 'Mirtilo', ben: ['Antioxidantes que protegem a pele', 'Memória e foco', 'Recuperação do treino', 'Poucas calorias', 'Visão protegida'] },
+  { id: 'caqui', nome: 'Caqui', ben: ['Pele com brilho (vitamina A)', 'Muita fibra', 'Energia', 'Saciedade', 'Doce de sobremesa'] },
+  { id: 'acerola', nome: 'Acerola', ben: ['Vitamina C altíssima: colágeno', 'Pele com viço', 'Imunidade forte', 'Refresca', 'Poucas calorias'] }
+];

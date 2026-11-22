@@ -1697,3 +1697,36 @@ body.claro .bloq-in input { background: #fff; }
 .como { flex: none; font-size: 12px; font-weight: 600; color: var(--blue2); padding: 6px 8px; border-radius: 6px; background: var(--s2); }
 body.claro .ficha-card, body.claro .bib-entrada { background: var(--card); }
 body.claro .fx-campos input, body.claro .busca input { background: #fff; }
+
+/* Dieta: frutas da quinzena */
+.fr-resumo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 14px; }
+.fr-num { display: flex; flex-direction: column; gap: 2px; }
+.fr-num b { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+.fr-num small { font-size: 11.5px; color: var(--muted); }
+.fr-lista { padding: 4px 14px; }
+.fr-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.fr-item .task-tx { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.fr-item .task-tx b { font-size: 15px; font-weight: 600; }
+.fr-item .task-tx small { font-size: 12px; color: var(--muted); }
+.fr-item .stepper { align-items: center; gap: 8px; }
+.fr-item .stepper button { display: grid; place-items: center; }
+.fr-item .stepper .ic { width: 15px; height: 15px; }
+.fr-qtd { min-width: 22px; text-align: center; font-size: 16px; font-variant-numeric: tabular-nums; }
+.fr-lista .link { padding: 12px 0; }
+.fr-plano { padding: 6px 12px; }
+.fr-dia { display: grid; grid-template-columns: 56px 1fr 1fr; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.fr-dia:last-child { border-bottom: 0; }
+.fr-dia.passou { opacity: .45; }
+.fr-dia.hoje .fr-data b { color: var(--blue2); }
+.fr-data { display: flex; flex-direction: column; }
+.fr-data b { font-size: 13px; font-weight: 700; text-transform: capitalize; }
+.fr-data small { font-size: 11px; color: var(--muted); }
+.fr-slot { display: flex; align-items: center; justify-content: center; gap: 5px; padding: 9px 6px; border-radius: 8px; border: 1px dashed var(--s3); color: var(--muted); font-size: 13px; font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-slot.tem { border-style: solid; border-color: transparent; background: var(--s2); color: var(--ink); }
+.fr-slot.feita { color: var(--blue2); }
+.fr-slot .ic { width: 13px; height: 13px; flex: none; }
+.fr-escolha { display: flex; flex-wrap: wrap; gap: 8px; }
+.fr-escolha .chip small { color: var(--muted); font-weight: 600; margin-left: 4px; }
+.fr-escolha .chip.on small { color: inherit; }
+.fr-escolha .chip[disabled] { opacity: .35; }
+body.claro .fr-slot.tem { background: var(--card); }
