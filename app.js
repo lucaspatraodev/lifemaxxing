@@ -130,6 +130,8 @@ function estadoInicial(config, data, teste) {
     treinos: [],
     treinoAtivo: null,
     historico: [],   // quinzenas fechadas
+    desafios: [],    // desafios pessoais: { id, nome, dias, inicio, ticks: {iso: true}, status, recompensa }
+    poteDesafios: { saldo: 0, log: [] }, // XP guardado (vem do surf) para pagar os desafios
     santos: 0,       // Caixa de viagem: recebe o fixo de R$300 em cada dia de pagamento
     santosUsos: [],  // o que foi usado da caixa (hospedagem, passagem...)
     quinzena: null
@@ -570,12 +572,60 @@ function desfazerTreinosHoje(hid) {
   const remover = S.treinos.filter((t) => t.data === iso && (hid === 'surf') === (t.tipo === 'surf'));
   remover.forEach((t) => {
     removeXp('t:' + t.id);
+    tirarDoPote('t:' + t.id);
     S.quinzena.liberacoes = S.quinzena.liberacoes.filter((l) => l.ref !== 't:' + t.id);
   });
   S.treinos = S.treinos.filter((t) => !remover.includes(t));
   if (remover.some((t) => 't:' + t.id === dia(iso).bauRef)) delete dia(iso).bauRef;
   delete dia(iso).feitos[hid + ':0'];
   salvar();
+}
+
+// ---------- Desafios pessoais ----------
+// Você define o que vai fazer e por quantos dias; marca todo dia. Pulou um dia: falhou.
+// Completou: ganha XP do pote de desafios (alimentado por 30 XP de cada surf).
+const cfgDesafios = () => S.config.desafios || { xpDoSurf: 30, xpPorDia: 10 };
+function poteD() { S.poteDesafios = S.poteDesafios || { saldo: 0, log: [] }; return S.poteDesafios; }
+function listaDesafios() { S.desafios = S.desafios || []; return S.desafios; }
+const fimDesafio = (dz) => somaDias(dz.inicio, dz.dias - 1);
+const ticksDesafio = (dz) => Object.keys(dz.ticks || {}).filter((d) => d >= dz.inicio && d <= fimDesafio(dz)).length;
+const recompensaPrevista = (dias) => dias * cfgDesafios().xpPorDia;
+function guardarNoPote(xp, rotulo, ref) {
+  const p = poteD(); if (!(xp > 0)) return;
+  p.saldo += xp; p.log.unshift({ data: S.sim.data, xp, rotulo, ref }); p.log = p.log.slice(0, 60);
+}
+function tirarDoPote(ref) {
+  const p = poteD(), e = p.log.find((x) => x.ref === ref); if (!e) return;
+  p.saldo = Math.max(0, p.saldo - e.xp); p.log = p.log.filter((x) => x !== e);
+}
+function criarDesafio(nome, dias) {
+  const dz = { id: uid(), nome: nome.trim(), dias, inicio: S.sim.data, ticks: {}, status: 'ativo', recompensa: recompensaPrevista(dias) };
+  listaDesafios().unshift(dz); salvar(); return dz;
+}
+// Marca (ou desmarca) hoje; completou todos os dias: paga do pote
+function tickDesafio(id) {
+  const dz = listaDesafios().find((x) => x.id === id), iso = S.sim.data;
+  if (!dz || dz.status !== 'ativo' || iso < dz.inicio || iso > fimDesafio(dz)) return null;
+  dz.ticks = dz.ticks || {};
+  if (dz.ticks[iso]) { delete dz.ticks[iso]; salvar(); return { marcou: false }; }
+  dz.ticks[iso] = true;
+  let pago = 0;
+  if (ticksDesafio(dz) >= dz.dias) {
+    const p = poteD();
+    pago = Math.min(dz.recompensa, p.saldo);
+    p.saldo -= pago;
+    if (pago > 0) { p.log.unshift({ data: iso, xp: -pago, rotulo: dz.nome, ref: 'dz:' + dz.id }); addXp('dz:' + dz.id, iso, pago, 'Desafio: ' + dz.nome); }
+    dz.status = 'concluido'; dz.pago = pago; dz.fim = iso;
+  }
+  salvar();
+  return { marcou: true, concluiu: dz.status === 'concluido', pago, faltou: dz.status === 'concluido' ? dz.recompensa - pago : 0 };
+}
+// Ao fechar um dia: desafio ativo sem marcação nesse dia falha
+function checarDesafiosNoFechamento(iso, res) {
+  listaDesafios().forEach((dz) => {
+    if (dz.status !== 'ativo' || iso < dz.inicio || iso > fimDesafio(dz)) return;
+    if (!(dz.ticks || {})[iso]) { dz.status = 'falhou'; dz.fim = iso; res.msgs.push(`Desafio "${dz.nome}" quebrado no dia ${ticksDesafio(dz) + 1} de ${dz.dias}`); }
+  });
 }
 
 // ---------- Danos (delivery, beber, fumar) ----------
@@ -730,7 +780,7 @@ function serieRecorde(ex, excluirId) {
 
 function calcXpTreino(t) {
   const b = S.config.xpBonus;
-  const base = t.tipo === 'surf' ? (habito('surf') || { xp: 150 }).xp : (habito('treino') || { xp: 100 }).xp;
+  const base = t.tipo === 'surf' ? (habito('surf') || { xp: 120 }).xp : (habito('treino') || { xp: 100 }).xp;
   const nPrs = (t.exercicios || []).filter((e) => serieRecorde(e, t.id) >= 0).length;
   const prs = Math.min(b.maxRecordes, nPrs) * b.recorde;
   const intens = t.intensidade >= 8 ? b.intensidade : 0;
@@ -800,6 +850,7 @@ function finalizarTreino(t) {
   t.xp = c.total; t.volume = c.volume; t.prs = c.nPrs;
   S.treinos.push(t);
   addXp('t:' + t.id, iso, c.total, t.nome);
+  if (t.tipo === 'surf') guardarNoPote(cfgDesafios().xpDoSurf, 'Surf', 't:' + t.id);
   const hid = t.tipo === 'surf' ? 'surf' : 'treino';
   if (habito(hid)) dia(iso).feitos[hid + ':0'] = t.id;
   const bau = rolarBau(t.nome, 't:' + t.id);
@@ -839,6 +890,7 @@ function fecharDia() {
   d.bom = diaBom(iso);
   d.fechado = true;
   res.bom = d.bom;
+  checarDesafiosNoFechamento(iso, res);
   res.cont = contMinimos(iso);
   res.seq = sequencia(iso);
   if (d.bom && res.seq > 0 && res.seq % 7 === 0) {
@@ -1283,6 +1335,66 @@ function renderDieta() {
   <section class="card fr-plano">${plano}</section>`;
 }
 
+// Desafios no Hoje: uma linha por desafio ativo, toque para marcar o dia
+function secaoDesafios(iso) {
+  const ativos = listaDesafios().filter((dz) => dz.status === 'ativo' && iso >= dz.inicio && iso <= fimDesafio(dz));
+  const linhas = ativos.map((dz) => {
+    const n = ticksDesafio(dz), feito = !!(dz.ticks || {})[iso];
+    const dia = Math.min(dz.dias, intervalo(dz.inicio, iso).length);
+    return `<button class="task mis dz ${feito ? 'done' : ''}" data-a="tickDesafio" data-id="${dz.id}">
+      <span class="task-ic">${ic('target')}</span>
+      <span class="task-tx"><small class="mis-rot">Dia ${dia} de ${dz.dias} · ${n} marcado${n === 1 ? '' : 's'}</small><b>${esc(dz.nome)}</b>
+        <span class="dz-bar"><i style="width:${((n / dz.dias) * 100).toFixed(1)}%"></i></span></span>
+      ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">+${dz.recompensa} XP</span>`}
+    </button>`;
+  }).join('');
+  return `
+  <h3 class="sec">Desafios <span class="sec-n">· pote ${num(poteD().saldo)} XP</span><button class="sec-acao" data-a="abrirDesafios">${ic('plus')} Novo</button></h3>
+  <div class="tasks lista desafios-lista">${linhas || `<button class="task mis add-bonus" data-a="abrirDesafios"><span class="task-ic">${ic('target')}</span><span class="task-tx"><b>Criar um desafio</b><small class="mis-rot">ex.: 21 dias sem açúcar</small></span></button>`}</div>`;
+}
+
+// Folha: criar desafio + lista dos que já passaram
+function abrirDesafios() {
+  let dias = 7;
+  const p = poteD();
+  const info = () => {
+    const r = recompensaPrevista(dias);
+    return `<div class="rumo dz-rec ${p.saldo < r ? 'falta' : ''}"><div class="rumo-top"><b class="rumo-xp">+${r} XP</b><span class="rumo-alvo">pote: ${num(p.saldo)} XP</span></div>
+      <small>${cfgDesafios().xpPorDia} XP por dia, pagos do pote quando você completar.${p.saldo < r ? ` Hoje o pote cobre ${num(p.saldo)} XP; cada surf soma ${cfgDesafios().xpDoSurf}.` : ''} Pulou um dia sem marcar, o desafio quebra.</small></div>`;
+  };
+  const hist = listaDesafios().filter((dz) => dz.status !== 'ativo').slice(0, 8).map((dz) => `<div class="hist"><span class="hist-ic">${ic(dz.status === 'concluido' ? 'trophy' : 'x')}</span><span class="task-tx"><b>${esc(dz.nome)}</b><small>${dz.dias} dias · ${dz.status === 'concluido' ? `completo · +${dz.pago || 0} XP` : `quebrou no dia ${ticksDesafio(dz) + 1}`}</small></span></div>`).join('');
+  const ativos = listaDesafios().filter((dz) => dz.status === 'ativo').map((dz) => `<div class="hist"><span class="hist-ic">${ic('target')}</span><span class="task-tx"><b>${esc(dz.nome)}</b><small>${ticksDesafio(dz)} de ${dz.dias} dias · até ${dataCurta(fimDesafio(dz))}</small></span><button class="icon-sm" data-s="desistir" data-id="${dz.id}" aria-label="Desistir">${ic('trash')}</button></div>`).join('');
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic">${ic('target')}</span><div><span class="eyebrow">Começa hoje</span><h3>Novo desafio</h3></div></div>
+    <input class="campo" type="text" maxlength="40" placeholder="O que você vai fazer? Ex.: sem açúcar, ler 10 páginas" data-s="nome">
+    <span class="eyebrow">Por quantos dias</span>
+    <div class="chips" data-s="dias">${[3, 7, 14, 21, 30].map((v) => `<button class="chip ${v === dias ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}<input class="chip-in" type="number" inputmode="numeric" min="1" max="365" placeholder="Outro"></div>
+    <div data-s="info">${info()}</div>
+    <button class="btn dark" data-s="criar">Começar desafio</button>
+    ${ativos ? `<span class="eyebrow">Em andamento</span><section class="card list dz-hist">${ativos}</section>` : ''}
+    ${hist ? `<span class="eyebrow">Anteriores</span><section class="card list dz-hist">${hist}</section>` : ''}`,
+  (el) => {
+    const up = () => { el.querySelector('[data-s="info"]').innerHTML = info(); };
+    el.querySelector('[data-s="dias"]').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      dias = Number(b.dataset.v); el.querySelector('.chip-in').value = '';
+      el.querySelectorAll('[data-s="dias"] .chip').forEach((c) => c.classList.toggle('on', c === b)); up();
+    });
+    el.querySelector('.chip-in').addEventListener('input', (e) => { const v = Math.round(Number(e.target.value)); if (v >= 1) { dias = Math.min(365, v); el.querySelectorAll('[data-s="dias"] .chip').forEach((c) => c.classList.remove('on')); up(); } });
+    el.querySelector('[data-s="criar"]').addEventListener('click', () => {
+      const nome = el.querySelector('[data-s="nome"]').value.trim();
+      if (!nome) return toast('Diga o que você vai fazer');
+      criarDesafio(nome, dias); fecharFolha(); render();
+      toast(`Desafio de ${dias} dias começou. Marque hoje!`);
+    });
+    el.querySelectorAll('[data-s="desistir"]').forEach((b) => b.addEventListener('click', () => {
+      const dz = listaDesafios().find((x) => x.id === b.dataset.id);
+      fecharFolha();
+      confirmar(`Desistir de "${dz.nome}"? Não paga XP.`, 'Desistir', () => { dz.status = 'falhou'; dz.fim = S.sim.data; salvar(); render(); });
+    }));
+  });
+}
+
 function renderHoje() {
   const iso = S.sim.data, n = nivelInfo(xpTotal()), seq = sequencia(iso);
   const cont = contMinimos(iso), tot = minimos().length, bom = diaBom(iso);
@@ -1348,6 +1460,8 @@ function renderHoje() {
   }).join('')}</div>
   <div class="tasks obrigacoes lista">${tarefaFixos}${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</div>
 
+
+  ${secaoDesafios(iso)}
 
   <h3 class="sec">Bônus ${bonusFeitos ? `<span class="sec-n">· ${bonusFeitos} hoje</span>` : ''}</h3>
   <div class="tasks bonus lista">${bonus.map(linha).join('')}
@@ -1878,7 +1992,7 @@ function renderTreinoInicioCards() {
       <button class="ficha-edit" data-a="editarFicha" data-f="${esc(fid)}" aria-label="Editar ${esc(t.nome)}">${ic('sliders')}</button>
     </div>`;
   }).join('');
-  const cardio = TIPOS_TREINO.filter((t) => t.cardio).map((t) => `<button class="type" data-a="iniciarTreino" data-t="${t.id}">${ic(t.icone)}<b>${esc(t.nome)}</b><small>${t.id === 'surf' ? '150 XP' : 'Cardio'}</small></button>`).join('');
+  const cardio = TIPOS_TREINO.filter((t) => t.cardio).map((t) => `<button class="type" data-a="iniciarTreino" data-t="${t.id}">${ic(t.icone)}<b>${esc(t.nome)}</b><small>${t.id === 'surf' ? `${(habito('surf') || { xp: 120 }).xp} XP` : 'Cardio'}</small></button>`).join('');
   return `
   <h3 class="sec">Suas fichas</h3>
   <div class="fichas">${fichas}<button class="ficha-nova" data-a="novaFicha">${ic('plus')} Nova ficha</button></div>
@@ -2942,7 +3056,7 @@ function contextoIA() {
       fixos: q.fixos.map((x) => ({ nome: x.nome, valor: x.valor, pago: !!x.pago })), fixosConfirmados: !!q.fixosOk,
       dinheiroLivre: q.livre, travadoQueVeioDaAnterior: q.travadoAnterior || 0, quinzenaDeAdaptacao: q.fator < 1 ? `começou ${inicioUtil(q)}, vale ${Math.round(q.fator * 100)}% (livre, metas e desafio proporcionais)` : false, liberado: r2(f.liberado), disponivelParaSaque: r2(f.disponivel), jaSacado: r2(f.sacado),
       travado: r2(f.travado), montanteRestante: r2(f.montante), saldoQueVeioDaAnterior: q.saldoAnterior,
-      potes: { xp: [r2(f.xp), r2(capPote(q, 'xp'))], tercaESexta: [r2(somaLib(q, ['terca', 'sexta'])), r2(capPote(q, 'semana'))], bau: [r2(somaLib(q, ['bau', 'nivel'])), r2(capPote(q, 'bau'))], desafio: [q.desafio.concluido ? r2(capPote(q, 'desafio')) : 0, r2(capPote(q, 'desafio'))] }, caixaBloqueada: r2(somaBloqueio(q)),
+      potes: { xp: [r2(f.xp), r2(capPote(q, 'xp'))], tercaESexta: [r2(somaLib(q, ['terca', 'sexta'])), r2(capPote(q, 'semana'))], bau: [r2(somaLib(q, ['bau', 'nivel'])), r2(capPote(q, 'bau'))], desafio: [q.desafio.concluido ? r2(capPote(q, 'desafio')) : 0, r2(capPote(q, 'desafio'))] }, caixaBloqueada: r2(somaBloqueio(q)), desafiosPessoais: listaDesafios().slice(0, 6).map((dz) => ({ nome: dz.nome, dias: dz.dias, marcados: ticksDesafio(dz), status: dz.status })), poteDesafiosXp: poteD().saldo,
       saque: { hojeEDiaDeSaque: f.hojeSaque, proximoSaque: f.dataSaque, valorDoSaque: r2(f.valorSaque), tetoDoSaque: r2(f.teto), ficaParaDepois: r2(f.paraDepois), jaSacouHoje: f.sacouHoje, manhaFeita: `${f.manha.feitas}/${f.manha.total}` },
       desafio: { texto: q.desafio.texto, progresso: Math.min(progressoDesafio(q), q.desafio.meta), meta: q.desafio.meta, cumprido: q.desafio.concluido },
       ticketsDelivery: { liberados: f.tickets.liberados, usados: f.tickets.usados, de: f.tickets.max, diasBonsSeguidosAgora: f.tickets.run },
@@ -3259,6 +3373,23 @@ const acoes = {
   danos() { abrirDanos(); },
   dano(el) { if (el.dataset.k === 'delivery') abrirFastFood(); else abrirDano(el.dataset.k); },
   editarMetaDano(el) { abrirMetaDano(el.dataset.k); },
+  abrirDesafios() { abrirDesafios(); },
+  tickDesafio(el) {
+    const antes = nivelInfo(xpTotal());
+    const origem = el.getBoundingClientRect();
+    const r = tickDesafio(el.dataset.id); if (!r) return;
+    render();
+    if (r.concluiu) {
+      celebrarXp({ h: 'dz', i: 0, origem, ganho: r.pago, antes });
+      FX.confete(innerWidth / 2, innerHeight / 3, 40, 200);
+      toast(r.pago ? `Desafio completo! +${r.pago} XP${r.faltou ? ` (o pote só tinha isso)` : ''}` : 'Desafio completo! O pote estava vazio: surfe para encher.');
+      const sub = checarNivel(); if (sub.length) { fila.push(() => modalNivel(sub)); rodarFila(); }
+    } else if (r.marcou) {
+      const linha = document.querySelector(`.task.dz[data-id="${el.dataset.id}"]`);
+      if (linha) FX.anim(linha.querySelector('.task-ok'), { scale: [0, 1.3, 1], rotate: [-40, 0] }, { type: 'spring', stiffness: 500, damping: 14 });
+      if (navigator.vibrate) navigator.vibrate(10);
+    }
+  },
   frAdd() { abrirAddFruta(); },
   frQtd(el) {
     const e = frutasQ().estoque.find((x) => x.id === el.dataset.f); if (!e) return;
@@ -3666,6 +3797,14 @@ function migrar() {
       b.partes = {}; let usado = 0;
       ks.forEach((k, i) => { const p = i === ks.length - 1 ? Math.round((b.valor - usado) * 100) / 100 : Math.floor((b.valor * r[k] / tot) * 100) / 100; b.partes[k] = p; usado += p; });
     });
+    salvarLocal();
+  }
+  // desafios pessoais: surf passa a 120 XP (30 vão para o pote dos desafios)
+  if (!S.config.migracoes.includes('desafios1')) {
+    const sf = habito('surf'); if (sf && sf.xp === 150) sf.xp = 120;
+    S.config.desafios = S.config.desafios || clone(DADOS_INICIAIS.desafios);
+    S.desafios = S.desafios || []; S.poteDesafios = S.poteDesafios || { saldo: 0, log: [] };
+    S.config.migracoes.push('desafios1');
     salvarLocal();
   }
   // fichas 2: nome próprio, descanso e ligação com a biblioteca (foto e dicas)

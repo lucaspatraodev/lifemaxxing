@@ -112,3 +112,10 @@ Cada dano registrado (fumar, beber, delivery) pode bloquear um valor fixo, confi
 - O dinheiro não some. No fechamento da quinzena ele soma ao travado que passa (`travadoPassa`) e entra no livre da próxima quinzena.
 - Apagar o registro do dano devolve o bloqueio dele.
 - O caixa continua fechando em 0: entrada = sacado + descontos + carry + travadoPassa (com o bloqueado dentro).
+
+## Desafios pessoais e o pote de desafios
+
+- Você cria um desafio (o que vai fazer + quantos dias). Começa no dia em que cria e precisa ser marcado todo dia; um dia fechado sem marcação quebra o desafio.
+- Surf vale 120 XP (antes 150). Os 30 XP de cada surf vão para o **pote de desafios** (`S.poteDesafios`). Desfazer o surf tira os 30 do pote.
+- Completar um desafio paga `dias × 10 XP` do pote. Se o pote tiver menos, paga o que tem.
+- O XP pago entra no XP da quinzena normalmente; como ele saiu do surf, a economia de dinheiro continua previsível.

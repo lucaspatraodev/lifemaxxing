@@ -16,6 +16,8 @@ const DADOS_INICIAIS = {
   tema: 'escuro',   // 'escuro' ou 'claro' // galo surfista; a imagem pode ser trocada em Ajustes
   // Danos: metas por semana (seg a dom). Delivery segue os tickets da quinzena.
   danos: { beber: 2, fumar: 4 },
+  // Desafios pessoais: cada surf manda 30 XP para o pote; completar um desafio paga XP do pote
+  desafios: { xpDoSurf: 30, xpPorDia: 10 },
   // Caixa bloqueada: punição por dano. Sai do livre desta quinzena e só volta na próxima.
   bloqueio: { ativo: true, soAcimaMeta: false, valores: { fumar: 10, beber: 10, delivery: 0 } },
   // Categorias de gasto (dá para criar novas no registro de gasto e apagar em Ajustes)
@@ -131,7 +133,7 @@ const DADOS_INICIAIS = {
     { id: 'desenvolver', nome: 'Desenvolver', tipo: 'extra', xp: 60, icone: 'terminal',
       partes: [{ periodo: 'todos', rotulo: 'Desenvolver 1h', duracaoMin: 60 }],
       motivos: ['Orgulho de construir algo seu', 'Cabeça no fluxo, ansiedade some', 'Habilidade que vira renda', 'Projeto andando todo dia', 'Sensação de dia bem aproveitado'] },
-    { id: 'surf', nome: 'Surf', tipo: 'extra', xp: 150, icone: 'wave', especial: 'surf',
+    { id: 'surf', nome: 'Surf', tipo: 'extra', xp: 120, icone: 'wave', especial: 'surf',
       partes: [{ periodo: 'todos', rotulo: 'Sessão de surf' }],
       motivos: ['Ombros e costas definidos pela remada', 'Pele bronzeada de mar', 'Cabeça zerada depois do mar', 'Corpo inteiro trabalhando sem perceber', 'Felicidade pura na onda'] }
   ],
