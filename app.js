@@ -780,13 +780,14 @@ function serieRecorde(ex, excluirId) {
 
 function calcXpTreino(t) {
   const b = S.config.xpBonus;
-  const base = t.tipo === 'surf' ? (habito('surf') || { xp: 120 }).xp : (habito('treino') || { xp: 100 }).xp;
+  const pote = t.tipo === 'surf' ? cfgDesafios().xpDoSurf : 0;
+  const base = t.tipo === 'surf' ? Math.max(0, (habito('surf') || { xp: 120 }).xp - pote) : (habito('treino') || { xp: 100 }).xp;
   const nPrs = (t.exercicios || []).filter((e) => serieRecorde(e, t.id) >= 0).length;
   const prs = Math.min(b.maxRecordes, nPrs) * b.recorde;
   const intens = t.intensidade >= 8 ? b.intensidade : 0;
   const dur = t.duracao > 45 ? b.duracao : 0;
   const volume = soma((t.exercicios || []).flatMap((e) => e.series.filter((s) => s.feito).map((s) => s.kg * s.reps)));
-  return { base, prs, nPrs, intens, dur, total: base + prs + intens + dur, volume };
+  return { base, pote, prs, nPrs, intens, dur, total: base + prs + intens + dur, volume };
 }
 
 // ---------- Fichas e biblioteca de exercícios ----------
@@ -1614,10 +1615,10 @@ function abrirEspecial(h) {
     <div class="sheet-head"><span class="sheet-ic ${feito ? 'done' : ''}">${ic(h.icone)}</span><div><span class="eyebrow">Extra</span><h3>${surf ? 'Sessão de surf' : 'Treino'}</h3></div></div>
     <ul class="motivos">${h.motivos.map((m) => `<li>${ic('check')}<span>${esc(m)}</span></li>`).join('')}</ul>
     ${deHoje.length ? `<div class="lista-mini">${deHoje.map((t) => `<div><b>${esc(t.nome)}</b><span>${t.duracao} min · +${t.xp} XP</span></div>`).join('')}</div>` : ''}
-    <p class="nota">${h.xp} XP base. +${b.intensidade} com intensidade 8+, +${b.duracao} acima de 45 min${surf ? '' : `, +${b.recorde} por recorde (até ${b.maxRecordes})`}.</p>
+    <p class="nota">${surf ? `${h.xp} XP: ${h.xp - cfgDesafios().xpDoSurf} para você e ${cfgDesafios().xpDoSurf} para o pote de desafios (pote: ${num(poteD().saldo)} XP).` : `${h.xp} XP base.`} +${b.intensidade} com intensidade 8+, +${b.duracao} acima de 45 min${surf ? '' : `, +${b.recorde} por recorde (até ${b.maxRecordes})`}.</p>
     <button class="btn" data-s="abrir">${ic(surf ? 'wave' : 'dumbbell')} ${surf ? 'Abrir sessão no Treino' : 'Abrir treino completo'}</button>
-    ${feito ? '' : blocoDinheiro(h.xp + b.duracao)}
-    ${feito ? `<button class="btn ghost danger-tx" data-s="desfazer">Desfazer ${surf ? 'surf' : 'treino'} de hoje</button>` : `<p class="eyebrow center">ou registro rápido (${surf ? 60 : 50} min, intensidade 7 · +${h.xp + b.duracao} XP)</p>${slideHtml(surf ? 'Deslize: surf rápido' : 'Deslize: treino rápido')}`}`,
+    ${feito ? '' : blocoDinheiro(h.xp - (surf ? cfgDesafios().xpDoSurf : 0) + b.duracao)}
+    ${feito ? `<button class="btn ghost danger-tx" data-s="desfazer">Desfazer ${surf ? 'surf' : 'treino'} de hoje</button>` : `<p class="eyebrow center">ou registro rápido (${surf ? 60 : 50} min, intensidade 7 · +${h.xp - (surf ? cfgDesafios().xpDoSurf : 0) + b.duracao} XP${surf ? ` e +${cfgDesafios().xpDoSurf} no pote` : ''})</p>${slideHtml(surf ? 'Deslize: surf rápido' : 'Deslize: treino rápido')}`}`,
   (el) => {
     el.querySelector('[data-s="abrir"]').addEventListener('click', () => {
       fecharFolha(); UI.aba = 'treino';
@@ -2162,7 +2163,8 @@ function abrirFinalizar() {
       </div>
       ${blocoDinheiro(c.total)}
       <ul class="xp-break">
-        <li><span>Treino</span><b>${c.base}</b></li>
+        <li><span>${c.pote ? 'Surf (você)' : 'Treino'}</span><b>${c.base}</b></li>
+        ${c.pote ? `<li><span>Para o pote de desafios</span><b>${c.pote}</b></li>` : ''}
         ${c.nPrs ? `<li><span>${c.nPrs} recorde${c.nPrs > 1 ? 's' : ''}${c.nPrs > S.config.xpBonus.maxRecordes ? ` (contam ${S.config.xpBonus.maxRecordes})` : ''}</span><b>+${c.prs}</b></li>` : ''}
         <li class="${c.intens ? '' : 'off'}"><span>Intensidade 8+</span><b>+${S.config.xpBonus.intensidade}</b></li>
         <li class="${c.dur ? '' : 'off'}"><span>Mais de 45 min</span><b>+${S.config.xpBonus.duracao}</b></li>

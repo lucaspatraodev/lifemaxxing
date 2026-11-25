@@ -116,6 +116,7 @@ Cada dano registrado (fumar, beber, delivery) pode bloquear um valor fixo, confi
 ## Desafios pessoais e o pote de desafios
 
 - Você cria um desafio (o que vai fazer + quantos dias). Começa no dia em que cria e precisa ser marcado todo dia; um dia fechado sem marcação quebra o desafio.
-- Surf vale 120 XP (antes 150). Os 30 XP de cada surf vão para o **pote de desafios** (`S.poteDesafios`). Desfazer o surf tira os 30 do pote.
+- Surf vale 120 XP no total (antes 150): **90 para você e 30 para o pote de desafios** (`S.poteDesafios`). Bônus de intensidade e duração continuam sendo seus. Desfazer o surf tira os 30 do pote.
+- O pote é uma reserva permanente: não zera no fim da quinzena e vai acumulando a cada surf.
 - Completar um desafio paga `dias × 10 XP` do pote. Se o pote tiver menos, paga o que tem.
 - O XP pago entra no XP da quinzena normalmente; como ele saiu do surf, a economia de dinheiro continua previsível.
