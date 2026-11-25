@@ -149,6 +149,7 @@ function recomecar(teste, manterConfig) {
   const cfg = manterConfig && S ? S.config : null;
   S = estadoInicial(cfg, teste ? DATA_TESTE : hojeReal(), teste);
   S.quinzena = abrirQuinzena(S.sim.data);
+  if (S.config.desafios) reservarPoteQuinzena(S.quinzena);
   salvar();
 }
 
@@ -572,7 +573,6 @@ function desfazerTreinosHoje(hid) {
   const remover = S.treinos.filter((t) => t.data === iso && (hid === 'surf') === (t.tipo === 'surf'));
   remover.forEach((t) => {
     removeXp('t:' + t.id);
-    tirarDoPote('t:' + t.id);
     S.quinzena.liberacoes = S.quinzena.liberacoes.filter((l) => l.ref !== 't:' + t.id);
   });
   S.treinos = S.treinos.filter((t) => !remover.includes(t));
@@ -593,6 +593,14 @@ const recompensaPrevista = (dias) => dias * cfgDesafios().xpPorDia;
 function guardarNoPote(xp, rotulo, ref) {
   const p = poteD(); if (!(xp > 0)) return;
   p.saldo += xp; p.log.unshift({ data: S.sim.data, xp, rotulo, ref }); p.log = p.log.slice(0, 60);
+}
+// Reserva da quinzena: os 30 XP de cada surf que você poderia fazer (um por dia) entram no pote ao abrir a quinzena.
+// O que não for usado continua no pote.
+function reservarPoteQuinzena(q = S.quinzena) {
+  if (!q || q.poteReservado) return;
+  const xp = diasUteis(q) * cfgDesafios().xpDoSurf;
+  guardarNoPote(xp, `Reserva ${dataCurta(q.inicio)} a ${dataCurta(q.fim)}`, 'q:' + q.inicio);
+  q.poteReservado = xp;
 }
 function tirarDoPote(ref) {
   const p = poteD(), e = p.log.find((x) => x.ref === ref); if (!e) return;
@@ -851,7 +859,6 @@ function finalizarTreino(t) {
   t.xp = c.total; t.volume = c.volume; t.prs = c.nPrs;
   S.treinos.push(t);
   addXp('t:' + t.id, iso, c.total, t.nome);
-  if (t.tipo === 'surf') guardarNoPote(cfgDesafios().xpDoSurf, 'Surf', 't:' + t.id);
   const hid = t.tipo === 'surf' ? 'surf' : 'treino';
   if (habito(hid)) dia(iso).feitos[hid + ':0'] = t.id;
   const bau = rolarBau(t.nome, 't:' + t.id);
@@ -920,6 +927,7 @@ function fecharDia() {
   if (prox > q.fim) {
     res.quinzena = fecharQuinzena();
     S.quinzena = abrirQuinzena(prox);
+    reservarPoteQuinzena(S.quinzena);
     S.quinzena.saldoAnterior = res.quinzena.carry;
     S.quinzena.travadoAnterior = res.quinzena.travadoPassa; // continua travado e volta para os potes
     calcularPotes(S.quinzena);
@@ -1350,7 +1358,7 @@ function secaoDesafios(iso) {
     </button>`;
   }).join('');
   return `
-  <h3 class="sec">Desafios <span class="sec-n">· pote ${num(poteD().saldo)} XP</span><button class="sec-acao" data-a="abrirDesafios">${ic('plus')} Novo</button></h3>
+  <h3 class="sec">Desafios<button class="sec-acao" data-a="abrirDesafios">${ic('plus')} Novo</button></h3>
   <div class="tasks lista desafios-lista">${linhas || `<button class="task mis add-bonus" data-a="abrirDesafios"><span class="task-ic">${ic('target')}</span><span class="task-tx"><b>Criar um desafio</b><small class="mis-rot">ex.: 21 dias sem açúcar</small></span></button>`}</div>`;
 }
 
@@ -1360,8 +1368,8 @@ function abrirDesafios() {
   const p = poteD();
   const info = () => {
     const r = recompensaPrevista(dias);
-    return `<div class="rumo dz-rec ${p.saldo < r ? 'falta' : ''}"><div class="rumo-top"><b class="rumo-xp">+${r} XP</b><span class="rumo-alvo">pote: ${num(p.saldo)} XP</span></div>
-      <small>${cfgDesafios().xpPorDia} XP por dia, pagos do pote quando você completar.${p.saldo < r ? ` Hoje o pote cobre ${num(p.saldo)} XP; cada surf soma ${cfgDesafios().xpDoSurf}.` : ''} Pulou um dia sem marcar, o desafio quebra.</small></div>`;
+    return `<div class="rumo dz-rec"><div class="rumo-top"><b class="rumo-xp">+${r} XP</b><span class="rumo-alvo">ao completar</span></div>
+      <small>${cfgDesafios().xpPorDia} XP por dia. Marque todo dia: pulou um, o desafio quebra.</small></div>`;
   };
   const hist = listaDesafios().filter((dz) => dz.status !== 'ativo').slice(0, 8).map((dz) => `<div class="hist"><span class="hist-ic">${ic(dz.status === 'concluido' ? 'trophy' : 'x')}</span><span class="task-tx"><b>${esc(dz.nome)}</b><small>${dz.dias} dias · ${dz.status === 'concluido' ? `completo · +${dz.pago || 0} XP` : `quebrou no dia ${ticksDesafio(dz) + 1}`}</small></span></div>`).join('');
   const ativos = listaDesafios().filter((dz) => dz.status === 'ativo').map((dz) => `<div class="hist"><span class="hist-ic">${ic('target')}</span><span class="task-tx"><b>${esc(dz.nome)}</b><small>${ticksDesafio(dz)} de ${dz.dias} dias · até ${dataCurta(fimDesafio(dz))}</small></span><button class="icon-sm" data-s="desistir" data-id="${dz.id}" aria-label="Desistir">${ic('trash')}</button></div>`).join('');
@@ -1615,10 +1623,10 @@ function abrirEspecial(h) {
     <div class="sheet-head"><span class="sheet-ic ${feito ? 'done' : ''}">${ic(h.icone)}</span><div><span class="eyebrow">Extra</span><h3>${surf ? 'Sessão de surf' : 'Treino'}</h3></div></div>
     <ul class="motivos">${h.motivos.map((m) => `<li>${ic('check')}<span>${esc(m)}</span></li>`).join('')}</ul>
     ${deHoje.length ? `<div class="lista-mini">${deHoje.map((t) => `<div><b>${esc(t.nome)}</b><span>${t.duracao} min · +${t.xp} XP</span></div>`).join('')}</div>` : ''}
-    <p class="nota">${surf ? `${h.xp} XP: ${h.xp - cfgDesafios().xpDoSurf} para você e ${cfgDesafios().xpDoSurf} para o pote de desafios (pote: ${num(poteD().saldo)} XP).` : `${h.xp} XP base.`} +${b.intensidade} com intensidade 8+, +${b.duracao} acima de 45 min${surf ? '' : `, +${b.recorde} por recorde (até ${b.maxRecordes})`}.</p>
+    <p class="nota">${surf ? h.xp - cfgDesafios().xpDoSurf : h.xp} XP base. +${b.intensidade} com intensidade 8+, +${b.duracao} acima de 45 min${surf ? '' : `, +${b.recorde} por recorde (até ${b.maxRecordes})`}.</p>
     <button class="btn" data-s="abrir">${ic(surf ? 'wave' : 'dumbbell')} ${surf ? 'Abrir sessão no Treino' : 'Abrir treino completo'}</button>
     ${feito ? '' : blocoDinheiro(h.xp - (surf ? cfgDesafios().xpDoSurf : 0) + b.duracao)}
-    ${feito ? `<button class="btn ghost danger-tx" data-s="desfazer">Desfazer ${surf ? 'surf' : 'treino'} de hoje</button>` : `<p class="eyebrow center">ou registro rápido (${surf ? 60 : 50} min, intensidade 7 · +${h.xp - (surf ? cfgDesafios().xpDoSurf : 0) + b.duracao} XP${surf ? ` e +${cfgDesafios().xpDoSurf} no pote` : ''})</p>${slideHtml(surf ? 'Deslize: surf rápido' : 'Deslize: treino rápido')}`}`,
+    ${feito ? `<button class="btn ghost danger-tx" data-s="desfazer">Desfazer ${surf ? 'surf' : 'treino'} de hoje</button>` : `<p class="eyebrow center">ou registro rápido (${surf ? 60 : 50} min, intensidade 7 · +${h.xp - (surf ? cfgDesafios().xpDoSurf : 0) + b.duracao} XP)</p>${slideHtml(surf ? 'Deslize: surf rápido' : 'Deslize: treino rápido')}`}`,
   (el) => {
     el.querySelector('[data-s="abrir"]').addEventListener('click', () => {
       fecharFolha(); UI.aba = 'treino';
@@ -2163,8 +2171,7 @@ function abrirFinalizar() {
       </div>
       ${blocoDinheiro(c.total)}
       <ul class="xp-break">
-        <li><span>${c.pote ? 'Surf (você)' : 'Treino'}</span><b>${c.base}</b></li>
-        ${c.pote ? `<li><span>Para o pote de desafios</span><b>${c.pote}</b></li>` : ''}
+        <li><span>${c.pote ? 'Surf' : 'Treino'}</span><b>${c.base}</b></li>
         ${c.nPrs ? `<li><span>${c.nPrs} recorde${c.nPrs > 1 ? 's' : ''}${c.nPrs > S.config.xpBonus.maxRecordes ? ` (contam ${S.config.xpBonus.maxRecordes})` : ''}</span><b>+${c.prs}</b></li>` : ''}
         <li class="${c.intens ? '' : 'off'}"><span>Intensidade 8+</span><b>+${S.config.xpBonus.intensidade}</b></li>
         <li class="${c.dur ? '' : 'off'}"><span>Mais de 45 min</span><b>+${S.config.xpBonus.duracao}</b></li>
@@ -3384,7 +3391,7 @@ const acoes = {
     if (r.concluiu) {
       celebrarXp({ h: 'dz', i: 0, origem, ganho: r.pago, antes });
       FX.confete(innerWidth / 2, innerHeight / 3, 40, 200);
-      toast(r.pago ? `Desafio completo! +${r.pago} XP${r.faltou ? ` (o pote só tinha isso)` : ''}` : 'Desafio completo! O pote estava vazio: surfe para encher.');
+      toast(r.pago ? `Desafio completo! +${r.pago} XP` : 'Desafio completo!');
       const sub = checarNivel(); if (sub.length) { fila.push(() => modalNivel(sub)); rodarFila(); }
     } else if (r.marcou) {
       const linha = document.querySelector(`.task.dz[data-id="${el.dataset.id}"]`);
@@ -3799,6 +3806,15 @@ function migrar() {
       b.partes = {}; let usado = 0;
       ks.forEach((k, i) => { const p = i === ks.length - 1 ? Math.round((b.valor - usado) * 100) / 100 : Math.floor((b.valor * r[k] / tot) * 100) / 100; b.partes[k] = p; usado += p; });
     });
+    salvarLocal();
+  }
+  // pote 2: reserva por quinzena (30 XP × dias), em vez de somar só quando surfa
+  if (!S.config.migracoes.includes('pote2')) {
+    const p = poteD();
+    p.log.filter((x) => String(x.ref || '').startsWith('t:')).forEach((x) => { p.saldo = Math.max(0, p.saldo - x.xp); });
+    p.log = p.log.filter((x) => !String(x.ref || '').startsWith('t:'));
+    if (S.quinzena) reservarPoteQuinzena(S.quinzena);
+    S.config.migracoes.push('pote2');
     salvarLocal();
   }
   // desafios pessoais: surf passa a 120 XP (30 vão para o pote dos desafios)
