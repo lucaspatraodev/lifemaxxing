@@ -281,3 +281,25 @@ const MODELOS_DESAFIO = [
       'Duas semanas limpo. As fissuras ficam mais raras e mais fracas. Você provou que consegue: continua.'
     ] }
 ];
+
+// Suplementos e remédios (Dieta). periodo: manha | tarde | noite. estoque em doses unitárias (cápsulas, pastilhas); null = não controla.
+const SUPLEMENTOS_INICIAIS = [
+  { id: 'shot', nome: 'Shot Matinal', tipo: 'suplemento', qtd: 1, unidade: 'medida', periodo: 'manha', quando: 'de manhã, em água', estoque: null,
+    ben: ['Curcumina com pimenta preta: ação anti-inflamatória', 'Vitamina C e própolis ajudam a imunidade', 'Glutamina ajuda o intestino', 'Selênio é antioxidante', 'Começar o dia com uma vitória'],
+    cuidado: 'Use a medida do rótulo. Se o estômago reclamar (vinagre e própolis), tome depois de comer algo.' },
+  { id: 'fithair', nome: 'Fit Hair', tipo: 'suplemento', qtd: 1, unidade: 'cápsula', periodo: 'tarde', quando: 'após o almoço', estoque: 30,
+    ben: ['Cabelo mais forte e com menos queda (biotina e zinco)', 'Unhas mais firmes, quebram menos', 'Pele com aparência mais saudável', 'Zinco e selênio ajudam a defesa do corpo', 'B12 (metilcobalamina) ajuda na disposição'],
+    cuidado: 'Biotina pode alterar exames de sangue (tireoide e outros): pare 2 a 3 dias antes e avise quem pedir o exame.' },
+  { id: 'antiaging', nome: 'Pro Anti-Aging', tipo: 'suplemento', qtd: 2, unidade: 'cápsula', periodo: 'tarde', quando: 'após o almoço', estoque: 60,
+    ben: ['Ácido hialurônico ajuda a hidratar a pele de dentro', 'Vitamina C ajuda a formar colágeno: pele firme', 'MSM ajuda articulações, cabelo e unhas', 'Resveratrol é antioxidante', 'Pele com mais viço no uso contínuo'],
+    cuidado: 'Se usar anticoagulante, fale com o médico antes (resveratrol).' },
+  { id: 'complexob', nome: 'Vitaminas B6, B9, B12 + complexo B', tipo: 'suplemento', qtd: 1, unidade: 'cápsula', periodo: 'tarde', quando: 'após o almoço', estoque: 60,
+    ben: ['Mais energia e menos cansaço', 'Ajuda o humor e o sistema nervoso', 'B9 e B12 ajudam a formar o sangue', 'Pele, cabelo e unhas saudáveis', 'Ajuda o corpo a usar a energia da comida'],
+    cuidado: 'Xixi bem amarelo depois de tomar é normal.' },
+  { id: 'magnesio', nome: 'Pro3 Magnésio', tipo: 'suplemento', qtd: 2, unidade: 'cápsula', periodo: 'tarde', quando: 'após o almoço', estoque: 60,
+    ben: ['Sono mais profundo e relaxado', 'Menos cãibra e tensão muscular', 'Ajuda a baixar a ansiedade', 'L-treonato pode ajudar memória e foco', 'Recuperação melhor do treino'],
+    cuidado: 'Se soltar o intestino, divida a dose. Tomar à noite pode ajudar ainda mais o sono.' },
+  { id: 'creatina', nome: 'Creatina (pastilhas)', tipo: 'suplemento', qtd: 3, unidade: 'pastilha', periodo: 'tarde', quando: 'qualquer hora, todo dia', estoque: 90,
+    ben: ['Mais força e repetições no treino', 'Recuperação mais rápida entre séries', 'Músculo mais cheio (puxa água para o músculo)', 'Pode ajudar memória e disposição mental', 'Funciona com uso diário, mesmo sem treino'],
+    cuidado: 'Beba bastante água. Confira no rótulo quantas pastilhas dão 3 a 5 g de creatina e ajuste a dose.' }
+];

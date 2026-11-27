@@ -70,6 +70,7 @@ const IC = {
   minus: '<path d="M5 12h14"/>',
   up: '<path d="M6 15l6-6 6 6"/>',
   down: '<path d="M6 9l6 6 6-6"/>',
+  pill: '<path d="M10.5 4.5a4.95 4.95 0 0 1 7 7l-7 7a4.95 4.95 0 0 1-7-7z"/><path d="M7 8l9 9" transform="translate(-0.5 -0.5)"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',
@@ -1314,6 +1315,99 @@ function abrirAddFruta() {
   });
 }
 
+// ---------- Suplementos e remédios ----------
+function supls() { S.config.suplementos = S.config.suplementos || []; return S.config.suplementos; }
+const supTomado = (iso, id) => !!(diaLer(iso).sup || {})[id];
+const doseTxt = (s) => `${s.qtd} ${s.unidade}${s.qtd > 1 && !/s$/.test(s.unidade) ? 's' : ''}`;
+const diasRestam = (s) => (s.estoque === null || s.estoque === undefined ? null : Math.floor(s.estoque / Math.max(1, s.qtd)));
+function tomarSup(id) {
+  const s = supls().find((x) => x.id === id); if (!s) return;
+  const d = dia(S.sim.data); d.sup = d.sup || {};
+  const ctrl = s.estoque !== null && s.estoque !== undefined;
+  if (d.sup[id]) { delete d.sup[id]; if (ctrl) s.estoque += s.qtd; }
+  else { d.sup[id] = true; if (ctrl) s.estoque = Math.max(0, s.estoque - s.qtd); }
+  salvar();
+}
+function abrirSup(id) {
+  const s = supls().find((x) => x.id === id); if (!s) return;
+  const tomado = supTomado(S.sim.data, id), dr = diasRestam(s);
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic ${tomado ? 'done' : ''}">${ic('pill')}</span><div><span class="eyebrow">${s.tipo === 'remedio' ? 'Remédio' : 'Suplemento'} · ${esc(doseTxt(s))} · ${esc(s.quando || PERIODOS[s.periodo])}</span><h3>${esc(s.nome)}</h3></div></div>
+    ${(s.ben || []).length ? `<ul class="motivos">${s.ben.map((m) => `<li>${ic('check')}<span>${esc(m)}</span></li>`).join('')}</ul>` : ''}
+    ${s.cuidado ? `<div class="sup-cuidado">${ic('bolt')}<span>${esc(s.cuidado)}</span></div>` : ''}
+    ${dr !== null ? `<p class="nota">${s.estoque} ${s.unidade}${s.estoque === 1 ? '' : 's'} no pote · dá para ${dr} dia${dr === 1 ? '' : 's'}${dr <= 7 ? ' · <b>hora de comprar mais</b>' : ''}</p>` : ''}
+    <div class="row2"><button class="btn ghost" data-s="editar">Editar</button><button class="btn ${tomado ? 'ghost danger-tx' : 'dark'}" data-s="tomar">${tomado ? 'Desfazer' : 'Tomei'}</button></div>`,
+  (el) => {
+    el.querySelector('[data-s="tomar"]').addEventListener('click', () => { tomarSup(id); fecharFolha(); render(); if (!tomado) toast(`${s.nome}: tomado`); });
+    el.querySelector('[data-s="editar"]').addEventListener('click', () => { fecharFolha(true); abrirEditarSup(id); });
+  });
+}
+// Cadastro / edição
+function abrirEditarSup(id) {
+  const atual = id ? supls().find((x) => x.id === id) : null;
+  const s = atual ? clone(atual) : { id: 'sup-' + uid(), nome: '', tipo: 'suplemento', qtd: 1, unidade: 'cápsula', periodo: 'tarde', quando: '', estoque: null, ben: [], cuidado: '' };
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic">${ic('pill')}</span><div><span class="eyebrow">${atual ? 'Editar' : 'Novo'}</span><h3>${atual ? esc(atual.nome) : 'Suplemento ou remédio'}</h3></div></div>
+    <input class="campo" type="text" maxlength="40" placeholder="Nome" value="${esc(s.nome)}" data-s="nome">
+    <div class="seg" data-s="tipo">${[['suplemento', 'Suplemento'], ['remedio', 'Remédio']].map(([k, n]) => `<button class="${s.tipo === k ? 'on' : ''}" data-k="${k}">${n}</button>`).join('')}</div>
+    <div class="fx-campos sup-campos">
+      <label>Dose<input type="number" inputmode="numeric" min="1" value="${s.qtd}" data-s="qtd"></label>
+      <label>Unidade<input type="text" maxlength="14" value="${esc(s.unidade)}" data-s="unidade"></label>
+      <label>No pote<input type="number" inputmode="numeric" min="0" value="${s.estoque ?? ''}" placeholder="—" data-s="estoque"></label>
+    </div>
+    <div class="seg" data-s="periodo">${Object.keys(PERIODOS).map((k) => `<button class="${s.periodo === k ? 'on' : ''}" data-k="${k}">${PERIODOS[k]}</button>`).join('')}</div>
+    <input class="campo" type="text" maxlength="40" placeholder="Quando (ex.: após o almoço)" value="${esc(s.quando || '')}" data-s="quando">
+    <textarea class="campo" rows="4" placeholder="Benefícios (um por linha)" data-s="ben">${esc((s.ben || []).join('\n'))}</textarea>
+    <input class="campo" type="text" maxlength="160" placeholder="Cuidado (opcional)" value="${esc(s.cuidado || '')}" data-s="cuidado">
+    <div class="row2">${atual ? '<button class="btn ghost danger-tx" data-s="apagar">Apagar</button>' : '<button class="btn ghost" data-fechar>Cancelar</button>'}<button class="btn dark" data-s="salvar">Salvar</button></div>`,
+  (el) => {
+    ['tipo', 'periodo'].forEach((k) => el.querySelector(`[data-s="${k}"]`).addEventListener('click', (e) => {
+      const b = e.target.closest('[data-k]'); if (!b) return; s[k] = b.dataset.k;
+      el.querySelectorAll(`[data-s="${k}"] button`).forEach((x) => x.classList.toggle('on', x === b));
+    }));
+    el.querySelector('[data-s="salvar"]').addEventListener('click', () => {
+      const v = (k) => el.querySelector(`[data-s="${k}"]`).value;
+      s.nome = v('nome').trim(); if (!s.nome) return toast('Dê um nome');
+      s.qtd = Math.max(1, Number(v('qtd')) || 1); s.unidade = v('unidade').trim() || 'dose';
+      s.estoque = v('estoque') === '' ? null : Math.max(0, Number(v('estoque')) || 0);
+      s.quando = v('quando').trim(); s.cuidado = v('cuidado').trim();
+      s.ben = v('ben').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 8);
+      const lista = supls(); const k = lista.findIndex((x) => x.id === s.id);
+      if (k >= 0) lista[k] = s; else lista.push(s);
+      salvar(); fecharFolha(); render(); toast(atual ? 'Salvo' : `${s.nome} cadastrado`);
+    });
+    const ap = el.querySelector('[data-s="apagar"]');
+    if (ap) ap.addEventListener('click', () => { fecharFolha(); confirmar(`Apagar ${s.nome}?`, 'Apagar', () => { S.config.suplementos = supls().filter((x) => x.id !== s.id); salvar(); render(); }); });
+  });
+}
+// Hoje: os do período da aba
+function secaoSuplementos(iso, p) {
+  const lista = supls().filter((s) => s.periodo === p);
+  if (!supls().length) return '';
+  const tomados = supls().filter((s) => supTomado(iso, s.id)).length;
+  const linhas = lista.map((s) => {
+    const t = supTomado(iso, s.id), dr = diasRestam(s);
+    return `<button class="task mis sup ${t ? 'done' : ''}" data-a="verSup" data-id="${esc(s.id)}">
+      <span class="task-ic">${ic('pill')}</span>
+      <span class="task-tx"><small class="mis-rot">${esc(doseTxt(s))}${s.quando ? ' · ' + esc(s.quando) : ''}${dr !== null && dr <= 7 ? ` · acaba em ${dr} dia${dr === 1 ? '' : 's'}` : ''}</small><b>${esc(s.nome)}</b></span>
+      ${t ? `<span class="task-ok">${ic('check')}</span>` : '<span class="task-xp sup-tag">tomar</span>'}
+    </button>`;
+  }).join('');
+  return `
+  <h3 class="sec">Suplementos <span class="sec-n">· ${tomados}/${supls().length} hoje</span></h3>
+  <div class="tasks lista">${linhas || `<p class="vazio">Nada para ${PERIODOS[p].toLowerCase()}.</p>`}</div>`;
+}
+function htmlSuplementosDieta() {
+  return supls().map((s) => {
+    const dr = diasRestam(s);
+    return `<button class="fr-item sup-item" data-a="editarSup" data-id="${esc(s.id)}">
+      <span class="task-ic">${ic('pill')}</span>
+      <span class="task-tx"><b>${esc(s.nome)}</b><small>${esc(doseTxt(s))} · ${PERIODOS[s.periodo]}${s.quando ? ` (${esc(s.quando)})` : ''}${dr !== null ? ` · ${dr} dia${dr === 1 ? '' : 's'} no pote` : ''}</small></span>
+      ${dr !== null && dr <= 7 ? '<span class="sup-alerta">comprar</span>' : ic('next')}
+    </button>`;
+  }).join('');
+}
+
 function renderDieta() {
   const q = S.quinzena, fr = frutasQ(q), iso = S.sim.data, n = slotsFruta(), h = habito('frutas');
   const uso = usoFrutas(q), comidas = comidasFrutas(q);
@@ -1334,6 +1428,10 @@ function renderDieta() {
   }).join('');
   return `
   <header class="page-head"><span class="eyebrow">${dataLonga(iso)}</span><h1>Dieta</h1></header>
+  <h3 class="sec">Suplementos e remédios</h3>
+  <section class="card list fr-lista">${htmlSuplementosDieta() || '<p class="vazio">Nada cadastrado.</p>'}
+    <button class="link" data-a="novoSup">${ic('plus')} Adicionar suplemento ou remédio</button></section>
+  <h3 class="sec">Frutas</h3>
   <section class="card fr-resumo">
     <div class="fr-num"><b>${total}</b><small>frutas na quinzena</small></div>
     <div class="fr-num"><b>${planejadas}</b><small>no plano</small></div>
@@ -1501,6 +1599,8 @@ function renderHoje() {
   }).join('')}</div>
   <div class="tasks obrigacoes lista">${tarefaFixos}${obrigacoes.map(linha).join('') || '<p class="vazio">Nada neste período.</p>'}</div>
 
+
+  ${secaoSuplementos(iso, p)}
 
   ${secaoDesafios(iso)}
 
@@ -3097,7 +3197,7 @@ function contextoIA() {
       fixos: q.fixos.map((x) => ({ nome: x.nome, valor: x.valor, pago: !!x.pago })), fixosConfirmados: !!q.fixosOk,
       dinheiroLivre: q.livre, travadoQueVeioDaAnterior: q.travadoAnterior || 0, quinzenaDeAdaptacao: q.fator < 1 ? `começou ${inicioUtil(q)}, vale ${Math.round(q.fator * 100)}% (livre, metas e desafio proporcionais)` : false, liberado: r2(f.liberado), disponivelParaSaque: r2(f.disponivel), jaSacado: r2(f.sacado),
       travado: r2(f.travado), montanteRestante: r2(f.montante), saldoQueVeioDaAnterior: q.saldoAnterior,
-      potes: { xp: [r2(f.xp), r2(capPote(q, 'xp'))], tercaESexta: [r2(somaLib(q, ['terca', 'sexta'])), r2(capPote(q, 'semana'))], bau: [r2(somaLib(q, ['bau', 'nivel'])), r2(capPote(q, 'bau'))], desafio: [q.desafio.concluido ? r2(capPote(q, 'desafio')) : 0, r2(capPote(q, 'desafio'))] }, caixaBloqueada: r2(somaBloqueio(q)), desafiosPessoais: listaDesafios().slice(0, 6).map((dz) => ({ nome: dz.nome, dias: dz.dias, marcados: ticksDesafio(dz), status: dz.status })), poteDesafiosXp: poteD().saldo,
+      potes: { xp: [r2(f.xp), r2(capPote(q, 'xp'))], tercaESexta: [r2(somaLib(q, ['terca', 'sexta'])), r2(capPote(q, 'semana'))], bau: [r2(somaLib(q, ['bau', 'nivel'])), r2(capPote(q, 'bau'))], desafio: [q.desafio.concluido ? r2(capPote(q, 'desafio')) : 0, r2(capPote(q, 'desafio'))] }, caixaBloqueada: r2(somaBloqueio(q)), suplementos: supls().map((s) => `${s.nome} ${doseTxt(s)} ${PERIODOS[s.periodo]}`), desafiosPessoais: listaDesafios().slice(0, 6).map((dz) => ({ nome: dz.nome, dias: dz.dias, marcados: ticksDesafio(dz), status: dz.status })), poteDesafiosXp: poteD().saldo,
       saque: { hojeEDiaDeSaque: f.hojeSaque, proximoSaque: f.dataSaque, valorDoSaque: r2(f.valorSaque), tetoDoSaque: r2(f.teto), ficaParaDepois: r2(f.paraDepois), jaSacouHoje: f.sacouHoje, manhaFeita: `${f.manha.feitas}/${f.manha.total}` },
       desafio: { texto: q.desafio.texto, progresso: Math.min(progressoDesafio(q), q.desafio.meta), meta: q.desafio.meta, cumprido: q.desafio.concluido },
       ticketsDelivery: { liberados: f.tickets.liberados, usados: f.tickets.usados, de: f.tickets.max, diasBonsSeguidosAgora: f.tickets.run },
@@ -3434,6 +3534,9 @@ const acoes = {
     }
   },
   frAdd() { abrirAddFruta(); },
+  verSup(el) { abrirSup(el.dataset.id); },
+  editarSup(el) { abrirEditarSup(el.dataset.id); },
+  novoSup() { abrirEditarSup(null); },
   frQtd(el) {
     const e = frutasQ().estoque.find((x) => x.id === el.dataset.f); if (!e) return;
     e.qtd = Math.max(0, e.qtd + Number(el.dataset.d));
@@ -3841,6 +3944,13 @@ function migrar() {
       ks.forEach((k, i) => { const p = i === ks.length - 1 ? Math.round((b.valor - usado) * 100) / 100 : Math.floor((b.valor * r[k] / tot) * 100) / 100; b.partes[k] = p; usado += p; });
     });
     salvarLocal();
+  }
+  // suplementos das fotos (Shot Matinal, Fit Hair, Anti-Aging, complexo B, magnésio, creatina)
+  if (!S.config.migracoes.includes('sup1')) {
+    const ja = new Set(supls().map((s) => s.id));
+    SUPLEMENTOS_INICIAIS.forEach((s) => { if (!ja.has(s.id)) supls().push(clone(s)); });
+    S.config.migracoes.push('sup1');
+    salvar();
   }
   // pedido: desafio de 15 dias sem crack e sem maconha, começando hoje
   if (!S.config.migracoes.includes('limpo15')) {
