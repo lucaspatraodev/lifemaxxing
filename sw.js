@@ -1,6 +1,6 @@
 /* Service worker: guarda os arquivos do app para abrir rápido e sem internet.
    As chamadas /api (dados e IA) nunca passam pelo cache. */
-const CACHE = 'lifemaxxing-v25';
+const CACHE = 'lifemaxxing-v26';
 const CACHE_EX = 'lifemaxxing-exercicios'; // fotos dos exercícios (ficam entre versões)
 const ARQUIVOS = ['./', './index.html', './styles.css', './app.js', './data.js', './fx.js', './pet.js', './logos.js', './exercicios.js', './vendor/motion-14.10.1.js', './manifest.json', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
 

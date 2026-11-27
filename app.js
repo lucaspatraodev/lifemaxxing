@@ -1452,10 +1452,10 @@ function secaoDesafios(iso) {
   const linhas = ativos.map((dz) => {
     const n = ticksDesafio(dz), feito = !!(dz.ticks || {})[iso];
     const dia = Math.min(dz.dias, intervalo(dz.inicio, iso).length);
-    return `<button class="task mis dz ${feito ? 'done' : ''}" data-a="tickDesafio" data-id="${dz.id}">
+    return `<button class="task mis dz ${feito ? 'done' : ''}" data-a="abrirDesafioDia" data-id="${dz.id}">
       <span class="task-ic">${ic('target')}</span>
       <span class="task-tx"><small class="mis-rot">Dia ${dia} de ${dz.dias} · ${n} marcado${n === 1 ? '' : 's'}</small><b>${esc(dz.nome)}</b>
-        ${modeloDesafio(dz) ? `<small class="dz-melhora">${esc(melhoriaDia(dz, dia))}</small>` : ''}
+        ${modeloDesafio(dz) ? `<small class="dz-melhora">${esc(melhoriaDia(dz, dia).t)}</small>` : ''}
         <span class="dz-bar"><i style="width:${((n / dz.dias) * 100).toFixed(1)}%"></i></span></span>
       ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">+${dz.recompensa} XP</span>`}
     </button>`;
@@ -1474,12 +1474,36 @@ function modalDiaLimpo(dz) {
       <span class="eyebrow">${esc(dz.nome)}</span>
       <h2 class="big">${completo ? `${dz.dias} dias limpo` : `Dia ${n} limpo`}</h2>
       <div class="dz-dias">${Array.from({ length: dz.dias }, (_, k) => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</div>
-      <p class="dz-hoje">${esc(melhoriaDia(dz, n))}</p>
-      ${!completo && n < dz.dias ? `<p class="muted dz-amanha"><b>Amanhã:</b> ${esc(melhoriaDia(dz, n + 1))}</p>` : ''}
+      <p class="dz-hoje">${esc(melhoriaDia(dz, n).t)}</p>
+      <ul class="motivos dz-lista">${melhoriaDia(dz, n).itens.map((x) => `<li>${ic('check')}<span>${esc(x)}</span></li>`).join('')}</ul>
+      ${!completo && n < dz.dias ? `<p class="muted dz-amanha"><b>Amanhã:</b> ${esc(melhoriaDia(dz, n + 1).t)}</p>` : ''}
       ${completo && dz.pago ? `<p class="muted">+${dz.pago} XP</p>` : ''}
       <p class="nota dz-apoio">${esc(m.apoio)}</p>
       <button class="btn" data-fechar>Mais um dia</button>
     </div>`, '', (ov) => { const c = ov.querySelector('.dz-dias'); if (c) FX.anim(c.querySelectorAll('i.on'), { scale: [0.4, 1.2, 1], opacity: [0, 1] }, { duration: 0.5, delay: (i) => i * 0.04 }); });
+}
+
+function marcarDesafio(id, origem) { acoes._marcarDesafio(id, origem); }
+
+// Folha do dia: benefícios de hoje e deslizar para marcar
+function abrirDesafioDia(id) {
+  const dz = listaDesafios().find((x) => x.id === id), iso = S.sim.data; if (!dz) return;
+  const feito = !!(dz.ticks || {})[iso];
+  const diaN = Math.min(dz.dias, intervalo(dz.inicio, iso).length);
+  const m = modeloDesafio(dz), mel = m ? melhoriaDia(dz, feito ? ticksDesafio(dz) : ticksDesafio(dz) + 1) : null;
+  abrirFolha(`
+    <div class="sheet-head"><span class="sheet-ic ${feito ? 'done' : ''}">${ic('target')}</span><div><span class="eyebrow">Dia ${diaN} de ${dz.dias} · +${dz.recompensa} XP ao completar</span><h3>${esc(dz.nome)}</h3></div></div>
+    <div class="dz-dias esq">${Array.from({ length: dz.dias }, (_, k) => `<i class="${k < ticksDesafio(dz) ? 'on' : ''}"></i>`).join('')}</div>
+    ${mel ? `<span class="eyebrow">${feito ? 'Hoje você ganhou' : 'Passando mais este dia'}</span><p class="dz-hoje esq">${esc(mel.t)}</p>
+    <ul class="motivos">${mel.itens.map((x) => `<li>${ic('check')}<span>${esc(x)}</span></li>`).join('')}</ul>
+    <p class="nota">${esc(m.apoio)}</p>` : ''}
+    ${feito ? `<p class="nota">Dia marcado. Volte amanhã.</p><button class="btn ghost danger-tx" data-s="desfazer">Desmarcar hoje</button>`
+      : slideHtml(m ? 'Deslize: mais um dia limpo' : 'Deslize para marcar hoje')}`,
+  (el) => {
+    const des = el.querySelector('[data-s="desfazer"]');
+    if (des) des.addEventListener('click', () => { tickDesafio(id); fecharFolha(); render(); });
+    else montarSlide(el, () => { fecharFolha(true); marcarDesafio(id, null); });
+  });
 }
 
 // Folha: criar desafio + lista dos que já passaram
@@ -3515,10 +3539,12 @@ const acoes = {
   dano(el) { if (el.dataset.k === 'delivery') abrirFastFood(); else abrirDano(el.dataset.k); },
   editarMetaDano(el) { abrirMetaDano(el.dataset.k); },
   abrirDesafios() { abrirDesafios(); },
-  tickDesafio(el) {
+  abrirDesafioDia(el) { abrirDesafioDia(el.dataset.id); },
+  tickDesafio(el) { marcarDesafio(el.dataset.id, el.getBoundingClientRect()); },
+  _marcarDesafio(id, origem) {
+    const el = { dataset: { id } };
     const antes = nivelInfo(xpTotal());
-    const origem = el.getBoundingClientRect();
-    const r = tickDesafio(el.dataset.id); if (!r) return;
+    const r = tickDesafio(id); if (!r) return;
     render();
     const dzAtual = listaDesafios().find((x) => x.id === el.dataset.id);
     if (r.marcou && modeloDesafio(dzAtual)) { if (r.concluiu) celebrarXp({ h: 'dz', i: 0, origem, ganho: r.pago, antes }); modalDiaLimpo(dzAtual); if (navigator.vibrate) navigator.vibrate(12); return; }

@@ -1768,3 +1768,10 @@ body.claro .campo { background: #fff; }
 .sup-alerta { font-size: 11.5px; font-weight: 700; color: #F5B83D; border: 1px solid rgba(245, 184, 61, .5); border-radius: 999px; padding: 3px 8px; flex: none; }
 .sup-campos { grid-template-columns: 1fr 1.4fr 1fr; }
 textarea.campo { resize: vertical; font-family: inherit; line-height: 1.4; }
+
+.dz-dias.esq { justify-content: flex-start; margin: 0; }
+.dz-hoje.esq { font-size: 17px; font-weight: 600; margin: 0; }
+.dz-lista { text-align: left; margin: 0 0 12px; }
+.dz-modal .dz-hoje { font-weight: 600; }
+.modal-card.dz-modal { max-height: calc(100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain; }
+.dz-modal .btn { position: sticky; bottom: 0; }

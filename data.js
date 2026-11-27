@@ -264,21 +264,21 @@ const MODELOS_DESAFIO = [
   { id: 'limpo', nome: 'Sem crack e sem maconha', dias: 15,
     apoio: 'Fissura vem em ondas de 15 a 30 minutos e passa. Se apertar: CVV 188 (24h, grátis). Tratamento sem custo: CAPS AD da sua cidade (SUS).',
     melhorias: [
-      'Coração e pressão começam a voltar ao ritmo normal. O corpo já está limpando a droga.',
-      'O apetite começa a voltar e o corpo pede água e comida de verdade. Sono pode estar agitado: é normal e passa.',
-      'O crack já saiu do sangue. Os pulmões começam a se limpar da fumaça. Se a fissura bater forte hoje, é o pico: segura.',
-      'Respiração mais solta e menos tosse. A irritação da falta da maconha costuma começar a baixar a partir daqui.',
-      'O sono profundo começa a voltar. Sonhos fortes e vívidos são sinal de que o cérebro está se recuperando.',
-      'Humor mais estável, menos daquela ansiedade de ressaca. Você já passou da parte mais difícil.',
-      'Uma semana limpo. Pele menos opaca, rosto menos abatido, apetite e hidratação melhores.',
-      'A memória de curto prazo começa a melhorar: lembrar das coisas fica mais fácil.',
-      'Energia mais estável durante o dia, sem os picos e quedas.',
-      'O foco melhora e a vontade de fazer as coisas começa a voltar. O cérebro está reajustando a dopamina.',
-      'Olhos menos vermelhos e menos olheiras. Dá para ver a diferença no espelho.',
-      'Fôlego e recuperação melhores: o treino e o surf rendem mais.',
-      'Mais controle do dinheiro e do tempo. Some o que você teria gastado nesses dias.',
-      'Sono mais regular e sonhos mais calmos. Acordar fica mais fácil.',
-      'Duas semanas limpo. As fissuras ficam mais raras e mais fracas. Você provou que consegue: continua.'
+      { t: 'O corpo começou a se limpar', itens: ['Coração e pressão começam a voltar ao ritmo normal', 'O corpo já está eliminando o crack e a maconha', 'Menos risco de pico de pressão e de arritmia', 'Você quebrou o ciclo: o primeiro dia é o mais importante', 'Cada hora limpa já conta para o seu cérebro'] },
+      { t: 'Fome e sede de volta', itens: ['O apetite começa a voltar', 'O corpo pede água e comida de verdade: aproveite', 'Sono agitado é normal e passa', 'Cansaço forte é o corpo se recuperando, não fraqueza', 'Respiração já sem a fumaça de ontem'] },
+      { t: 'O crack saiu do sangue', itens: ['O crack já foi eliminado do sangue', 'Os pulmões começam a se limpar da fumaça', 'A fissura pode estar no pico hoje: segura, ela baixa', 'Pressão e batimentos mais estáveis', 'Boca e garganta menos ressecadas'] },
+      { t: 'Respirar fica mais fácil', itens: ['Menos tosse e catarro', 'Fôlego melhor para andar e subir escada', 'A irritação da falta da maconha começa a baixar', 'Mais oxigênio chegando no cérebro e na pele', 'Paladar e olfato mais vivos'] },
+      { t: 'O sono profundo volta', itens: ['O sono profundo começa a voltar', 'Sonhos fortes e vívidos: o cérebro está se recuperando', 'Acordar fica menos pesado', 'Menos suor à noite com o passar dos dias', 'O corpo descansa de verdade'] },
+      { t: 'Humor mais estável', itens: ['Menos ansiedade de ressaca', 'Menos picos de raiva e irritação', 'Você já passou da parte mais difícil da abstinência', 'Fica mais fácil conversar e conviver', 'Pensamentos mais claros'] },
+      { t: 'Uma semana limpo', itens: ['Pele menos opaca e com mais cor', 'Rosto menos abatido e menos inchado', 'Apetite e hidratação no lugar', 'Uma semana inteira: prova de que você consegue', 'O dinheiro dessa semana ficou com você'] },
+      { t: 'A memória volta', itens: ['A memória de curto prazo começa a melhorar', 'Lembrar de compromissos e conversas fica mais fácil', 'Raciocínio mais rápido', 'Menos névoa na cabeça', 'Aprender coisas novas fica mais fácil'] },
+      { t: 'Energia estável', itens: ['Energia mais constante durante o dia', 'Menos picos e quedas de disposição', 'Mais vontade de sair de casa e se mexer', 'Treino e surf com mais gás', 'Menos vontade de ficar deitado o dia todo'] },
+      { t: 'O prazer volta', itens: ['O cérebro está reajustando a dopamina', 'Coisas simples voltam a dar prazer', 'Foco e motivação começando a voltar', 'Vontade de fazer planos', 'Menos tédio e sensação de vazio'] },
+      { t: 'Diferença no espelho', itens: ['Olhos menos vermelhos', 'Menos olheiras', 'Pele mais hidratada e com viço', 'Lábios e boca menos ressecados', 'Cara de quem dorme bem'] },
+      { t: 'Corpo mais forte', itens: ['Fôlego e recuperação melhores', 'O treino rende mais e a força volta', 'Recuperação muscular mais rápida', 'Menos dor no corpo', 'Mais disposição para o surf'] },
+      { t: 'Mais controle', itens: ['Mais controle do dinheiro e do tempo', 'Decisões mais pensadas, menos impulso', 'Mais confiança em si mesmo', 'Relações mais leves', 'Some o que você teria gastado nesses dias'] },
+      { t: 'Sono regular', itens: ['Dormir e acordar na hora fica mais fácil', 'Sonhos mais calmos', 'Acordar descansado', 'Mais paciência durante o dia', 'Humor estável de manhã à noite'] },
+      { t: 'Duas semanas limpo', itens: ['As fissuras ficam mais raras e mais fracas', 'Corpo e mente bem diferentes do dia 1', 'Você provou que consegue', 'Continuar agora é mais fácil do que começar', 'Esse é o seu novo normal: segue'] }
     ] }
 ];
 
