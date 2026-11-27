@@ -258,3 +258,26 @@ const FRUTAS = [
   { id: 'caqui', nome: 'Caqui', ben: ['Pele com brilho (vitamina A)', 'Muita fibra', 'Energia', 'Saciedade', 'Doce de sobremesa'] },
   { id: 'acerola', nome: 'Acerola', ben: ['Vitamina C altíssima: colágeno', 'Pele com viço', 'Imunidade forte', 'Refresca', 'Poucas calorias'] }
 ];
+
+// Modelos de desafio com uma melhoria para cada dia (texto cuidadoso: "costuma", sem prometer)
+const MODELOS_DESAFIO = [
+  { id: 'limpo', nome: 'Sem crack e sem maconha', dias: 15,
+    apoio: 'Fissura vem em ondas de 15 a 30 minutos e passa. Se apertar: CVV 188 (24h, grátis). Tratamento sem custo: CAPS AD da sua cidade (SUS).',
+    melhorias: [
+      'Coração e pressão começam a voltar ao ritmo normal. O corpo já está limpando a droga.',
+      'O apetite começa a voltar e o corpo pede água e comida de verdade. Sono pode estar agitado: é normal e passa.',
+      'O crack já saiu do sangue. Os pulmões começam a se limpar da fumaça. Se a fissura bater forte hoje, é o pico: segura.',
+      'Respiração mais solta e menos tosse. A irritação da falta da maconha costuma começar a baixar a partir daqui.',
+      'O sono profundo começa a voltar. Sonhos fortes e vívidos são sinal de que o cérebro está se recuperando.',
+      'Humor mais estável, menos daquela ansiedade de ressaca. Você já passou da parte mais difícil.',
+      'Uma semana limpo. Pele menos opaca, rosto menos abatido, apetite e hidratação melhores.',
+      'A memória de curto prazo começa a melhorar: lembrar das coisas fica mais fácil.',
+      'Energia mais estável durante o dia, sem os picos e quedas.',
+      'O foco melhora e a vontade de fazer as coisas começa a voltar. O cérebro está reajustando a dopamina.',
+      'Olhos menos vermelhos e menos olheiras. Dá para ver a diferença no espelho.',
+      'Fôlego e recuperação melhores: o treino e o surf rendem mais.',
+      'Mais controle do dinheiro e do tempo. Some o que você teria gastado nesses dias.',
+      'Sono mais regular e sonhos mais calmos. Acordar fica mais fácil.',
+      'Duas semanas limpo. As fissuras ficam mais raras e mais fracas. Você provou que consegue: continua.'
+    ] }
+];

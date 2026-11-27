@@ -606,8 +606,12 @@ function tirarDoPote(ref) {
   const p = poteD(), e = p.log.find((x) => x.ref === ref); if (!e) return;
   p.saldo = Math.max(0, p.saldo - e.xp); p.log = p.log.filter((x) => x !== e);
 }
-function criarDesafio(nome, dias) {
+const modeloDesafio = (dz) => (dz && dz.modelo ? MODELOS_DESAFIO.find((m) => m.id === dz.modelo) : null);
+// Melhoria do dia n (1 = primeiro dia) de um desafio com modelo
+function melhoriaDia(dz, n) { const m = modeloDesafio(dz); return m ? m.melhorias[Math.max(0, Math.min(m.melhorias.length - 1, n - 1))] : null; }
+function criarDesafio(nome, dias, modelo) {
   const dz = { id: uid(), nome: nome.trim(), dias, inicio: S.sim.data, ticks: {}, status: 'ativo', recompensa: recompensaPrevista(dias) };
+  if (modelo) dz.modelo = modelo;
   listaDesafios().unshift(dz); salvar(); return dz;
 }
 // Marca (ou desmarca) hoje; completou todos os dias: paga do pote
@@ -1353,6 +1357,7 @@ function secaoDesafios(iso) {
     return `<button class="task mis dz ${feito ? 'done' : ''}" data-a="tickDesafio" data-id="${dz.id}">
       <span class="task-ic">${ic('target')}</span>
       <span class="task-tx"><small class="mis-rot">Dia ${dia} de ${dz.dias} · ${n} marcado${n === 1 ? '' : 's'}</small><b>${esc(dz.nome)}</b>
+        ${modeloDesafio(dz) ? `<small class="dz-melhora">${esc(melhoriaDia(dz, dia))}</small>` : ''}
         <span class="dz-bar"><i style="width:${((n / dz.dias) * 100).toFixed(1)}%"></i></span></span>
       ${feito ? `<span class="task-ok">${ic('check')}</span>` : `<span class="task-xp">+${dz.recompensa} XP</span>`}
     </button>`;
@@ -1360,6 +1365,23 @@ function secaoDesafios(iso) {
   return `
   <h3 class="sec">Desafios<button class="sec-acao" data-a="abrirDesafios">${ic('plus')} Novo</button></h3>
   <div class="tasks lista desafios-lista">${linhas || `<button class="task mis add-bonus" data-a="abrirDesafios"><span class="task-ic">${ic('target')}</span><span class="task-tx"><b>Criar um desafio</b><small class="mis-rot">ex.: 21 dias sem açúcar</small></span></button>`}</div>`;
+}
+
+// Dia limpo marcado: mostra o que melhorou hoje e o que vem amanhã
+function modalDiaLimpo(dz) {
+  const m = modeloDesafio(dz), n = ticksDesafio(dz);
+  const completo = dz.status === 'concluido';
+  abrirModal(`
+    <div class="modal-card center dz-modal">
+      <span class="eyebrow">${esc(dz.nome)}</span>
+      <h2 class="big">${completo ? `${dz.dias} dias limpo` : `Dia ${n} limpo`}</h2>
+      <div class="dz-dias">${Array.from({ length: dz.dias }, (_, k) => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</div>
+      <p class="dz-hoje">${esc(melhoriaDia(dz, n))}</p>
+      ${!completo && n < dz.dias ? `<p class="muted dz-amanha"><b>Amanhã:</b> ${esc(melhoriaDia(dz, n + 1))}</p>` : ''}
+      ${completo && dz.pago ? `<p class="muted">+${dz.pago} XP</p>` : ''}
+      <p class="nota dz-apoio">${esc(m.apoio)}</p>
+      <button class="btn" data-fechar>Mais um dia</button>
+    </div>`, '', (ov) => { const c = ov.querySelector('.dz-dias'); if (c) FX.anim(c.querySelectorAll('i.on'), { scale: [0.4, 1.2, 1], opacity: [0, 1] }, { duration: 0.5, delay: (i) => i * 0.04 }); });
 }
 
 // Folha: criar desafio + lista dos que já passaram
@@ -1376,6 +1398,7 @@ function abrirDesafios() {
   abrirFolha(`
     <div class="sheet-head"><span class="sheet-ic">${ic('target')}</span><div><span class="eyebrow">Começa hoje</span><h3>Novo desafio</h3></div></div>
     <input class="campo" type="text" maxlength="40" placeholder="O que você vai fazer? Ex.: sem açúcar, ler 10 páginas" data-s="nome">
+    <div class="chips" data-s="modelos">${MODELOS_DESAFIO.map((m) => `<button class="chip" data-m="${m.id}">${esc(m.nome)} · ${m.dias} dias</button>`).join('')}</div>
     <span class="eyebrow">Por quantos dias</span>
     <div class="chips" data-s="dias">${[3, 7, 14, 21, 30].map((v) => `<button class="chip ${v === dias ? 'on' : ''}" data-v="${v}">${v}</button>`).join('')}<input class="chip-in" type="number" inputmode="numeric" min="1" max="365" placeholder="Outro"></div>
     <div data-s="info">${info()}</div>
@@ -1390,10 +1413,19 @@ function abrirDesafios() {
       el.querySelectorAll('[data-s="dias"] .chip').forEach((c) => c.classList.toggle('on', c === b)); up();
     });
     el.querySelector('.chip-in').addEventListener('input', (e) => { const v = Math.round(Number(e.target.value)); if (v >= 1) { dias = Math.min(365, v); el.querySelectorAll('[data-s="dias"] .chip').forEach((c) => c.classList.remove('on')); up(); } });
+    let modelo = null;
+    el.querySelector('[data-s="modelos"]').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-m]'); if (!b) return;
+      const m = MODELOS_DESAFIO.find((x) => x.id === b.dataset.m);
+      modelo = m.id; dias = m.dias; el.querySelector('[data-s="nome"]').value = m.nome;
+      el.querySelectorAll('[data-s="modelos"] .chip').forEach((c) => c.classList.toggle('on', c === b));
+      el.querySelectorAll('[data-s="dias"] .chip').forEach((c) => c.classList.toggle('on', Number(c.dataset.v) === dias)); up();
+    });
     el.querySelector('[data-s="criar"]').addEventListener('click', () => {
       const nome = el.querySelector('[data-s="nome"]').value.trim();
       if (!nome) return toast('Diga o que você vai fazer');
-      criarDesafio(nome, dias); fecharFolha(); render();
+      const m = modelo && MODELOS_DESAFIO.find((x) => x.id === modelo);
+      criarDesafio(nome, dias, m && nome === m.nome ? modelo : null); fecharFolha(); render();
       toast(`Desafio de ${dias} dias começou. Marque hoje!`);
     });
     el.querySelectorAll('[data-s="desistir"]').forEach((b) => b.addEventListener('click', () => {
@@ -3388,6 +3420,8 @@ const acoes = {
     const origem = el.getBoundingClientRect();
     const r = tickDesafio(el.dataset.id); if (!r) return;
     render();
+    const dzAtual = listaDesafios().find((x) => x.id === el.dataset.id);
+    if (r.marcou && modeloDesafio(dzAtual)) { if (r.concluiu) celebrarXp({ h: 'dz', i: 0, origem, ganho: r.pago, antes }); modalDiaLimpo(dzAtual); if (navigator.vibrate) navigator.vibrate(12); return; }
     if (r.concluiu) {
       celebrarXp({ h: 'dz', i: 0, origem, ganho: r.pago, antes });
       FX.confete(innerWidth / 2, innerHeight / 3, 40, 200);
@@ -3807,6 +3841,15 @@ function migrar() {
       ks.forEach((k, i) => { const p = i === ks.length - 1 ? Math.round((b.valor - usado) * 100) / 100 : Math.floor((b.valor * r[k] / tot) * 100) / 100; b.partes[k] = p; usado += p; });
     });
     salvarLocal();
+  }
+  // pedido: desafio de 15 dias sem crack e sem maconha, começando hoje
+  if (!S.config.migracoes.includes('limpo15')) {
+    if (!listaDesafios().some((dz) => dz.modelo === 'limpo' && dz.status === 'ativo')) {
+      const m = MODELOS_DESAFIO.find((x) => x.id === 'limpo');
+      criarDesafio(m.nome, m.dias, 'limpo');
+    }
+    S.config.migracoes.push('limpo15');
+    salvar();
   }
   // pote 2: reserva por quinzena (30 XP × dias), em vez de somar só quando surfa
   if (!S.config.migracoes.includes('pote2')) {
